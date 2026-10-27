@@ -1,0 +1,699 @@
+/* Circuit Pathways showcase. Plain script (no modules), so the site works opened straight from the folder. */
+(function () {
+  "use strict";
+  const D = window.CP_DATA;
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+  const h = (tag, attrs = {}, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") el.className = v;
+      else if (k === "html") el.innerHTML = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+    return el;
+  };
+  const md = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*(.+?)\*/g, "<i>$1</i>");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // ------------------------------------------------------------ the sky: drifting pixel squares
+  const sky = $(".sky");
+  const cols = ["#19c1ca", "#704988", "#cfc2e0", "#04bbc1", "#66d6da"];
+  if (!reduced) for (let i = 0; i < 22; i++) {
+    const s = 10 + Math.random() * 26;
+    sky.append(h("i", { style: `left:${Math.random() * 100}%;width:${s}px;height:${s}px;background:${cols[i % 5]};` +
+      `animation-duration:${26 + Math.random() * 30}s;animation-delay:-${Math.random() * 50}s` }));
+  }
+
+  // ------------------------------------------------------------ views (home / pipath / arduinopath)
+  const ready = {};
+  function show(view) {
+    if (!["home", "pipath", "arduinopath"].includes(view)) view = "home";
+    document.body.dataset.view = view;
+    if (!ready[view]) { ready[view] = true; build(view); }
+    window.scrollTo(0, 0);
+    pauseHidden();
+    document.title = view === "home" ? "Circuit Pathways" : `${view === "pipath" ? "PiPath" : "ArduinoPath"} · Circuit Pathways`;
+  }
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-go]");
+    if (!a) return;
+    e.preventDefault();
+    const v = a.dataset.go;
+    history.pushState(null, "", v === "home" ? location.pathname : "#" + v);
+    show(v);
+  });
+  addEventListener("popstate", () => show(location.hash.slice(1) || "home"));
+  addEventListener("hashchange", () => show(location.hash.slice(1) || "home"));
+
+  function build(view) {
+    if (view === "home") return;
+    const root = document.getElementById(view);
+    $$(".shot", root).forEach(buildShot);
+    $$("[data-levels]", root).forEach(buildLevels);
+    $$("[data-fade]", root).forEach(buildFade);
+    $$("[data-catalogue]", root).forEach(buildCatalogue);
+    buildChapters(root);
+    if (view === "pipath") piLab($("#pi-lab"));
+    if (view === "arduinopath") { ardLab($("#ard-lab")); textBlocks($("#tb-demo")); boardsDemo($("#boards-demo")); }
+    observe(root);
+  }
+
+  // ------------------------------------------------------------ reveal + autoplay as you scroll
+  const revealer = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add("in"); revealer.unobserve(e.target); }
+  }), { threshold: 0.12 });
+  const player = new IntersectionObserver((es) => es.forEach((e) => {
+    const v = e.target;
+    if (v.dataset.pinned) return;
+    if (e.isIntersecting && e.intersectionRatio > 0.45) {
+      if (v.preload !== "auto") { v.preload = "auto"; }
+      v.play().catch(() => {});
+    } else v.pause();
+  }), { threshold: [0, 0.45, 0.8] });
+  function observe(root) {
+    $$(".reveal", root).forEach((el) => revealer.observe(el));
+    $$(".shot video", root).forEach((v) => player.observe(v));
+  }
+  $$(".home .reveal").forEach((el) => revealer.observe(el));
+  function pauseHidden() { $$("video").forEach((v) => { if (!v.offsetParent) v.pause(); }); }
+
+  // ------------------------------------------------------------ a snippet in a laptop, with pins
+  function buildShot(shot) {
+    const name = shot.dataset.snip;
+    const notes = shot.dataset.notes ? JSON.parse(shot.dataset.notes) : [];
+    const video = h("video", { muted: true, loop: true, playsinline: true, preload: "none", poster: `media/snippets/${name}.jpg`,
+      src: `media/snippets/${name}.mp4`, "aria-label": "A short clip from the app (no sound)" });
+    video.muted = true;
+    const inner = h("div", { class: "screen-in" }, video);
+    const pins = notes.map((n, i) => {
+      if (!n.box) return null;
+      const [x, y, w, hh] = n.box;
+      const p = h("div", { class: "pin", style: `left:${x}%;top:${y}%;width:${w}%;height:${hh}%` }, h("b", {}, String(i + 1)));
+      inner.append(p);
+      return p;
+    });
+    const pause = h("button", { class: "shot-play", type: "button", onclick: () => {
+      if (video.paused) { delete video.dataset.pinned; video.play().catch(() => {}); pause.textContent = "❚❚ Pause"; }
+      else { video.dataset.pinned = "1"; video.pause(); pause.textContent = "▶ Play"; }
+    } }, "❚❚ Pause");
+    shot.append(h("div", { class: "laptop" }, h("div", { class: "screen" }, h("span", { class: "shot-tag" }, shot.dataset.app === "pi" ? "PiPath" : "ArduinoPath"), pause, inner), h("div", { class: "base" })));
+    if (!notes.length) return;
+    const list = h("ul", { class: "notes" });
+    notes.forEach((n, i) => {
+      const b = h("button", { type: "button" }, h("i", {}, String(i + 1)), h("span", { html: md(n.t) }));
+      const on = () => {
+        $$("button", list).forEach((x) => x.classList.toggle("on", x === b));
+        pins.forEach((p, k) => p && p.classList.toggle("on", k === i));
+        if (pins[i]) {                       // freeze on the frame the box was measured on
+          video.dataset.pinned = "1"; video.pause();
+          const go = () => { video.currentTime = (video.duration || 10) * 0.6; };
+          video.readyState >= 1 ? go() : video.addEventListener("loadedmetadata", go, { once: true });
+          if (video.preload !== "auto") { video.preload = "auto"; video.load(); }
+          pause.textContent = "▶ Play";
+        }
+      };
+      const off = () => {
+        b.classList.remove("on"); pins.forEach((p) => p && p.classList.remove("on"));
+        delete video.dataset.pinned; video.play().catch(() => {}); pause.textContent = "❚❚ Pause";
+      };
+      b.addEventListener("mouseenter", on); b.addEventListener("focus", on);
+      b.addEventListener("mouseleave", off); b.addEventListener("blur", off);
+      b.addEventListener("click", () => (b.classList.contains("on") ? off() : on()));
+      list.append(h("li", {}, b));
+    });
+    shot.append(list);
+  }
+
+  // ------------------------------------------------------------ help levels
+  const LEVELS = {
+    pi: [
+      ["Beginner", "Full explanations, and hints whenever you want them. A quick tour of the workspace is offered the first time."],
+      ["Moderate", "Have a try first: hints unlock as the steps get harder. A code review after each step, and a deeper \"under the bonnet\" explanation of errors."],
+      ["Advanced", "For Years 9–10 who've used Python before: just the goal, Python's real error messages with a technical explanation, fewer hints, Jump to the challenge, and steps you can skip."],
+    ],
+    ard: [
+      ["Beginner", "Full explanations, hints any time, and the gentlest Coach."],
+      ["Moderate", "Each project's own gradual release: hints once you've had a go, plus a code review."],
+      ["Advanced", "Goal first, the real compiler messages with a technical explanation, fewer hints, skippable steps and Level up challenges."],
+    ],
+  };
+  function buildLevels(el) {
+    LEVELS[el.dataset.levels].forEach(([name, text], i) => {
+      const b = h("button", { class: "lvl" + (i === 0 ? " on" : ""), type: "button", "aria-pressed": i === 0 ? "true" : "false",
+        onclick: () => { $$(".lvl", el).forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); } },
+        h("h4", {}, name), h("p", {}, text));
+      el.append(b);
+    });
+  }
+
+  // ------------------------------------------------------------ gradual release (fade)
+  function buildFade(el) {
+    const info = [
+      ["GUIDED", "g", "Early steps: the code is given with blanks to fill in, and hints are there straight away."],
+      ["SOME HELP", "s", "Middle steps: instructions and examples, students write the code, hints after a first try."],
+      ["ON YOUR OWN", "o", "Last steps: just the goal and the checklist. Hints after two tries, and never the full answer."],
+    ];
+    const text = h("p", { class: "fade-text" });
+    const track = h("div", { class: "fade-track" });
+    info.forEach(([label, cls, t], i) => {
+      const b = h("button", { class: cls + (i === 0 ? " on" : ""), type: "button", onclick: () => pick(i) }, label);
+      track.append(b);
+    });
+    function pick(i) { $$("button", track).forEach((b, k) => b.classList.toggle("on", k === i)); text.textContent = info[i][2]; }
+    el.append(h("p", { class: "small" }, "Help fades as students grow. Tap each stage:"), track, text);
+    pick(0);
+  }
+
+  $$(".flip").forEach((f) => f.addEventListener("click", () => f.classList.toggle("on")));
+
+  // ------------------------------------------------------------ chapter dots
+  function buildChapters(root) {
+    const nav = $(".chapters", root);
+    const chs = $$(".chapter", root);
+    chs.forEach((c, i) => {
+      c.id = c.id || `${root.id}-ch${i + 1}`;
+      nav.append(h("a", { href: "#" + c.id, onclick: (e) => { e.preventDefault(); c.scrollIntoView({ behavior: reduced ? "auto" : "smooth" }); } },
+        h("span", {}, `${i + 1} · ${c.dataset.chapter}`)));
+    });
+    const io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting) { const i = chs.indexOf(e.target); $$("a", nav).forEach((a, k) => a.classList.toggle("on", k === i)); }
+    }), { rootMargin: "-45% 0px -45% 0px" });
+    chs.forEach((c) => io.observe(c));
+  }
+
+  // ------------------------------------------------------------ "more in the app" catalogues
+  const TIER_COLOURS = { simple: "#0b8f96", moderate: "#3f6fb5", computer: "#a8521c", advanced: "#704988", lab: "#9a4f8f", camera: "#2e7d5b",
+    "getting-started": "#2e8b57", "sensors-sound": "#a8521c", "displays-lights": "#7a4fb0", games: "#c0392b", "wifi-iot": "#2f6db5", challenge: "#5b5470" };
+  function buildCatalogue(el) {
+    const app = el.dataset.catalogue;
+    const data = D[app];
+    const here = app === "pipath" ? "a1_traffic" : "smart-bin";
+    const filter = h("div", { class: "cat-filter", role: "group", "aria-label": "Filter by tier" });
+    const grid = h("div", { class: "cat-grid" });
+    const tiers = [{ id: "all", title: "Everything" }].concat(data.tiers);
+    tiers.forEach((t, i) => filter.append(h("button", { type: "button", class: i === 0 ? "on" : "", onclick: (e) => {
+      $$("button", filter).forEach((b) => b.classList.toggle("on", b === e.currentTarget)); draw(t.id); } }, t.title)));
+    function draw(tier) {
+      grid.innerHTML = "";
+      data.projects.filter((p) => tier === "all" || p.tier === tier).forEach((p) => {
+        const t = data.tiers.find((x) => x.id === p.tier) || { title: p.tier };
+        const needs = app === "pipath"
+          ? [p.gpio && "GPIO kit", p.camera && "camera"].filter(Boolean).join(" + ")
+          : (p.boards && p.boards.length && p.boards.every((b) => /esp|nodemcu|d1/.test(b)) ? "an ESP board (WiFi)" : "");
+        grid.append(h("div", { class: "card" + (p.id === here ? " here" : "") },
+          h("span", { class: "tier", style: `background:${TIER_COLOURS[p.tier] || "#555"}` }, t.title),
+          h("h4", {}, p.title), h("p", {}, p.subtitle || p.intro || ""),
+          needs ? h("div", { class: "needs" }, "Needs " + needs) : null,
+          h("div", { class: "in-app" }, p.id === here ? "◉ Shown on this page" : "★ In the Circuit Pathways release app")));
+      });
+    }
+    draw("all");
+    const extra = app === "pipath"
+      ? "Plus Free Play, a camera you can teach to recognise things, and your Pi's own numbers, all offline."
+      : "Plus Free Play with a mini Wiring Wizard for every part you add, and WiFi projects you control from your phone.";
+    el.append(filter, grid, h("div", { class: "release" }, h("b", {}, "Available in the Circuit Pathways release app"), h("p", {}, extra)));
+  }
+
+  // ------------------------------------------------------------ full-walkthrough player
+  const modal = $("#player"), mv = $("video", modal);
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".play-full");
+    if (!b) return;
+    $("#player-title").textContent = b.dataset.title;
+    mv.src = b.dataset.video; modal.hidden = false; mv.play().catch(() => {}); $(".x", modal).focus();
+  });
+  const closeModal = () => { mv.pause(); mv.removeAttribute("src"); mv.load(); modal.hidden = true; };
+  modal.addEventListener("click", (e) => { if (e.target === modal || e.target.closest("[data-close]")) closeModal(); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+
+  // ------------------------------------------------------------ confetti
+  function confetti() {
+    if (reduced) return;
+    for (let i = 0; i < 90; i++) {
+      const c = h("i", { class: "confetti", style: `left:${Math.random() * 100}vw;background:${cols[i % 5]};` +
+        `animation-duration:${2 + Math.random() * 2.5}s;animation-delay:${Math.random() * .6}s;transform:rotate(${Math.random() * 360}deg)` });
+      document.body.append(c);
+      setTimeout(() => c.remove(), 5500);
+    }
+  }
+
+  // ============================================================ PiPath lab: Traffic Lights
+  function piLab(root) {
+    const win = h("div", { class: "w95 lab95" });
+    const bar = h("div", { class: "w95-bar" }, h("span", {}, "Traffic Lights - PiPath"), h("i", { class: "x" }, "✕"));
+    const tabs = h("div", { class: "lab-tabs", role: "tablist" });
+    const body = h("div", { class: "w95-body" });
+    win.append(bar, tabs, body);
+    root.append(win);
+    const tabWire = h("button", { type: "button", class: "on", role: "tab", onclick: () => go(0) }, "1. Check my wiring");
+    const tabStep = h("button", { type: "button", role: "tab", onclick: () => go(1) }, "2. Step 1: Flash one light");
+    tabs.append(tabWire, tabStep);
+    const wire = wireCheck(() => go(1)), step = stepOne();
+    body.append(wire, step);
+    function go(i) {
+      tabWire.classList.toggle("on", i === 0); tabStep.classList.toggle("on", i === 1);
+      wire.hidden = i !== 0; step.hidden = i !== 1;
+    }
+    go(0);
+  }
+
+  function boardPanel() {
+    const leds = ["red", "amber", "green"].map((c, i) => h("div", { class: "led " + c }, h("i"), h("span", { class: "legs" }),
+      h("span", {}, ["Red LED", "Amber LED", "Green LED"][i]), h("small", {}, ["GPIO17", "GPIO27", "GPIO22"][i])));
+    const btn = h("div", { class: "pbtn", role: "button", tabindex: "0", "aria-label": "Pedestrian button" }, h("i"));
+    const panel = h("div", { class: "lab-right" },
+      h("div", { class: "board-h" }, "BOARD", h("span", {}, "SIMULATOR")),
+      h("div", { class: "leds" }, leds), btn, h("small", {}, "Pedestrian button · GPIO23"));
+    return { panel, leds, btn, set(i, on) { leds[i].classList.toggle("on", on); } };
+  }
+
+  function wireCheck(next) {
+    const board = boardPanel();
+    const rows = ["Red LED (GPIO17)", "Amber LED (GPIO27)", "Green LED (GPIO22)", "Pedestrian button (GPIO23)"].map((t) =>
+      h("div", { class: "wc-row" }, h("i", {}, "○"), h("span", {}, t)));
+    const out = h("div", { class: "out", "aria-live": "polite" });
+    const run = h("button", { class: "b95 go", type: "button" }, "Check my wiring");
+    const nextB = h("button", { class: "b95", type: "button", disabled: true, onclick: next }, "Start step 1 ▸");
+    const say = (t, cls) => { out.append(h("div", { class: cls || "" }, t)); out.scrollTop = 1e6; };
+    run.addEventListener("click", async () => {
+      run.disabled = true; out.innerHTML = ""; rows.forEach((r) => { r.className = "wc-row"; r.firstChild.textContent = "○"; });
+      say("▶ Checking your wiring, one part at a time.", "info");
+      for (let i = 0; i < 3; i++) {
+        rows[i].classList.add("now");
+        say(`Watch the ${["Red", "Amber", "Green"][i]} LED: it should blink 3 times.`);
+        for (let k = 0; k < 3; k++) { board.set(i, true); await sleep(300); board.set(i, false); await sleep(300); }
+        rows[i].classList.remove("now"); rows[i].classList.add("ok"); rows[i].firstChild.textContent = "✓";
+      }
+      rows[3].classList.add("now");
+      say("Press the Pedestrian button (GPIO23) now...");
+      board.btn.classList.add("ask");
+      await new Promise((res) => {
+        const press = () => { board.btn.classList.add("down"); setTimeout(() => board.btn.classList.remove("down"), 200); res(); };
+        board.btn.addEventListener("click", press, { once: true });
+        board.btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") press(); }, { once: true });
+      });
+      board.btn.classList.remove("ask");
+      rows[3].classList.remove("now"); rows[3].classList.add("ok"); rows[3].firstChild.textContent = "✓";
+      say("✓ Pedestrian button (GPIO23) works!", "info");
+      say("Wiring check finished. Every part works.", "info");
+      run.disabled = false; nextB.disabled = false; nextB.focus();
+    });
+    return h("div", { class: "wirecheck" },
+      h("div", {},
+        h("p", { style: "margin-top:0" }, h("b", {}, "Check my wiring"), " runs a test program for this activity's parts. (On a real Pi: blue HAT off while you wire, then back on.)"),
+        h("div", { class: "wc-rows" }, rows),
+        h("div", { class: "lab-tools", style: "border:0;padding:10px 0" }, run, nextB),
+        out),
+      board.panel);
+  }
+
+  function stepOne() {
+    let level = "beginner", runs = 0, fails = 0, lastErr = null, hintsUsed = 0, hintsShown = 0, done = false, running = false, value = "";
+    const board = boardPanel();
+    const HINTS = ["The blank is how many seconds to wait.", "Replace `___` with `2`.", "The line should read `sleep(2)`."];
+    const blank = h("input", { class: "blank", "aria-label": "The blank on line 11: how many seconds?", maxlength: "8", value: "___",
+      onfocus: (e) => { if (e.target.value === "___") e.target.value = ""; }, oninput: (e) => { value = e.target.value; } });
+    const L = (n, html, extra) => h("div", { class: "ln", "data-n": n }, h("span", { class: "n" }, String(n)), h("span", { html }), extra || null);
+    const line11 = L(11, `<span class="fn">sleep</span>(`, null);
+    line11.lastChild.after(blank, h("span", { html: `)          <span class="cm"># make this flash last 2 seconds</span>` }));
+    const code = h("div", { class: "editor", "aria-label": "Code" },
+      L(1, `<span class="kw">from</span> gpiozero <span class="kw">import</span> LED`),
+      L(2, `<span class="kw">from</span> time <span class="kw">import</span> sleep`), L(3, ""),
+      L(4, `red = LED(<span class="num-c">17</span>)       <span class="cm"># the red LED is wired to GPIO17</span>`), L(5, ""),
+      L(6, `red.on()`), L(7, `<span class="fn">sleep</span>(<span class="num-c">1</span>)            <span class="cm"># wait 1 second</span>`),
+      L(8, `red.off()`), L(9, `<span class="fn">sleep</span>(<span class="num-c">1</span>)`), L(10, `red.on()`), line11,
+      L(12, `red.off()`), L(13, `<span class="fn">print</span>(<span class="str">"Done!"</span>)`));
+    const out = h("div", { class: "out", "aria-live": "polite" });
+    const say = (t, cls) => { out.append(h("div", { class: cls || "" }, t)); out.scrollTop = 1e6; };
+    const checks = [["Your program runs"], ["The second flash lasts 2 seconds"], ["Your program gets to the end"]].map(([t]) =>
+      h("div", { class: "ck" }, h("i", {}, "○"), h("span", {}, t)));
+    const saw = h("input", { type: "checkbox", disabled: true });
+    const sawRow = h("div", { class: "ck" }, h("label", {}, saw, h("span", {}, "I saw the red LED flash twice: short, then long")));
+    const coach = h("div", { class: "coach", "aria-live": "polite" });
+    const task = h("div", { class: "task" });
+    const runB = h("button", { class: "b95 go", type: "button" }, "▶ Run");
+    const help = h("div", { class: "help-sel" }, "Help:");
+    ["beginner", "moderate", "advanced"].forEach((lv) => help.append(h("button", { type: "button", class: lv === level ? "on" : "",
+      onclick: (e) => { level = lv; $$("button", help).forEach((b) => b.classList.toggle("on", b === e.currentTarget)); drawTask(); if (!lastErr && !done) idle(); } },
+      lv[0].toUpperCase() + lv.slice(1))));
+    const stars = h("div", { class: "stars", "aria-label": "stars" });
+
+    function drawTask() {
+      const full = level !== "advanced";
+      task.innerHTML = "";
+      task.append(h("span", { class: "badge", style: "background:#2e8b57" }, "GUIDED"), h("h4", {}, "STEP 1 OF 7 · FLASH ONE LIGHT"));
+      if (full) task.append(h("p", { html: md("`LED(17)` makes an **object** that controls the LED on **GPIO17**. `red.on()` and `red.off()` switch it.") }),
+        h("p", { html: md("`sleep(1)` pauses your program for 1 second, so there's time to see the light.") }));
+      task.append(h("p", { html: md("**Your task:** fill in the blank so the second flash lasts **2 seconds**. Run it and watch the red LED.") }));
+      if (!full) task.append(h("button", { class: "b95", type: "button", style: "font-size:11px;padding:2px 8px", onclick: () => { level = "moderate"; drawTask(); level = "advanced"; } }, "▸ Show the full explanation"));
+    }
+    function hintsAllowed() { return level === "advanced" ? (fails >= 2 ? 2 : 0) : HINTS.length; }
+    function hintButton() {
+      const max = hintsAllowed();
+      if (!max) return h("p", { class: "small" }, level === "advanced" ? "Hints unlock after two tries." : "");
+      if (hintsShown >= max) return null;
+      return h("button", { class: "b95 hintbtn", type: "button", onclick: () => { hintsShown++; hintsUsed++; coachHints(); } },
+        `Show ${hintsShown ? "next" : "first"} hint (${hintsShown + 1} of ${max})`);
+    }
+    function coachHints() {
+      $$(".hint, .hintbtn, .small", coach).forEach((x) => x.remove());
+      HINTS.slice(0, hintsShown).forEach((t) => coach.append(h("div", { class: "hint", html: md(t) })));
+      const b = hintButton(); if (b) coach.append(b);
+    }
+    function idle() {
+      coach.className = "coach";
+      coach.innerHTML = `<h5>COACH</h5><p>Press <b>Run</b> whenever you like. It's not a test: running your code is how you find out what to change.</p>`;
+    }
+    function clue(title, text, tech) {
+      const repeat = lastErr === title;
+      lastErr = title;
+      coach.className = "coach " + (repeat ? "nudge" : "bad");
+      coach.innerHTML = "";
+      if (repeat) coach.append(h("h5", {}, "COACH · A NUDGE"), h("h6", {}, "Same clue as last time"),
+        h("p", {}, "That's the same clue again, so let's slow down. Look at the highlighted line and read it out loud, character by character."));
+      coach.append(h("h5", {}, "COACH · SOMETHING BROKE"), h("h6", { html: md(title) }), h("p", { html: md(text) }));
+      if (tech && level !== "beginner") coach.append(h("p", { class: "small", html: (level === "advanced" ? "<b>Under the bonnet:</b> " : "<b>Under the bonnet:</b> ") + md(tech) }));
+      coachHints();
+      line11.classList.add("hl");
+    }
+
+    runB.addEventListener("click", async () => {
+      if (running || done) return;
+      const v = (blank.value || "").trim();
+      runs++;
+      out.innerHTML = "";
+      checks.forEach((c) => { c.className = "ck"; c.firstChild.textContent = "○"; });
+      if (!v || /^_+$/.test(v)) {
+        fails++;
+        say("Not run yet: there are blanks (___) to fill in first.", "err");
+        checks.forEach((c) => { c.className = "ck no"; c.firstChild.textContent = "✗"; });
+        clue("There are still blanks to fill in", "Your code still has `___` in it. Those are spaces for you to fill in before Python can run it.",
+          "PiPath checks for blanks before running, so Python never sees `___` (it would be a **NameError**: `___` is a valid but undefined name).");
+        return;
+      }
+      line11.classList.remove("hl");
+      say("▶ Running traffic_lights.py in the Simulator", "info");
+      const num = Number(v);
+      if (!/^\d+(\.\d+)?$/.test(v)) {
+        fails++;
+        await sleep(400);
+        const name = (v.match(/^[A-Za-z_]\w*$/) || [])[0];
+        if (level === "advanced") say(name ? `NameError: name '${name}' is not defined` : "SyntaxError: invalid syntax", "err");
+        else say(`Line 11: ${name ? "Python doesn't know " + name : "Python got confused"}`, "err");
+        checks[0].className = "ck no"; checks[0].firstChild.textContent = "✗";
+        if (name) clue(`Python doesn't know \`${name}\``, `On line 11 you used \`${name}\`, but Python has never seen it before. \`sleep()\` needs a **number** of seconds, written with digits.`,
+          "Python looks names up at **run time** (the LEGB rule). `" + name + "` wasn't bound anywhere, so this is a **NameError**.");
+        else clue("Python got confused on line 11", "`sleep()` needs just a number inside the brackets, like `sleep(3)`.",
+          "The parser expected a single expression inside the call's brackets, so this is a **SyntaxError**.");
+        return;
+      }
+      running = true; runB.disabled = true; lastErr = null;
+      coach.className = "coach"; coach.innerHTML = "<h5>COACH</h5><p>Watch the red LED on the board...</p>";
+      const second = Math.min(num, 6);
+      board.set(0, true); await sleep(1000); board.set(0, false); await sleep(1000);
+      board.set(0, true); await sleep(second * 1000); board.set(0, false);
+      say("Done!");
+      say("■ Program finished.", "info");
+      running = false; runB.disabled = false;
+      checks[0].className = "ck ok"; checks[0].firstChild.textContent = "✓";
+      checks[2].className = "ck ok"; checks[2].firstChild.textContent = "✓";
+      if (num === 2) {
+        checks[1].className = "ck ok"; checks[1].firstChild.textContent = "✓";
+        saw.disabled = false;
+        coach.className = "coach good";
+        coach.innerHTML = "<h5>COACH</h5><h6>Did you see it happen?</h6><p>Your code passed the checks. Watch the board and tick the box when you see it:<br><b>I saw the red LED flash twice: short, then long</b></p>";
+      } else {
+        fails++;
+        checks[1].className = "ck no"; checks[1].firstChild.textContent = "✗";
+        coach.className = "coach";
+        coach.innerHTML = `<h5>COACH · NEARLY THERE</h5><h6>Everything else is working</h6><p>The second flash lasted ${num} second${num === 1 ? "" : "s"}. The task asks for <b>2 seconds</b>.</p>`;
+        coachHints();
+      }
+    });
+    saw.addEventListener("change", () => {
+      if (!saw.checked || done) return;
+      done = true;
+      const st = hintsUsed <= 2 ? 3 : hintsUsed <= 6 ? 2 : 1;
+      coach.className = "coach good";
+      coach.innerHTML = "<h5>COACH · NICE WORK</h5><h6>Step complete!</h6><p>You just controlled a light with code. Every traffic light starts here!</p>";
+      stars.textContent = "★".repeat(st) + "☆".repeat(3 - st);
+      coach.append(stars, h("p", { class: "small" }, hintsUsed ? `${hintsUsed} hint${hintsUsed > 1 ? "s" : ""} used. Stars count hints, not speed.` : "No hints used: three stars for independence!"),
+        h("p", { class: "small" }, "The other 6 steps (and 23 more activities) are in the release app."),
+        h("button", { class: "b95", type: "button", onclick: reset }, "Try again"));
+      confetti();
+    });
+    function reset() {
+      runs = fails = hintsUsed = hintsShown = 0; lastErr = null; done = false; saw.checked = false; saw.disabled = true;
+      blank.value = "___"; out.innerHTML = ""; line11.classList.remove("hl");
+      checks.forEach((c) => { c.className = "ck"; c.firstChild.textContent = "○"; });
+      idle();
+    }
+    drawTask(); idle();
+    return h("div", {},
+      h("div", { class: "lab-tools" }, runB, h("button", { class: "b95", type: "button", disabled: true, title: "The full app has this button" }, "■ Stop"),
+        h("span", { style: "font-size:13px" }, "Run on: ", h("b", {}, "Simulator")), help),
+      h("div", { class: "lab-grid" },
+        h("div", { class: "lab-left" }, task, h("div", { class: "checklist" }, h("h5", {}, "YOUR CHECKLIST"), checks, sawRow), coach),
+        h("div", { class: "lab-mid" }, code, h("div", { style: "font:700 12px var(--w95-font)" }, "OUTPUT"), out),
+        board.panel));
+  }
+
+  // ============================================================ ArduinoPath lab: the ultrasonic sensor
+  function sonarSVG(px = 120) {
+    return `<svg width="${px}" viewBox="0 0 120 64" aria-hidden="true"><rect x="2" y="4" width="116" height="48" rx="4" fill="#1d5fa8" stroke="#123d6e"/>
+      <circle cx="30" cy="28" r="19" fill="#c9ced3" stroke="#7d8790" stroke-width="3"/><circle cx="30" cy="28" r="11" fill="#2b2f33"/>
+      <circle cx="90" cy="28" r="19" fill="#c9ced3" stroke="#7d8790" stroke-width="3"/><circle cx="90" cy="28" r="11" fill="#2b2f33"/>
+      <rect x="54" y="8" width="12" height="6" rx="1" fill="#c0c6cc"/>
+      ${["VCC", "Trig", "Echo", "Gnd"].map((t, i) => `<rect x="${41 + i * 10}" y="52" width="3" height="11" fill="#d6b24a"/><text x="${42 + i * 10}" y="49" font-size="5" fill="#fff" text-anchor="middle">${t}</text>`).join("")}</svg>`;
+  }
+  function ardLab(root) {
+    const parts = D.arduinopath.parts, uno = D.arduinopath.boards.uno;
+    const win = h("div", { class: "vista labv" });
+    win.append(h("div", { class: "vista-bar" }, h("span", {}, "Wiring Wizard: Distance Sensor (Uno)"), h("i", { class: "x" }, "✕")));
+    const body = h("div", { class: "vista-body" });
+    win.append(body);
+    root.append(win);
+    const names = ["Meet the part", "Wire it", "Test it", "Program it"];
+    const dots = h("div", { class: "wiz-steps" });
+    names.forEach((n, i) => { if (i) dots.append(h("span", { class: "wiz-sep" })); dots.append(h("span", { class: "wiz-dot" }, h("i", {}, String(i + 1)), n)); });
+    const page = h("div", { class: "wiz-page" });
+    const back = h("button", { class: "vbtn", type: "button" }, "◂ Back");
+    const next = h("button", { class: "vbtn prime", type: "button" }, "Next ▸");
+    const note = h("span", { class: "small", style: "color:#556" });
+    body.append(dots, page, h("div", { class: "wiz-foot" }, back, note, next));
+    let at = 0, tested = false, sawIt = false, stopTest = null;
+
+    function goTo(i) {
+      if (stopTest) { stopTest(); stopTest = null; }
+      at = i;
+      $$(".wiz-dot", dots).forEach((d, k) => { d.classList.toggle("on", k === i); d.classList.toggle("done", k < i); });
+      page.innerHTML = ""; back.disabled = i === 0; back.hidden = i === 3;
+      [meet, wireIt, testIt, program][i]();
+    }
+    back.onclick = () => goTo(at - 1);
+    next.onclick = () => goTo(at + 1);
+
+    function meet() {
+      const p = parts["hc-sr04"];
+      page.append(h("div", { class: "part-card" },
+        h("div", { class: "part-pic", html: sonarSVG(190) }),
+        h("div", {}, h("h4", {}, "Meet the " + p.name),
+          h("dl", {}, h("dt", {}, "What it does"), h("dd", {}, p.what), h("dt", {}, "Which leg is which?"), h("dd", {}, p.legs)),
+          h("div", { class: "dyk" }, h("b", {}, "Did you know? "), p.did_you_know))));
+      next.textContent = "Next ▸"; next.disabled = false; note.textContent = "1 part in this test · real projects have a card for each part";
+    }
+
+    const WIRES = [
+      { t: "Black wire: GND on the board → GND on the sensor", c: "#222", id: "gnd" },
+      { t: "Red wire: 5V on the board → VCC on the sensor", c: "#d22", id: "vcc" },
+      { t: `Pin ${uno.pins.TRIG_PIN} → Trig (the sensor's "speaker")`, c: "#e2a400", id: "trig" },
+      { t: `Pin ${uno.pins.ECHO_PIN} → Echo (the sensor's "ear")`, c: "#1e88e5", id: "echo" },
+    ];
+    function wiringSVG(onId) {
+      // the sensor sits top right with its pins facing down; the Uno sits below, its pin header along the top
+      const P = { vcc: 232.5, trig: 242.5, echo: 252.5, gnd: 262.5 };
+      const paths = {
+        trig: "M52,84 C52,48 242.5,112 242.5,72",
+        echo: "M40,84 C40,40 252.5,118 252.5,72",
+        vcc: "M112,214 C112,236 300,236 300,150 S232.5,104 232.5,72",
+        gnd: "M132,214 C132,230 316,230 316,140 S262.5,98 262.5,72",
+      };
+      const w = WIRES.map((wr) => {
+        const on = !onId || onId === wr.id;
+        return `<path d="${paths[wr.id]}" fill="none" stroke="${wr.c}" stroke-width="${on ? 5 : 3}" stroke-linecap="round" opacity="${on ? 1 : .18}"/>`;
+      }).join("");
+      const sensor = sonarSVG(120).replace("<svg ", "<svg x='190' y='6' height='64' ");
+      return `<svg viewBox="0 0 330 240" role="img" aria-label="An Arduino Uno wired to the distance sensor">
+        <rect x="10" y="92" width="170" height="114" rx="8" fill="#0f6e8c" stroke="#0a4f66"/>
+        <rect x="12" y="150" width="34" height="26" rx="2" fill="#b9c0c6"/><circle cx="160" cy="185" r="7" fill="#20262c"/>
+        <text x="110" y="160" font-size="18" fill="#fff" text-anchor="middle" font-weight="700">UNO</text>
+        <rect x="20" y="84" width="150" height="9" fill="#222"/><rect x="60" y="205" width="110" height="9" fill="#222"/>
+        <text x="40" y="104" font-size="8" fill="#9be7ec" text-anchor="middle">${uno.pins.ECHO_PIN}</text>
+        <text x="52" y="104" font-size="8" fill="#9be7ec" text-anchor="middle">${uno.pins.TRIG_PIN}</text>
+        <text x="112" y="200" font-size="8" fill="#9be7ec" text-anchor="middle">5V</text>
+        <text x="132" y="200" font-size="8" fill="#9be7ec" text-anchor="middle">GND</text>
+        ${sensor}${w}</svg>`;
+    }
+    function wireIt() {
+      const dia = h("div", { class: "diagram", html: wiringSVG(null) });
+      const list = h("ol", { class: "wire-list" });
+      WIRES.forEach((wr) => {
+        const li = h("li", { tabindex: "0", onclick: () => pick(wr.id, li), onkeydown: (e) => { if (e.key === "Enter") pick(wr.id, li); } },
+          h("span", { class: "sw-c", style: "background:" + wr.c }), h("span", {}, wr.t));
+        list.append(li);
+      });
+      function pick(id, li) { $$("li", list).forEach((x) => x.classList.toggle("on", x === li)); dia.innerHTML = wiringSVG(id); }
+      page.append(h("div", { class: "wire-grid" },
+        h("div", {}, h("p", { style: "margin-top:0" }, h("b", {}, "Unplug the USB cable"), " before you change any wires. Tap a wire to highlight it."), list,
+          h("div", { class: "warn" }, "⚠ On a 3.3V ESP board the wizard adds two 10kΩ resistors on Echo, so the sensor's 5V signal can't hurt the pin.")),
+        dia));
+      next.textContent = "Next: test it ▸"; next.disabled = false; note.textContent = "In the app: a Fritzing-style breadboard and a schematic";
+    }
+
+    function testIt() {
+      const reading = h("div", { class: "reading", "aria-live": "polite" }, "-- cm");
+      const bar = h("i");
+      const status = h("span", { class: "small" }, "Waiting for a reading");
+      const range = h("input", { type: "range", class: "hand-range", min: "3", max: "150", value: "120", "aria-label": "How far away the hand is (cm)" });
+      const hand = h("div", { class: "hand", "aria-hidden": "true" }, "✋");
+      const wave = h("div", { class: "wave" });
+      const scene = h("div", { class: "sonar-scene" }, h("div", { class: "sensor", html: sonarSVG(96) }), wave, hand);
+      const serial = h("div", { class: "serial", "aria-label": "Serial Monitor" });
+      const sawBox = h("input", { type: "checkbox", disabled: !tested });
+      let min = 999, max = 0;
+      const place = () => {
+        const cm = +range.value, w = scene.clientWidth || 400;
+        hand.style.left = (110 + (w - 170) * (cm / 150)) + "px";
+        wave.style.setProperty("--reach", (w - 170) * (cm / 150) + "px");
+      };
+      range.addEventListener("input", place);
+      setTimeout(place, 0);
+      const timer = setInterval(() => {
+        const cm = Math.max(2, Math.round(+range.value + (Math.random() * 2 - 1)));
+        reading.textContent = cm + " cm"; bar.style.width = Math.min(100, cm / 1.5) + "%";
+        serial.append(h("div", {}, `READ:sonar:${cm}`)); while (serial.childNodes.length > 60) serial.firstChild.remove(); serial.scrollTop = 1e6;
+        min = Math.min(min, cm); max = Math.max(max, cm);
+        if (!tested && max - min >= 30) {
+          tested = true; status.className = "ok-msg"; status.textContent = "✓ Working! The reading changes as your hand moves.";
+          sawBox.disabled = false;
+        }
+      }, 400);
+      stopTest = () => clearInterval(timer);
+      sawBox.addEventListener("change", () => { sawIt = sawBox.checked; next.disabled = !(tested && sawIt); if (sawIt) next.focus(); });
+      if (tested) { status.className = "ok-msg"; status.textContent = "✓ Working!"; sawBox.checked = sawIt; }
+      page.append(h("div", { class: "test-grid" },
+        h("div", {},
+          h("p", { style: "margin-top:0" }, "The test program for this part is running ", h("b", {}, "in the simulator"), ". ", h("b", {}, "Move your hand towards the sensor and away"), " (drag the slider)."),
+          scene, range,
+          h("div", { class: "small", style: "display:flex;justify-content:space-between" }, h("span", {}, "close"), h("span", {}, "far"))),
+        h("div", {},
+          h("div", { class: "test-row" }, h("h5", {}, "distance sensor", status), reading, h("div", { class: "bar" }, bar),
+            h("label", { style: "display:flex;gap:6px;margin-top:10px;align-items:center" }, sawBox, "I saw it work")),
+          serial)));
+      next.textContent = "Start programming ▸"; next.disabled = !(tested && sawIt);
+      note.textContent = "Start programming unlocks when every part works";
+    }
+
+    function program() {
+      if (stopTest) stopTest();
+      const blank = h("input", { class: "blank", style: "width:5ch", value: "___", "aria-label": "The blank: what to print",
+        onfocus: (e) => { if (e.target.value === "___") e.target.value = ""; } });
+      const L = (n, html, el) => { const d = h("div", { class: "ln" }, h("span", { class: "n" }, String(n)), h("span", { html })); if (el) d.append(el[0], h("span", { html: el[1] })); return d; };
+      const code = h("div", { class: "code-v" },
+        L(1, `<span class="cm">// Pins for your Arduino Uno R3 (from the Wiring Wizard)</span>`),
+        L(2, `<span class="kw">#define</span> TRIG_PIN <span class="num-c">${uno.pins.TRIG_PIN}</span>`), L(3, `<span class="kw">#define</span> ECHO_PIN <span class="num-c">${uno.pins.ECHO_PIN}</span>`),
+        L(4, ""), L(5, `<span class="kw">void</span> loop() {`),
+        L(6, `  <span class="kw">long</span> cm = measureCm();`),
+        L(7, `  Serial.print(`, [blank, `);`]),
+        L(8, `  Serial.println(<span class="str">" cm"</span>);`), L(9, `  delay(<span class="num-c">300</span>);`), L(10, "}"));
+      const serial = h("div", { class: "serial" });
+      const range = h("input", { type: "range", class: "hand-range", min: "3", max: "150", value: "60", "aria-label": "Hand distance (cm)" });
+      const coach = h("div", { class: "vcoach" }, h("h6", {}, "Step 2 of 4: Measure the distance"),
+        h("p", { html: md("`measureCm()` sends a ping and times the echo. **Your task:** fill in the blank to print `cm`, then press **Run** and move your hand.") }));
+      const run = h("button", { class: "vbtn prime", type: "button" }, "▶ Run");
+      let timer = null;
+      run.addEventListener("click", () => {
+        clearInterval(timer); serial.innerHTML = "";
+        const v = blank.value.trim();
+        coach.className = "vcoach";
+        if (!v || /^_+$/.test(v)) {
+          coach.innerHTML = "<h6>There's a blank to fill in</h6><p>Line 7 still has <code>___</code>. What should the Serial Monitor print? (The distance is stored in a variable.)</p>"; return;
+        }
+        if (v !== "cm") {
+          const word = /^[A-Za-z_]\w*$/.test(v);
+          coach.innerHTML = word
+            ? `<h6>'${v.replace(/</g, "")}' was not declared in this scope</h6><p>The compiler has never heard of <code>${v.replace(/</g, "")}</code>. The distance was saved on line 6 in a variable called... ?</p>`
+            : `<h6>expected primary-expression</h6><p>The compiler expected a value inside <code>Serial.print( )</code>, like a variable's name.</p>`;
+          return;
+        }
+        coach.className = "vcoach good";
+        coach.innerHTML = "<h6>✓ It measures!</h6><p>Now move the hand: the checklist ticks when the distance changes. That's the first two steps of the Smart Bin. The lid, the servo and the light are in the release app.</p>";
+        let lo = 999, hi = 0;
+        timer = setInterval(() => {
+          if (!document.body.contains(serial)) { clearInterval(timer); return; }
+          const cm = Math.max(2, Math.round(+range.value + (Math.random() * 2 - 1)));
+          serial.append(h("div", {}, `${cm} cm`)); while (serial.childNodes.length > 60) serial.firstChild.remove(); serial.scrollTop = 1e6;
+          lo = Math.min(lo, cm); hi = Math.max(hi, cm);
+          if (hi - lo > 25 && !coach.dataset.done) { coach.dataset.done = "1"; coach.append(h("p", { class: "ok-msg" }, "✓ The distance changes when you move your hand. Step complete!")); confetti(); }
+        }, 300);
+      });
+      page.append(h("div", { class: "prog-grid" },
+        h("div", {}, code, h("div", { style: "display:flex;gap:8px;margin-top:10px;align-items:center" }, run, h("span", { class: "small" }, "Simulator · Arduino Uno R3")), coach),
+        h("div", {}, h("b", {}, "Serial Monitor"), serial, h("p", { class: "small", style: "margin:8px 0 2px" }, "Move the hand:"), range)));
+      next.textContent = "Start again ↺"; next.disabled = false; next.onclick = () => { clearInterval(timer); tested = sawIt = false; next.onclick = () => goTo(at + 1); goTo(0); };
+      note.textContent = "";
+    }
+    goTo(0);
+  }
+
+  // ------------------------------------------------------------ text or blocks
+  function textBlocks(el) {
+    const blocks = () => h("div", { class: "blocks" },
+      h("span", { class: "blk hat c-start" }, "when the board starts"),
+      h("span", { class: "blk in c-servo" }, "connect servo ", h("em", {}, "lid"), " to pin ", h("em", {}, "SERVO_PIN")),
+      h("span", { class: "blk hat c-start", style: "margin-top:10px" }, "forever"),
+      h("span", { class: "blk in c-sensor" }, "set ", h("em", {}, "cm"), " to ", h("em", {}, "distance in cm")),
+      h("span", { class: "blk in c-logic" }, "if ", h("em", {}, "cm < 30"), " then"),
+      h("span", { class: "blk in c-servo", style: "margin-left:36px" }, "turn servo ", h("em", {}, "lid"), " to ", h("em", {}, "0")),
+      h("span", { class: "blk in c-wait", style: "margin-left:36px" }, "wait ", h("em", {}, "5000"), " milliseconds"),
+      h("span", { class: "blk in c-servo", style: "margin-left:36px" }, "turn servo ", h("em", {}, "lid"), " to ", h("em", {}, "90")));
+    const text = () => h("div", { class: "code-v", html: [
+      `<span class="kw">void</span> setup() {`, `  lid.attach(SERVO_PIN);`, `}`, ``, `<span class="kw">void</span> loop() {`,
+      `  <span class="kw">long</span> cm = measureCm();`, `  <span class="kw">if</span> (cm &lt; <span class="num-c">30</span>) {`,
+      `    lid.write(<span class="num-c">0</span>);      <span class="cm">// open</span>`, `    delay(<span class="num-c">5000</span>);`,
+      `    lid.write(<span class="num-c">90</span>);     <span class="cm">// close</span>`, `  }`, `}`]
+      .map((l, i) => `<div class="ln"><span class="n">${i + 1}</span><span>${l}</span></div>`).join("") });
+    const tabs = h("div", { class: "tb-tabs", role: "tablist" });
+    const bodyEl = h("div", { class: "tb-body" });
+    [["Blocks", blocks], ["Text (C++)", text]].forEach(([n, f], i) => tabs.append(h("button", { type: "button", class: i ? "" : "on", onclick: (e) => {
+      $$("button", tabs).forEach((b) => b.classList.toggle("on", b === e.currentTarget)); bodyEl.innerHTML = ""; bodyEl.append(f()); } }, n)));
+    bodyEl.append(blocks());
+    el.append(tabs, bodyEl, h("p", { class: "small", style: "margin:0;padding:6px 14px 10px;color:#556" }, "The Smart Bin's lid, both ways. Tap the tabs."));
+  }
+
+  // ------------------------------------------------------------ boards
+  function boardsDemo(el) {
+    const bs = Object.entries(D.arduinopath.boards).sort((a, b) => a[1].order - b[1].order);
+    const list = h("div", { class: "boards-list", role: "group", "aria-label": "Boards" });
+    const info = h("div", { class: "boards-info", "aria-live": "polite" });
+    bs.forEach(([id, b], i) => list.append(h("button", { type: "button", class: i ? "" : "on", onclick: (e) => {
+      $$("button", list).forEach((x) => x.classList.toggle("on", x === e.currentTarget)); draw(b); } }, b.name)));
+    function draw(b) {
+      info.innerHTML = "";
+      const t = h("table", {});
+      [["Distance sensor Trig", b.pins.TRIG_PIN], ["Distance sensor Echo", b.pins.ECHO_PIN], ["Lid servo", b.pins.SERVO_PIN], ["LED", b.pins.LED_PIN]]
+        .forEach(([k, v]) => t.append(h("tr", {}, h("td", {}, k), h("td", {}, v ? "pin " + v : "-"))));
+      info.append(h("h3", { style: "margin-top:0" }, b.name), t,
+        h("p", { class: "small" }, `${b.volts}V logic${b.wifi ? " · WiFi" : ""}${b.volts < 5 ? " · the wizard adds a voltage divider for the sensor's Echo" : ""}`));
+    }
+    draw(bs[0][1]);
+    el.append(list, info);
+  }
+
+  show(location.hash.slice(1) || "home");
+})();

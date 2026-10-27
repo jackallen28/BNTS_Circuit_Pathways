@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit Pathways</title>
+<meta name="description" content="PiPath and ArduinoPath: learn to code real electronics, one step at a time. Banyule Nillumbik Tech School.">
+<link rel="icon" href="img/bnts-mark.svg">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body data-view="home">
+<a class="skip" href="#main">Skip to the content</a>
+
+<!-- floating pixel squares behind everything -->
+<div class="sky" aria-hidden="true"></div>
+
+<!-- ============================================================ top bar (inside a path) -->
+<header class="topbar" aria-label="Site">
+  <a class="brand" href="#" data-go="home"><img src="img/bnts-mark.svg" alt=""><span>Circuit Pathways</span></a>
+  <nav class="switch" aria-label="Choose an app">
+    <a href="#pipath" data-go="pipath" class="sw sw-pi">PiPath</a>
+    <a href="#arduinopath" data-go="arduinopath" class="sw sw-ard">ArduinoPath</a>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- ============================================================ HOME -->
+<section class="view home" id="home" aria-label="Home">
+  <div class="hero">
+    <div class="logo-stage" aria-hidden="true">
+      <div class="logo-float">
+        <div class="logo-coin">
+          <div class="face front"><img src="img/bnts-logo.png" alt=""></div>
+          <div class="face back"><img src="img/bnts-mark.svg" alt=""><span>Banyule Nillumbik<br>Tech School</span></div>
+        </div>
+        <div class="logo-shadow"></div>
+      </div>
+    </div>
+    <p class="eyebrow">Banyule Nillumbik Tech School presents</p>
+    <h1 class="title">Circuit <span>Pathways</span></h1>
+    <p class="lede">Learn to code <b>real electronics</b>, one small step at a time. A tutor that sits beside every student, with no AI and no internet needed.</p>
+    <h2 class="ask">Where do you want to explore?</h2>
+    <div class="choices">
+      <a class="choice choice-pi" href="#pipath" data-go="pipath">
+        <span class="w95-title"><i></i>PiPath.exe</span>
+        <span class="choice-body">
+          <span class="choice-name">PiPath</span>
+          <span class="choice-what">Python on the Raspberry Pi</span>
+          <span class="choice-list">LEDs · buttons · buzzers · sensors · cameras</span>
+          <span class="choice-look">The classic Windows 95 look</span>
+          <span class="go">Explore PiPath <b>▸</b></span>
+        </span>
+      </a>
+      <a class="choice choice-ard" href="#arduinopath" data-go="arduinopath">
+        <span class="vista-title">ArduinoPath</span>
+        <span class="choice-body">
+          <span class="choice-name">ArduinoPath</span>
+          <span class="choice-what">Arduino and ESP boards</span>
+          <span class="choice-list">Text <i>or</i> Blocks · the Wiring Wizard · WiFi</span>
+          <span class="choice-look">The glassy Windows Vista look</span>
+          <span class="go">Explore ArduinoPath <b>▸</b></span>
+        </span>
+      </a>
+    </div>
+    <p class="scroll-hint">or scroll to see what they share <span aria-hidden="true">▾</span></p>
+  </div>
+
+  <div class="shared reveal">
+    <h2>Two apps, one way of learning</h2>
+    <div class="shared-grid">
+      <div class="sh"><b>✋</b><h3>No AI</h3><p>Every hint and every error explanation was written by people and checked by teachers. It all runs on the student's own computer.</p></div>
+      <div class="sh"><b>🎚</b><h3>Choose your help</h3><p>Beginner, Moderate or Advanced. Students pick, and can change it any time. Nothing is ever locked.</p></div>
+      <div class="sh"><b>💬</b><h3>A Coach for every error</h3><p>Errors are <i>clues</i>, explained in plain English, with hints that start small.</p></div>
+      <div class="sh"><b>🧩</b><h3>One part at a time</h3><p>Test one part on its own, then join it to the rest. Each step has a checklist that ticks itself.</p></div>
+      <div class="sh"><b>🖥</b><h3>Simulator first</h3><p>See it work on the on-screen board, then run the same code on real hardware.</p></div>
+      <div class="sh"><b>💾</b><h3>Saves by itself</h3><p>Pick your name next time and carry on where you left off.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ PIPATH -->
+<section class="view path path-pi" id="pipath" aria-label="PiPath">
+  <nav class="chapters" aria-label="PiPath chapters"></nav>
+
+  <div class="path-hero">
+    <div class="w95 w95-hero">
+      <div class="w95-bar"><span>PiPath - Welcome</span><i class="x">✕</i></div>
+      <div class="w95-body">
+        <h1>PiPath</h1>
+        <p>Python on the Raspberry Pi, for Years 7 to 10. Students build real circuits: traffic lights, reaction games, a parking sensor, a photo booth, even a machine that learns.</p>
+        <p class="meta">24 activities · Simulator and real Pi · runs offline on a Pi 3B</p>
+      </div>
+    </div>
+    <p class="follow">Follow <b>Mia</b>, a new student, through one project: <b>Traffic Lights</b>.</p>
+  </div>
+
+  <article class="chapter" data-chapter="Make a profile">
+    <div class="story reveal">
+      <span class="num">1</span>
+      <h2>Hello, who's working on this Pi?</h2>
+      <p>A profile is just a <b>first name</b> and the <b>school</b>. No surnames, emails or passwords. Students who share a Pi can add up to four names.</p>
+      <p>Then each student chooses <b>how much help</b> they want. Tap one to see what it means:</p>
+      <div class="levels" data-levels="pi"></div>
+    </div>
+    <div class="shot reveal" data-snip="pi-setup" data-app="pi"></div>
+  </article>
+
+  <article class="chapter" data-chapter="Pick a project">
+    <div class="shot reveal" data-snip="pi-picker" data-app="pi"
+         data-notes='[{"t":"Free Play is always the first box: a sandbox to build anything, with the Coach and a wiring helper."},{"t":"Every activity is open from day one. The colour tiers are just a guide."}]'></div>
+    <div class="story reveal">
+      <span class="num">2</span>
+      <h2>Everything is open</h2>
+      <p>No levels to unlock. Students pick any of the <b>24 activities</b>, in any order. <b>Free Play</b> is always first, for students who want to build their own thing.</p>
+      <p class="pill-row"><span class="tp t-simple">Simple</span><span class="tp t-moderate">Moderate</span><span class="tp t-computer">Pi &amp; Computer</span><span class="tp t-advanced">Advanced</span><span class="tp t-lab">Electronics Lab</span><span class="tp t-camera">Camera &amp; AI</span></p>
+    </div>
+  </article>
+
+  <article class="chapter" data-chapter="Wire it">
+    <div class="story reveal">
+      <span class="num">3</span>
+      <h2>Wire it, then check it</h2>
+      <p>The <b>Wiring + Safety</b> card shows where every wire goes, with the Pi's 40-pin map. Blue HAT off before changing wires!</p>
+      <p><b>Check my wiring</b> runs a test program: each LED blinks in turn, then it asks for a button press, and every part gets a ✓.</p>
+    </div>
+    <div class="shot reveal" data-snip="pi-wiring" data-app="pi"
+         data-notes='[{"t":"The test program talks to Mia in the Output: watch each LED blink.","box":[26,71,48,25]},{"t":"Then it asks for a button press. In the Simulator, Mia clicks the button on the board.","box":[75,70,24,29]}]'></div>
+  </article>
+
+  <article class="chapter play" data-chapter="Try it yourself">
+    <div class="story wide reveal">
+      <span class="num">4</span>
+      <h2>Your turn: Traffic Lights, step 1</h2>
+      <p>This is the real first step, shrunk to fit. <b>Press Run first</b> (go on, even with the blank), meet the Coach, then fill in the blank. Try changing the help level too.</p>
+    </div>
+    <div class="pi-lab reveal" id="pi-lab"></div>
+  </article>
+
+  <article class="chapter" data-chapter="Clues">
+    <div class="shot reveal" data-snip="pi-coach" data-app="pi"
+         data-notes='[{"t":"The Coach explains the clue in plain English, with hints that start small.","box":[1,59,24,33]},{"t":"The line with the problem is highlighted in the code.","box":[26,41,73,4.5]},{"t":"The checklist shows what still needs doing.","box":[1,32,24,25]}]'></div>
+    <div class="story reveal">
+      <span class="num">5</span>
+      <h2>Errors are clues, not failures</h2>
+      <p>PiPath's Coach knows the common mistakes, and explains each one kindly. If a student is <b>stuck</b>, it notices and offers a nudge:</p>
+      <div class="flips">
+        <button class="flip"><span class="f">Same error twice?</span><span class="b">"Same clue as last time. Read the line out loud, character by character."</span></button>
+        <button class="flip"><span class="f">Lots of tries?</span><span class="b">"Want to see it working?" ▸ Watch the goal, or Show me a hint.</span></button>
+        <button class="flip"><span class="f">Flying through?</span><span class="b">"Three steps first try, no hints! Want more of a challenge?"</span></button>
+      </div>
+      <p class="small">Tap a card to flip it. Nudges are offers, never forced, and each shows once per step.</p>
+    </div>
+  </article>
+
+  <article class="chapter" data-chapter="Watch the goal">
+    <div class="story reveal">
+      <span class="num">6</span>
+      <h2>See it, then do it</h2>
+      <p><b>Watch the goal</b> plays the step's answer on the on-screen board, so students know what they're aiming for. Their own code isn't touched.</p>
+      <p>On a real Pi, switch <b>Run on: Real Pi</b> and the same code lights the LEDs on the breadboard.</p>
+    </div>
+    <div class="shot reveal" data-snip="pi-goal" data-app="pi"></div>
+  </article>
+
+  <article class="chapter" data-chapter="Stars">
+    <div class="shot reveal" data-snip="pi-stars" data-app="pi"></div>
+    <div class="story reveal">
+      <span class="num">7</span>
+      <h2>Stars for independence</h2>
+      <p>Finish an activity and earn up to <b>★★★</b>. Stars count the hints you used, not how fast you were: they reward working it out yourself.</p>
+      <div class="fade" data-fade="pi"></div>
+    </div>
+  </article>
+
+  <article class="chapter" data-chapter="In the app">
+    <div class="story wide reveal">
+      <span class="num">8</span>
+      <h2>There's lots more in the app</h2>
+      <p>You've tried the first step of one activity. Here's everything else waiting in PiPath.</p>
+    </div>
+    <div class="catalogue reveal" data-catalogue="pipath"></div>
+  </article>
+
+  <article class="chapter" data-chapter="Full walkthrough">
+    <div class="full reveal">
+      <h2>Watch Mia's whole Traffic Lights project</h2>
+      <p>The full walkthrough, with captions (2 min 44 s).</p>
+      <button class="play-full" data-video="media/full/PiPath-TrafficLights-walkthrough.mp4" data-title="PiPath: Traffic Lights walkthrough"><span>▶</span> Play the full walkthrough</button>
+      <p class="small"><a href="media/full/PiPath-TrafficLights-walkthrough.mp4" download>Download the video</a> · <a href="#arduinopath" data-go="arduinopath">Explore ArduinoPath next ▸</a></p>
+    </div>
+  </article>
+</section>
+
+<!-- ============================================================ ARDUINOPATH -->
+<section class="view path path-ard" id="arduinopath" aria-label="ArduinoPath">
+  <nav class="chapters" aria-label="ArduinoPath chapters"></nav>
+
+  <div class="path-hero">
+    <div class="vista vista-hero">
+      <div class="vista-bar"><span>ArduinoPath</span><i class="x">✕</i></div>
+      <div class="vista-body">
+        <h1>ArduinoPath</h1>
+        <p>Arduino and ESP coding for Years 7 to 10, in <b>text or blocks</b>. Every project starts with the <b>Wiring Wizard</b>, and a test that checks the circuit before any coding.</p>
+        <p class="meta">23 projects · Uno, Nano, NodeMCU, ESP32 · Simulator and real boards</p>
+      </div>
+    </div>
+    <p class="follow">Follow <b>Mia</b> through the <b>Smart Bin</b>: a lid that opens when a hand comes close.</p>
+  </div>
+
+  <article class="chapter" data-chapter="Set up">
+    <div class="story reveal">
+      <span class="num">1</span>
+      <h2>Pick your help, your board, and how you code</h2>
+      <p>Like PiPath: a first name and the school, then <b>Beginner</b>, <b>Moderate</b> or <b>Advanced</b>.</p>
+      <p>Then the board on the desk, and one big choice: type real <b>Arduino code</b>, or snap together <b>Blocks</b>.</p>
+      <div class="levels" data-levels="ard"></div>
+    </div>
+    <div class="shot reveal" data-snip="ard-setup" data-app="ard"></div>
+  </article>
+
+  <article class="chapter" data-chapter="Meet the parts">
+    <div class="shot reveal" data-snip="ard-meet" data-app="ard"
+         data-notes='[{"t":"Each part gets its own card: a picture, what it does, which leg is which.","box":[19,27,15,15]},{"t":"Plus a \"Did you know?\" to make it stick.","box":[35,37,47,6]},{"t":"Confident students can skip the introductions.","box":[17,81,9,4]}]'></div>
+    <div class="story reveal">
+      <span class="num">2</span>
+      <h2>The Wiring Wizard: meet the parts</h2>
+      <p>Before any code, the wizard introduces each part. Students press <b>Next</b> for each one, or skip ahead.</p>
+      <p>Then it walks through the wiring <b>one connection at a time</b>, on a breadboard picture and a schematic.</p>
+    </div>
+  </article>
+
+  <article class="chapter" data-chapter="Wire it">
+    <div class="story reveal">
+      <span class="num">3</span>
+      <h2>Wire it, step by step</h2>
+      <p>The new wire is highlighted, the rest fade back. Flip to the <b>schematic</b> to see the same circuit as a diagram.</p>
+      <p>Using a 3.3V ESP board? The wizard adds the extra resistors that keep the sensor's 5V signal safe, with a ⚠ note.</p>
+    </div>
+    <div class="shot reveal" data-snip="ard-wire" data-app="ard"></div>
+  </article>
+
+  <article class="chapter play" data-chapter="Try it yourself">
+    <div class="story wide reveal">
+      <span class="num">4</span>
+      <h2>Your turn: test the distance sensor</h2>
+      <p>Coding only unlocks when the wiring <b>passes its test</b>. Try the real test for the ultrasonic sensor: move the hand towards it and away.</p>
+    </div>
+    <div class="ard-lab reveal" id="ard-lab"></div>
+  </article>
+
+  <article class="chapter" data-chapter="The test">
+    <div class="shot reveal" data-snip="ard-test" data-app="ard"
+         data-notes='[{"t":"A test program made for this project: each part takes a turn.","box":[18,40,38,19]},{"t":"Sensors show a live reading. In the Simulator, drag the distance.","box":[66,43,15,6]},{"t":"Start programming stays greyed out until every part works.","box":[73,79,9,5]}]'></div>
+    <div class="story reveal">
+      <span class="num">5</span>
+      <h2>Test before you code</h2>
+      <p>Each part takes a turn: LEDs blink, servos sweep, sensors show live numbers. Students tick <b>I saw it work</b> for each one.</p>
+      <p>If a part fails, <b>Fix it</b> jumps back to that part's wiring with the most likely causes.</p>
+    </div>
+  </article>
+
+  <article class="chapter" data-chapter="Text or Blocks">
+    <div class="story reveal">
+      <span class="num">6</span>
+      <h2>Text or Blocks: the same program</h2>
+      <p>New to coding? Snap blocks together. Underneath, ArduinoPath shows the real <b>C++</b> the blocks make, ready for the switch to text.</p>
+      <div class="tb" id="tb-demo"></div>
+    </div>
+    <div class="shot reveal" data-snip="blk-blocks" data-app="ard"
+         data-notes='[{"t":"Blocks sorted by colour: Pins, Servo, Sensors, Sound, Serial Monitor...","box":[21,12,10,27]},{"t":"Snap them together to build the program.","box":[37,30,19,45]},{"t":"The C++ code the blocks make, always on show.","box":[21,74,41,25]}]'></div>
+  </article>
+
+  <article class="chapter" data-chapter="Measure">
+    <div class="shot reveal" data-snip="ard-serial" data-app="ard"></div>
+    <div class="story reveal">
+      <span class="num">7</span>
+      <h2>Watch the numbers</h2>
+      <p>The <b>Serial Monitor</b> shows the distance as it changes. Drag the hand in the Simulator, or use a real hand on a real board.</p>
+      <p>Each step has a checklist that ticks itself, and hints that unlock as the student needs them.</p>
+    </div>
+  </article>
+
+  <article class="chapter" data-chapter="Watch the goal">
+    <div class="story reveal">
+      <span class="num">8</span>
+      <h2>Watch the goal, then build it</h2>
+      <p><b>Watch the goal</b> plays the model answer on the board. Then the lid opens for a hand, all by itself.</p>
+    </div>
+    <div class="shot reveal" data-snip="ard-hand" data-app="ard"></div>
+  </article>
+
+  <article class="chapter" data-chapter="Boards">
+    <div class="story wide reveal">
+      <span class="num">9</span>
+      <h2>Works with the board on the desk</h2>
+      <p>Pick a board to see where the distance sensor plugs in. The wizard, the simulator, the test and the code all follow the same pin plan.</p>
+      <div class="boards" id="boards-demo"></div>
+    </div>
+  </article>
+
+  <article class="chapter" data-chapter="In the app">
+    <div class="story wide reveal">
+      <span class="num">10</span>
+      <h2>There's lots more in the app</h2>
+      <p>From blinking lights to WiFi projects you control from a phone.</p>
+    </div>
+    <div class="catalogue reveal" data-catalogue="arduinopath"></div>
+  </article>
+
+  <article class="chapter" data-chapter="Full walkthroughs">
+    <div class="full reveal">
+      <h2>Watch Mia's whole Smart Bin project</h2>
+      <p>Two full walkthroughs: one in text code (with captions, 11 min 43 s), one in blocks (9 min 21 s).</p>
+      <div class="full-buttons">
+        <button class="play-full" data-video="media/full/ArduinoPath-SmartBin-text-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in text, with captions"><span>▶</span> Text version (captions)</button>
+        <button class="play-full alt" data-video="media/full/ArduinoPath-SmartBin-blocks-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in blocks"><span>▶</span> Blocks version</button>
+      </div>
+      <p class="small"><a href="media/full/ArduinoPath-SmartBin-text-walkthrough.mp4" download>Download text version</a> · <a href="media/full/ArduinoPath-SmartBin-blocks-walkthrough.mp4" download>Download blocks version</a> · <a href="#pipath" data-go="pipath">Explore PiPath ▸</a></p>
+    </div>
+  </article>
+</section>
+
+</main>
+
+<footer class="foot">
+  <img src="img/bnts-mark.svg" alt="">
+  <p><b>Circuit Pathways</b>: PiPath and ArduinoPath, by the Banyule Nillumbik Tech School. Developed by BNTS and reviewed by teachers. No AI: everything runs locally, and student work stays on the student's computer.</p>
+  <p class="small">Part pictures in ArduinoPath come from the Fritzing parts library (CC BY-SA 3.0).</p>
+</footer>
+
+<!-- the full-walkthrough player -->
+<div class="modal" id="player" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="player-title">
+    <div class="modal-bar"><span id="player-title"></span><button class="x" data-close aria-label="Close">✕</button></div>
+    <video controls playsinline preload="metadata"></video>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/site.js"></script>
+</body>
+</html>
