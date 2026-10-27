@@ -184,6 +184,8 @@ body[data-view="arduinopath"] .sw-ard { background: linear-gradient(180deg, #4fd
 
 /* ---------------------------------------------------------------- help levels + fade */
 .levels { display: grid; gap: 10px; margin-top: 10px; }
+.soon { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .4px; padding: 3px 10px; border-radius: 999px;
+  color: #2b2140; background: #ffd54a; vertical-align: middle; }
 .lvl { all: unset; box-sizing: border-box; cursor: pointer; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08);
   border: 1px solid rgba(255,255,255,.16); transition: background .2s, transform .2s; }
 .lvl:hover { transform: translateX(4px); }
@@ -352,7 +354,7 @@ body[data-view="arduinopath"] .sw-ard { background: linear-gradient(180deg, #4fd
 .blk em { font-style: normal; background: rgba(255,255,255,.9); color: #333; border-radius: 10px; padding: 0 7px; }
 .blk.hat { border-radius: 14px 14px 6px 6px; }
 .blk.in { margin-left: 18px; }
-.c-start { background: #2aa0a8; } .c-sensor { background: #7a4fb0; } .c-logic { background: #3f6fb5; } .c-servo { background: #e07b1f; } .c-wait { background: #2f8f9d; }
+.c-start { background: #0f9aa1; } .c-sensor { background: #2e9b45; } .c-logic { background: #704988; } .c-servo { background: #e07b00; } .c-wait { background: #0f9aa1; }
 @keyframes snap { from { opacity: 0; transform: translateX(-30px); } }
 
 /* boards */

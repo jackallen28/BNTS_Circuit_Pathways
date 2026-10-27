@@ -209,13 +209,14 @@
           h("span", { class: "tier", style: `background:${TIER_COLOURS[p.tier] || "#555"}` }, t.title),
           h("h4", {}, p.title), h("p", {}, p.subtitle || p.intro || ""),
           needs ? h("div", { class: "needs" }, "Needs " + needs) : null,
-          h("div", { class: "in-app" }, p.id === here ? "◉ Shown on this page" : "★ In the Circuit Pathways release app")));
+          h("div", { class: "in-app" }, p.id === here ? (app === "arduinopath" ? "◉ Shown on this page · coming in the next release" : "◉ Shown on this page")
+            : "★ In the Circuit Pathways release app")));
       });
     }
     draw("all");
     const extra = app === "pipath"
       ? "Plus Free Play, a camera you can teach to recognise things, and your Pi's own numbers, all offline."
-      : "Plus Free Play with a mini Wiring Wizard for every part you add, and WiFi projects you control from your phone.";
+      : "Plus Free Play (a blank sketch with the simulator and a real board), and WiFi projects you control from a pretend phone.";
     el.append(filter, grid, h("div", { class: "release" }, h("b", {}, "Available in the Circuit Pathways release app"), h("p", {}, extra)));
   }
 
@@ -549,8 +550,8 @@
       });
       function pick(id, li) { $$("li", list).forEach((x) => x.classList.toggle("on", x === li)); dia.innerHTML = wiringSVG(id); }
       page.append(h("div", { class: "wire-grid" },
-        h("div", {}, h("p", { style: "margin-top:0" }, h("b", {}, "Unplug the USB cable"), " before you change any wires. Tap a wire to highlight it."), list,
-          h("div", { class: "warn" }, "⚠ On a 3.3V ESP board the wizard adds two 10kΩ resistors on Echo, so the sensor's 5V signal can't hurt the pin.")),
+        h("div", {}, h("p", { style: "margin-top:0" }, h("b", {}, "Unplug the USB cable"), " before changing wires, and plug it back in after. Tap a wire to highlight it."), list,
+          h("div", { class: "warn" }, "⚠ Never connect 5V to an ESP pin: on a 3.3V ESP board the wizard adds two 10kΩ resistors on Echo. And always use a resistor with an LED.")),
         dia));
       next.textContent = "Next: test it ▸"; next.disabled = false; note.textContent = "In the app: a Fritzing-style breadboard and a schematic";
     }
@@ -558,49 +559,55 @@
     function testIt() {
       const reading = h("div", { class: "reading", "aria-live": "polite" }, "-- cm");
       const bar = h("i");
-      const status = h("span", { class: "small" }, "Waiting for a reading");
-      const range = h("input", { type: "range", class: "hand-range", min: "3", max: "150", value: "120", "aria-label": "How far away the hand is (cm)" });
+      const status = h("span", { class: "small", style: "color:#b3261e;font-weight:700" }, "✗");
+      const range = h("input", { type: "range", class: "hand-range", min: "2", max: "400", value: "100", "aria-label": "Something in front: distance (cm)" });
       const hand = h("div", { class: "hand", "aria-hidden": "true" }, "✋");
       const wave = h("div", { class: "wave" });
       const scene = h("div", { class: "sonar-scene" }, h("div", { class: "sensor", html: sonarSVG(96) }), wave, hand);
       const serial = h("div", { class: "serial", "aria-label": "Serial Monitor" });
-      const sawBox = h("input", { type: "checkbox", disabled: !tested });
-      let min = 999, max = 0;
+      const label = h("span", { class: "small" }, "Distance: 100 cm");
+      let first = null;
       const place = () => {
-        const cm = +range.value, w = scene.clientWidth || 400;
-        hand.style.left = (110 + (w - 170) * (cm / 150)) + "px";
-        wave.style.setProperty("--reach", (w - 170) * (cm / 150) + "px");
+        const cm = +range.value, w = scene.clientWidth || 400, f = Math.min(1, cm / 200);
+        hand.style.left = (110 + (w - 170) * f) + "px";
+        wave.style.setProperty("--reach", (w - 170) * f + "px");
+        label.textContent = `Distance: ${cm} cm`;
       };
       range.addEventListener("input", place);
       setTimeout(place, 0);
-      const timer = setInterval(() => {
-        const cm = Math.max(2, Math.round(+range.value + (Math.random() * 2 - 1)));
-        reading.textContent = cm + " cm"; bar.style.width = Math.min(100, cm / 1.5) + "%";
+      const timer = setInterval(() => {                 // every 400 ms, like the app's test sketch
+        const cm = Math.max(2, Math.round(+range.value));
+        reading.textContent = cm + " cm"; bar.style.width = Math.min(100, cm / 2) + "%";
         serial.append(h("div", {}, `READ:sonar:${cm}`)); while (serial.childNodes.length > 60) serial.firstChild.remove(); serial.scrollTop = 1e6;
-        min = Math.min(min, cm); max = Math.max(max, cm);
-        if (!tested && max - min >= 30) {
-          tested = true; status.className = "ok-msg"; status.textContent = "✓ Working! The reading changes as your hand moves.";
-          sawBox.disabled = false;
+        if (first === null) first = cm;
+        if (!tested && cm > 0 && Math.abs(cm - first) > 4) {    // the app ticks it by itself on a change of more than 4 cm
+          tested = true; status.style.color = ""; status.className = "ok-msg"; status.textContent = "✓ Working!";
+          next.disabled = false; next.focus();
         }
       }, 400);
       stopTest = () => clearInterval(timer);
-      sawBox.addEventListener("change", () => { sawIt = sawBox.checked; next.disabled = !(tested && sawIt); if (sawIt) next.focus(); });
-      if (tested) { status.className = "ok-msg"; status.textContent = "✓ Working!"; sawBox.checked = sawIt; }
+      if (tested) { status.style.color = ""; status.className = "ok-msg"; status.textContent = "✓ Working!"; }
       page.append(h("div", { class: "test-grid" },
         h("div", {},
-          h("p", { style: "margin-top:0" }, "The test program for this part is running ", h("b", {}, "in the simulator"), ". ", h("b", {}, "Move your hand towards the sensor and away"), " (drag the slider)."),
-          scene, range,
-          h("div", { class: "small", style: "display:flex;justify-content:space-between" }, h("span", {}, "close"), h("span", {}, "far"))),
+          h("p", { style: "margin-top:0" }, "The test program for this part is running ", h("b", {}, "in the simulator"), "."),
+          scene,
+          h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-top:8px" }, h("b", { class: "small" }, "Something in front"), label),
+          range,
+          h("div", { class: "small", style: "display:flex;justify-content:space-between" }, h("span", {}, "2 cm"), h("span", {}, "400 cm"))),
         h("div", {},
-          h("div", { class: "test-row" }, h("h5", {}, "distance sensor", status), reading, h("div", { class: "bar" }, bar),
-            h("label", { style: "display:flex;gap:6px;margin-top:10px;align-items:center" }, sawBox, "I saw it work")),
+          h("div", { class: "test-row" }, h("h5", {}, "distance sensor", status),
+            h("p", { class: "small", style: "margin:0" }, "Move your hand towards the sensor and away."),
+            reading, h("div", { class: "bar" }, bar)),
           serial)));
-      next.textContent = "Start programming ▸"; next.disabled = !(tested && sawIt);
-      note.textContent = "Start programming unlocks when every part works";
+      next.textContent = "Start programming ▸"; next.disabled = !tested;
+      note.textContent = "The row ticks itself when the reading changes";
     }
 
     function program() {
       if (stopTest) stopTest();
+      let hints = 0, lo = null, hi = null, timer = null, finished = false;
+      const ticks = [false, false, false];
+      const HINTS = ["The distance is stored in a variable on line 6.", "Its name is two letters long: `cm`.", "Type `cm` in the blank."];
       const blank = h("input", { class: "blank", style: "width:5ch", value: "___", "aria-label": "The blank: what to print",
         onfocus: (e) => { if (e.target.value === "___") e.target.value = ""; } });
       const L = (n, html, el) => { const d = h("div", { class: "ln" }, h("span", { class: "n" }, String(n)), h("span", { html })); if (el) d.append(el[0], h("span", { html: el[1] })); return d; };
@@ -612,40 +619,70 @@
         L(7, `  Serial.print(`, [blank, `);`]),
         L(8, `  Serial.println(<span class="str">" cm"</span>);`), L(9, `  delay(<span class="num-c">300</span>);`), L(10, "}"));
       const serial = h("div", { class: "serial" });
-      const range = h("input", { type: "range", class: "hand-range", min: "3", max: "150", value: "60", "aria-label": "Hand distance (cm)" });
-      const coach = h("div", { class: "vcoach" }, h("h6", {}, "Step 2 of 4: Measure the distance"),
-        h("p", { html: md("`measureCm()` sends a ping and times the echo. **Your task:** fill in the blank to print `cm`, then press **Run** and move your hand.") }));
+      const range = h("input", { type: "range", class: "hand-range", min: "2", max: "400", value: "100", "aria-label": "Something in front: distance (cm)" });
+      const dist = h("span", { class: "small" }, "Distance: 100 cm");
+      range.addEventListener("input", () => { dist.textContent = `Distance: ${range.value} cm`; });
+      const rows = ["It measures 80 cm", "It measures 10 cm", "The distance changes when I move my hand"]
+        .map((t) => h("div", { class: "ck" }, h("i", {}, "○"), h("span", {}, t)));
+      const coach = h("div", { class: "vcoach" });
+      function hintBtn() {
+        $$(".hint, .hb", coach).forEach((x) => x.remove());
+        HINTS.slice(0, hints).forEach((t) => coach.append(h("div", { class: "hint", html: md(t) })));
+        if (hints < HINTS.length && !finished) coach.append(h("button", { class: "vbtn hb", type: "button", style: "margin-top:6px;font-size:13px;padding:4px 12px",
+          onclick: () => { hints++; hintBtn(); } }, hints ? "Show me another hint" : "Show me a hint"));
+      }
+      function intro() {
+        coach.className = "vcoach"; coach.innerHTML = "";
+        coach.append(h("h6", {}, "Step 2 of 4: Measure the distance"),
+          h("p", { html: md("`measureCm()` sends a ping and times the echo. **Your task:** fill in the blank to print the distance, press **Run**, then slide to 80 cm and to 10 cm.") }));
+        hintBtn();
+      }
       const run = h("button", { class: "vbtn prime", type: "button" }, "▶ Run");
-      let timer = null;
       run.addEventListener("click", () => {
-        clearInterval(timer); serial.innerHTML = "";
+        clearInterval(timer); serial.innerHTML = ""; lo = hi = null;
         const v = blank.value.trim();
-        coach.className = "vcoach";
         if (!v || /^_+$/.test(v)) {
-          coach.innerHTML = "<h6>There's a blank to fill in</h6><p>Line 7 still has <code>___</code>. What should the Serial Monitor print? (The distance is stored in a variable.)</p>"; return;
+          coach.className = "vcoach";
+          coach.innerHTML = "<h6>Fill in the blanks first</h6><p>Your code still has <code>___</code> on line 7. Replace each <code>___</code> with the right code, then try again.</p>";
+          hintBtn(); return;
         }
         if (v !== "cm") {
-          const word = /^[A-Za-z_]\w*$/.test(v);
-          coach.innerHTML = word
-            ? `<h6>'${v.replace(/</g, "")}' was not declared in this scope</h6><p>The compiler has never heard of <code>${v.replace(/</g, "")}</code>. The distance was saved on line 6 in a variable called... ?</p>`
+          const safe = v.replace(/[<&>"']/g, "");
+          coach.className = "vcoach";
+          coach.innerHTML = /^[A-Za-z_]\w*$/.test(v)
+            ? `<h6>'${safe}' was not declared in this scope</h6><p>The compiler has never heard of <code>${safe}</code>. Check the spelling: the distance is saved on line 6.</p>`
             : `<h6>expected primary-expression</h6><p>The compiler expected a value inside <code>Serial.print( )</code>, like a variable's name.</p>`;
-          return;
+          hintBtn(); return;
         }
-        coach.className = "vcoach good";
-        coach.innerHTML = "<h6>✓ It measures!</h6><p>Now move the hand: the checklist ticks when the distance changes. That's the first two steps of the Smart Bin. The lid, the servo and the light are in the release app.</p>";
-        let lo = 999, hi = 0;
+        if (!finished) intro();
         timer = setInterval(() => {
           if (!document.body.contains(serial)) { clearInterval(timer); return; }
-          const cm = Math.max(2, Math.round(+range.value + (Math.random() * 2 - 1)));
+          const cm = Math.max(2, Math.round(+range.value));
           serial.append(h("div", {}, `${cm} cm`)); while (serial.childNodes.length > 60) serial.firstChild.remove(); serial.scrollTop = 1e6;
-          lo = Math.min(lo, cm); hi = Math.max(hi, cm);
-          if (hi - lo > 25 && !coach.dataset.done) { coach.dataset.done = "1"; coach.append(h("p", { class: "ok-msg" }, "✓ The distance changes when you move your hand. Step complete!")); confetti(); }
+          lo = lo === null ? cm : Math.min(lo, cm); hi = hi === null ? cm : Math.max(hi, cm);
+          [Math.abs(cm - 80) <= 2, Math.abs(cm - 10) <= 2, hi - lo > 4].forEach((ok, i) => {
+            if (ok && !ticks[i]) { ticks[i] = true; rows[i].className = "ck ok"; rows[i].firstChild.textContent = "✓"; }
+          });
+          if (ticks.every(Boolean) && !finished) {
+            finished = true;
+            const st = hints === 0 ? 3 : hints === 1 ? 2 : 1;
+            coach.className = "vcoach good"; coach.innerHTML = "";
+            coach.append(h("h6", {}, "Step complete!"), h("p", {}, "Your bin can measure how far away your hand is, with sound!"),
+              h("div", { class: "stars", style: "font-size:30px" }, "★".repeat(st) + "☆".repeat(3 - st)),
+              h("p", { class: "small" }, st === 3 ? "All on your own!" : "Hints helped you get there."),
+              h("p", { class: "small" }, "The lid, the servo and the light are steps 1, 3 and 4, coming with the Smart Bin in the next release."));
+            confetti();
+          }
         }, 300);
       });
+      intro();
       page.append(h("div", { class: "prog-grid" },
-        h("div", {}, code, h("div", { style: "display:flex;gap:8px;margin-top:10px;align-items:center" }, run, h("span", { class: "small" }, "Simulator · Arduino Uno R3")), coach),
-        h("div", {}, h("b", {}, "Serial Monitor"), serial, h("p", { class: "small", style: "margin:8px 0 2px" }, "Move the hand:"), range)));
-      next.textContent = "Start again ↺"; next.disabled = false; next.onclick = () => { clearInterval(timer); tested = sawIt = false; next.onclick = () => goTo(at + 1); goTo(0); };
+        h("div", {}, code, h("div", { style: "display:flex;gap:8px;margin-top:10px;align-items:center" }, run, h("span", { class: "small" }, "Simulator · Arduino Uno R3")),
+          h("div", { class: "test-row", style: "margin-top:10px" }, h("h5", {}, "Checklist"), rows), coach),
+        h("div", {}, h("b", {}, "Serial Monitor"), serial,
+          h("div", { style: "display:flex;justify-content:space-between;margin:8px 0 2px" }, h("b", { class: "small" }, "Something in front"), dist), range)));
+      next.textContent = "Start again ↺"; next.disabled = false;
+      next.onclick = () => { clearInterval(timer); tested = false; next.onclick = () => goTo(at + 1); goTo(0); };
       note.textContent = "";
     }
     goTo(0);
@@ -658,10 +695,10 @@
       h("span", { class: "blk in c-servo" }, "connect servo ", h("em", {}, "lid"), " to pin ", h("em", {}, "SERVO_PIN")),
       h("span", { class: "blk hat c-start", style: "margin-top:10px" }, "forever"),
       h("span", { class: "blk in c-sensor" }, "set ", h("em", {}, "cm"), " to ", h("em", {}, "distance in cm")),
-      h("span", { class: "blk in c-logic" }, "if ", h("em", {}, "cm < 30"), " then"),
-      h("span", { class: "blk in c-servo", style: "margin-left:36px" }, "turn servo ", h("em", {}, "lid"), " to ", h("em", {}, "0")),
+      h("span", { class: "blk in c-logic" }, "if ", h("em", {}, "cm < 30"), " do"),
+      h("span", { class: "blk in c-servo", style: "margin-left:36px" }, "turn servo ", h("em", {}, "lid"), " to ", h("em", {}, "0°")),
       h("span", { class: "blk in c-wait", style: "margin-left:36px" }, "wait ", h("em", {}, "5000"), " milliseconds"),
-      h("span", { class: "blk in c-servo", style: "margin-left:36px" }, "turn servo ", h("em", {}, "lid"), " to ", h("em", {}, "90")));
+      h("span", { class: "blk in c-servo", style: "margin-left:36px" }, "turn servo ", h("em", {}, "lid"), " to ", h("em", {}, "90°")));
     const text = () => h("div", { class: "code-v", html: [
       `<span class="kw">void</span> setup() {`, `  lid.attach(SERVO_PIN);`, `}`, ``, `<span class="kw">void</span> loop() {`,
       `  <span class="kw">long</span> cm = measureCm();`, `  <span class="kw">if</span> (cm &lt; <span class="num-c">30</span>) {`,
@@ -673,7 +710,7 @@
     [["Blocks", blocks], ["Text (C++)", text]].forEach(([n, f], i) => tabs.append(h("button", { type: "button", class: i ? "" : "on", onclick: (e) => {
       $$("button", tabs).forEach((b) => b.classList.toggle("on", b === e.currentTarget)); bodyEl.innerHTML = ""; bodyEl.append(f()); } }, n)));
     bodyEl.append(blocks());
-    el.append(tabs, bodyEl, h("p", { class: "small", style: "margin:0;padding:6px 14px 10px;color:#556" }, "The Smart Bin's lid, both ways. Tap the tabs."));
+    el.append(tabs, bodyEl, h("p", { class: "small", style: "margin:0;padding:6px 14px 10px;color:#556" }, "The Smart Bin's lid, both ways. In the app, the C++ your blocks make is always shown underneath, and that's what runs."));
   }
 
   // ------------------------------------------------------------ boards
