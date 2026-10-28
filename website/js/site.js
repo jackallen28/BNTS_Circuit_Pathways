@@ -770,18 +770,6 @@
     if (f) f.style.height = Math.max(420, Math.ceil(d.height) + 2) + "px";
   });
 
-  // a walkthrough whose video isn't in the folder yet: the card stays, its buttons wait
-  const needs = $$("[data-needs-video]");
-  if (needs.length) {
-    const v = document.createElement("video");
-    v.preload = "metadata"; v.muted = true;
-    needs.forEach((b) => { b.disabled = true; b.classList.add("waiting"); });
-    const soon = $(".walk-soon");
-    v.addEventListener("loadedmetadata", () => needs.forEach((b) => { b.disabled = false; b.classList.remove("waiting"); }), { once: true });
-    v.addEventListener("error", () => { if (soon) soon.hidden = false; }, { once: true });
-    v.src = needs[0].dataset.video;
-  }
-
   // ------------------------------------------------------------ reading progress (inside an app's page)
   const bar = h("div", { class: "progress", "aria-hidden": "true" });
   document.body.append(bar);

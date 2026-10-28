@@ -50,8 +50,7 @@ img/fritzing/       boards, breadboard and the HC-SR04 from the Fritzing parts l
 media/extra/        the Smart Bin prototype animation (cropped, plays open then close)
 media/snippets/     short silent clips (960×540) + poster frames
 media/full/         the full walkthroughs, all with captions: PiPath Traffic Lights, ArduinoPath
-                    Smart Bin in text and in blocks (ArduinoPath-SmartBin-blocks-walkthrough.mp4;
-                    its buttons switch on once that file is there)
+                    Smart Bin in text and in blocks
 ```
 
 ## Updating it
