@@ -732,5 +732,51 @@
     el.append(list, info);
   }
 
+  // ------------------------------------------------------------ "which path suits your class?" quiz
+  (function quiz() {
+    const card = $("#quiz .quiz-card");
+    if (!card) return;
+    const Q = [
+      ["What's on your students' desks?", [["🍓", "Raspberry Pis", 2], ["💻", "Windows or Mac laptops", -2], ["🤷", "A bit of both", 0]]],
+      ["Which language would you like them to learn?", [["🐍", "Python, the language used everywhere", 2], ["⚙️", "C++, like real Arduino makers use", -2], ["🤔", "Not sure yet", 0]]],
+      ["What would get them most excited?", [["📸", "A camera they teach to recognise things", 2], ["📶", "Gadgets they control from a phone over WiFi", -2], ["🚦", "Lights, buttons, buzzers and games", 0]]],
+    ];
+    let i = 0, score = 0;
+    function ask() {
+      card.innerHTML = "";
+      const dots = h("div", { class: "quiz-dots" }, Q.map((_, k) => h("i", { class: k <= i ? "on" : "" })));
+      card.append(dots, h("div", { class: "quiz-step" }, `Question ${i + 1} of ${Q.length}`), h("h3", {}, Q[i][0]));
+      const box = h("div", { class: "answers" });
+      Q[i][1].forEach(([emo, text, pts]) => box.append(h("button", { type: "button", onclick: () => { score += pts; i++; i < Q.length ? ask() : result(); } },
+        h("b", { "aria-hidden": "true" }, emo), text)));
+      card.append(box);
+      if (i) box.firstChild.focus();
+    }
+    function result() {
+      const pi = score > 1, ard = score < -1;
+      const name = pi ? "PiPath" : ard ? "ArduinoPath" : "Both!";
+      const why = pi ? "Python on Raspberry Pis, with cameras, sensors and a machine that learns. Perfect for a Pi lab."
+        : ard ? "Real Arduino C++ on the laptops you already have, from blinking lights to WiFi gadgets."
+        : "They share one way of learning, so students can start on either and move across. Try both demos and see which one your class lights up for.";
+      card.innerHTML = "";
+      card.append(h("div", { class: "result" }, h("div", { class: "quiz-step" }, "Our suggestion"),
+        h("div", { class: "big " + (pi ? "pi" : ard ? "ard" : "") }, name), h("p", {}, why),
+        h("div", { class: "row" },
+          pi || !ard ? h("a", { href: "#pipath", "data-go": "pipath" }, "Explore PiPath ▸") : null,
+          ard || !pi ? h("a", { href: "#arduinopath", "data-go": "arduinopath" }, "Explore ArduinoPath ▸") : null,
+          h("button", { type: "button", onclick: () => { i = 0; score = 0; ask(); } }, "↺ Start again"))));
+      if (pi || ard) confetti();
+    }
+    ask();
+  })();
+
+  // ------------------------------------------------------------ reading progress (inside an app's page)
+  const bar = h("div", { class: "progress", "aria-hidden": "true" });
+  document.body.append(bar);
+  addEventListener("scroll", () => {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    bar.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + "%";
+  }, { passive: true });
+
   show(location.hash.slice(1) || "home");
 })();
