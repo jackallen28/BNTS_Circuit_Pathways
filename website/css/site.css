@@ -614,3 +614,15 @@ a.cmp-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0
 .cube .l, .cube .r { top: 0; }
 .cube .t, .cube .u { left: 0; }
 .cube i { box-sizing: border-box; }
+/* shared features: no icons, a teal accent line instead */
+.sh { position: relative; padding: 22px 20px 20px; }
+.sh::before { content: ""; display: block; width: 36px; height: 4px; border-radius: 2px; margin: 0 auto 12px; background: linear-gradient(90deg, var(--teal), #a77bc6); }
+.sh h3 { margin: 0 0 6px; font-size: 19px; }
+/* program finder: look at both apps first */
+.finder-first { font-weight: 600; }
+.finder-first a { color: #9be7ec; }
+.finder-links { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 0 0 18px; }
+.fl { text-decoration: none; font-weight: 700; padding: 10px 20px; border-radius: 999px; transition: transform .2s; }
+.fl:hover { transform: translateY(-2px); }
+.fl-pi { background: var(--w95-desk); color: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.3); }
+.fl-ard { background: linear-gradient(180deg, #4fd9e0, var(--teal2)); color: #fff; box-shadow: 0 8px 22px rgba(11,154,161,.35); }

@@ -733,7 +733,7 @@
       h("tr", {}, h("th", {}, ""), h("th", {}, "MakeCode (micro:bit)"), h("th", {}, "ArduinoPath Blocks")),
       rows.map(([k, a, b]) => h("tr", {}, h("td", {}, k), h("td", {}, a), h("td", {}, b))));
     el.append(tabs, bodyEl, h("p", { class: "small", style: "margin:0;padding:6px 14px 10px;color:#556" }, "The Smart Bin's lid, both ways. The C++ the blocks make is always shown underneath, and that's what runs."),
-      h("div", { class: "mc-wrap" }, h("b", {}, "Feels like MakeCode, builds real Arduino"), table,
+      h("div", { class: "mc-wrap" }, h("b", {}, "Feels like MakeCode – but it builds real Arduino"), table,
         h("p", { class: "small", style: "margin:8px 0 0;color:#556" }, "The same checklist, Coach and Upload work in both blocks and text, and every project's starter code turns into blocks automatically.")));
   }
 
