@@ -460,3 +460,49 @@ body[data-view="arduinopath"] .sw-ard { background: linear-gradient(180deg, #4fd
   .gr .g-both { grid-column: 1 / 3; } .gh > span:first-child { display: none; } }
 .progress { position: fixed; left: 0; top: 0; height: 4px; width: 0; z-index: 30; background: linear-gradient(90deg, var(--teal), #b88ad6); display: none; }
 body:not([data-view="home"]) .progress { display: block; }
+
+/* ---------------------------------------------------------------- the 3D logo: glassy cubes + extruded text */
+.sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.logo3d { perspective: 1100px; margin: 10px 0 26px; }
+.l3-float { animation: float 6s ease-in-out infinite; }
+.l3-spin { position: relative; width: 304px; height: 152px; transform-style: preserve-3d; animation: spin3 16s linear infinite; }
+@keyframes spin3 { from { transform: rotateX(-10deg) rotateY(0); } to { transform: rotateX(-10deg) rotateY(360deg); } }
+.cube { position: absolute; left: calc(var(--x) * 38px); top: calc(var(--y) * 38px); width: 34px; height: 34px; transform-style: preserve-3d; }
+.cube i { position: absolute; background: var(--c);
+  background-image: linear-gradient(135deg, rgba(255,255,255,.55), rgba(255,255,255,0) 55%); border: 1px solid rgba(255,255,255,.35); }
+.cube .f { inset: 0; transform: translateZ(8px); opacity: .92; box-shadow: inset 0 0 10px rgba(255,255,255,.35); }
+.cube .b { inset: 0; transform: rotateY(180deg) translateZ(8px); opacity: .92; }
+.cube .l, .cube .r { width: 16px; height: 34px; left: 9px; filter: brightness(.72); }
+.cube .l { transform: rotateY(-90deg) translateZ(17px); } .cube .r { transform: rotateY(90deg) translateZ(17px); }
+.cube .t, .cube .u { width: 34px; height: 16px; top: 9px; filter: brightness(1.15); }
+.cube .t { transform: rotateX(90deg) translateZ(17px); } .cube .u { transform: rotateX(-90deg) translateZ(17px); filter: brightness(.6); }
+.l3-text { position: absolute; left: 84px; top: 76px; display: flex; flex-direction: column; line-height: 1; text-align: left;
+  transform: translateZ(calc(var(--z) * 1px + 8px)); color: #1d5560; font-family: "Segoe UI", Arial, sans-serif; pointer-events: none; }
+.l3-text[style="--z:0"] { color: #fff; text-shadow: 0 0 12px rgba(25,193,202,.45); }
+.l3-text[style="--z:-12"] { color: #0b2d34; }
+.l3-top { font-size: 12.5px; letter-spacing: 2.6px; font-weight: 600; margin-bottom: 6px; opacity: .95; }
+.l3-text[style="--z:0"] .l3-top { color: #cfeff1; }
+.l3-big { font-size: 31px; letter-spacing: 3px; font-weight: 800; }
+.logo3d .logo-shadow { margin-top: 26px; }
+@media (max-width: 520px) { .l3-spin { transform-origin: 50% 50%; } .logo3d { transform: scale(.8); margin: -6px 0 12px; } }
+
+/* ---------------------------------------------------------------- program finder */
+.finder { max-width: 1060px; margin: 0 auto 90px; padding: 0 16px; text-align: center; }
+.finder .eyebrow { display: block; }
+.finder h2 { font-size: clamp(28px, 4.4vw, 44px); margin: 6px 0 8px; }
+.finder > p { max-width: 720px; margin: 0 auto 18px; opacity: .92; }
+.finder-frame { border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.25), 0 30px 70px rgba(0,0,0,.45); background: #f6f4f9; }
+.finder-frame iframe { width: 100%; height: 820px; border: 0; display: block; transition: height .25s; }
+.finder-cta { display: inline-block; margin-top: 14px; padding: 12px 22px; border-radius: 999px; font-weight: 700; text-decoration: none; color: #2b2140;
+  background: linear-gradient(180deg, #ffe58a, #ffd54a); box-shadow: 0 10px 26px rgba(255,213,74,.35); transition: transform .2s; }
+.finder-cta:hover { transform: translateY(-2px) scale(1.03); }
+.hero-cta { margin: 18px 0 0; }
+
+/* ---------------------------------------------------------------- MakeCode comparison */
+.mc-wrap { padding: 12px 14px 14px; border-top: 1px solid #dde7eb; background: #f6fafb; }
+.mc-wrap > b { color: #0b6f78; }
+.mc { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+.mc th { text-align: left; font-size: 12px; letter-spacing: .4px; text-transform: uppercase; color: #556; padding: 4px 6px; }
+.mc td { padding: 6px; border-top: 1px solid #e1e9ec; vertical-align: top; }
+.mc td:first-child { font-weight: 700; color: #334; width: 28%; }
+.mc td:last-child { color: #0b6f78; font-weight: 600; }

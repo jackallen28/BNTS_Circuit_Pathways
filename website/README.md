@@ -9,7 +9,11 @@ any web server. (Nothing is sent anywhere: no trackers, no fonts or scripts from
 
 ## What's on it
 
-- **Home:** the floating glass BNTS logo, "Where do you want to explore?", and what the two apps share.
+- **Home:** an overview: the spinning 3D BNTS logo (the pixel squares and the words), "Where do you want to explore?",
+  what the two apps share, and then the **Program finder** (`#finder`).
+- **Program finder** (`program-finder.html`, embedded at the end of the home page and linked from
+  both app pages): seven questions about the class that recommend a program, a platform and a
+  version, with curriculum links. It also opens on its own.
 - **PiPath** (`#pipath`) and **ArduinoPath** (`#arduinopath`): a scrolling story following Mia
   through one project each, mixing:
   - short silent clips from the apps (`media/snippets/`), some with numbered notes that pause the
@@ -20,25 +24,29 @@ any web server. (Nothing is sent anywhere: no trackers, no fonts or scripts from
     - **ArduinoPath:** the Wiring Wizard for the ultrasonic distance sensor (meet it, wire it,
       the forced test, then program it with the Serial Monitor)
   - small interactive bits: help levels, nudge cards, gradual release, text or blocks, boards
-  - everything else listed as **Available in the Circuit Pathways release app**
-  - the **full walkthrough videos** (with captions) at the bottom (`media/full/`)
+  - the rest of each app's activities and projects (everything shown on the site and in the videos
+    is in the release version)
+  - ArduinoPath's blocks compared with MakeCode on the micro:bit
+  - the **full walkthrough videos** at the bottom (`media/full/`), always with captions
 
 ## Files
 
 ```
 index.html          the page (all three views)
+program-finder.html the program finder (self-contained; tells the page its height when embedded)
 css/site.css        the look: BNTS colours, Windows 95 bits for PiPath, Vista glass for ArduinoPath
 js/site.js          views, scroll reveals, clips + notes, the two demos
 js/data.js          activity / project / part / board lists, made from the two apps' own content
 img/                the BNTS logo and pixel mark
 media/snippets/     short silent clips (960×540) + poster frames
-media/full/         the full walkthroughs: PiPath Traffic Lights (captions), ArduinoPath Smart Bin
-                    (text with captions; blocks)
+media/full/         the full walkthroughs, all with captions: PiPath Traffic Lights, ArduinoPath
+                    Smart Bin in text and in blocks (ArduinoPath-SmartBin-blocks-walkthrough.mp4;
+                    its button only appears once that file is there)
 ```
 
 ## Updating it
 
-- **New walkthrough videos:** replace the files in `media/full/` (same names), then re-cut the
+- **New walkthrough videos:** replace the files in `media/full/` (same names, captioned versions only), then re-cut the
   snippets with ffmpeg from the clean versions, e.g.
   `ffmpeg -ss 57 -i clean.mp4 -t 8 -an -vf scale=960:540 -c:v libx264 -crf 27 -movflags +faststart media/snippets/pi-coach.mp4`
   plus a poster: `ffmpeg -ss 61.8 -i clean.mp4 -frames:v 1 -vf scale=960:540 media/snippets/pi-coach.jpg`.

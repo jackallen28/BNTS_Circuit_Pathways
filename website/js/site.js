@@ -32,10 +32,12 @@
   // ------------------------------------------------------------ views (home / pipath / arduinopath)
   const ready = {};
   function show(view) {
+    const toFinder = view === "finder";
     if (!["home", "pipath", "arduinopath"].includes(view)) view = "home";
     document.body.dataset.view = view;
     if (!ready[view]) { ready[view] = true; build(view); }
-    window.scrollTo(0, 0);
+    if (toFinder) setTimeout(() => { const f = $("#finder"); f.classList.add("in"); f.scrollIntoView({ behavior: reduced ? "auto" : "smooth" }); }, 60);
+    else window.scrollTo(0, 0);
     pauseHidden();
     document.title = view === "home" ? "Circuit Pathways" : `${view === "pipath" ? "PiPath" : "ArduinoPath"} · Circuit Pathways`;
   }
@@ -45,6 +47,7 @@
     e.preventDefault();
     const v = a.dataset.go;
     history.pushState(null, "", v === "home" ? location.pathname : "#" + v);
+    if (v === "finder" && document.body.dataset.view === "home") { const f = $("#finder"); f.classList.add("in"); f.scrollIntoView({ behavior: reduced ? "auto" : "smooth" }); return; }
     show(v);
   });
   addEventListener("popstate", () => show(location.hash.slice(1) || "home"));
@@ -209,15 +212,14 @@
           h("span", { class: "tier", style: `background:${TIER_COLOURS[p.tier] || "#555"}` }, t.title),
           h("h4", {}, p.title), h("p", {}, p.subtitle || p.intro || ""),
           needs ? h("div", { class: "needs" }, "Needs " + needs) : null,
-          h("div", { class: "in-app" }, p.id === here ? (app === "arduinopath" ? "◉ Shown on this page · coming in the next release" : "◉ Shown on this page")
-            : "★ In the Circuit Pathways release app")));
+          h("div", { class: "in-app" }, p.id === here ? "◉ Shown on this page" : `★ In ${app === "pipath" ? "PiPath" : "ArduinoPath"}`)));
       });
     }
     draw("all");
     const extra = app === "pipath"
       ? "Plus Free Play, a camera you can teach to recognise things, and your Pi's own numbers, all offline."
       : "Plus Free Play (a blank sketch with the simulator and a real board), and WiFi projects you control from a pretend phone.";
-    el.append(filter, grid, h("div", { class: "release" }, h("b", {}, "Available in the Circuit Pathways release app"), h("p", {}, extra)));
+    el.append(filter, grid, h("div", { class: "release" }, h("b", {}, "Everything on this page and in the videos is in the release version"), h("p", {}, extra)));
   }
 
   // ------------------------------------------------------------ full-walkthrough player
@@ -444,7 +446,7 @@
       coach.innerHTML = "<h5>COACH · NICE WORK</h5><h6>Step complete!</h6><p>You just controlled a light with code. Every traffic light starts here!</p>";
       stars.textContent = "★".repeat(st) + "☆".repeat(3 - st);
       coach.append(stars, h("p", { class: "small" }, hintsUsed ? `${hintsUsed} hint${hintsUsed > 1 ? "s" : ""} used. Stars count hints, not speed.` : "No hints used: three stars for independence!"),
-        h("p", { class: "small" }, "The other 6 steps (and 23 more activities) are in the release app."),
+        h("p", { class: "small" }, "The other 6 steps, and 23 more activities, are waiting in PiPath."),
         h("button", { class: "b95", type: "button", onclick: reset }, "Try again"));
       confetti();
     });
@@ -670,7 +672,7 @@
             coach.append(h("h6", {}, "Step complete!"), h("p", {}, "Your bin can measure how far away your hand is, with sound!"),
               h("div", { class: "stars", style: "font-size:30px" }, "★".repeat(st) + "☆".repeat(3 - st)),
               h("p", { class: "small" }, st === 3 ? "All on your own!" : "Hints helped you get there."),
-              h("p", { class: "small" }, "The lid, the servo and the light are steps 1, 3 and 4, coming with the Smart Bin in the next release."));
+              h("p", { class: "small" }, "The lid, the servo and the light are steps 1, 3 and 4 of the Smart Bin in ArduinoPath."));
             confetti();
           }
         }, 300);
@@ -710,7 +712,19 @@
     [["Blocks", blocks], ["Text (C++)", text]].forEach(([n, f], i) => tabs.append(h("button", { type: "button", class: i ? "" : "on", onclick: (e) => {
       $$("button", tabs).forEach((b) => b.classList.toggle("on", b === e.currentTarget)); bodyEl.innerHTML = ""; bodyEl.append(f()); } }, n)));
     bodyEl.append(blocks());
-    el.append(tabs, bodyEl, h("p", { class: "small", style: "margin:0;padding:6px 14px 10px;color:#556" }, "The Smart Bin's lid, both ways. In the app, the C++ your blocks make is always shown underneath, and that's what runs."));
+    const rows = [
+      ["Getting started", "on start", "when the board starts"],
+      ["Repeating", "forever", "forever"],
+      ["See the real code", "JavaScript or Python", "Arduino C++ (what goes on the board)"],
+      ["Hardware", "the micro:bit", "Arduino Uno, Nano, ESP boards and any breadboard part"],
+      ["When they're ready", "type JavaScript or Python", "type C++ for the same project"],
+    ];
+    const table = h("table", { class: "mc" },
+      h("tr", {}, h("th", {}, ""), h("th", {}, "MakeCode (micro:bit)"), h("th", {}, "ArduinoPath Blocks")),
+      rows.map(([k, a, b]) => h("tr", {}, h("td", {}, k), h("td", {}, a), h("td", {}, b))));
+    el.append(tabs, bodyEl, h("p", { class: "small", style: "margin:0;padding:6px 14px 10px;color:#556" }, "The Smart Bin's lid, both ways. The C++ the blocks make is always shown underneath, and that's what runs."),
+      h("div", { class: "mc-wrap" }, h("b", {}, "Feels like MakeCode, builds real Arduino"), table,
+        h("p", { class: "small", style: "margin:8px 0 0;color:#556" }, "The same checklist, Coach and Upload work in both blocks and text, and every project's starter code turns into blocks automatically.")));
   }
 
   // ------------------------------------------------------------ boards
@@ -732,43 +746,22 @@
     el.append(list, info);
   }
 
-  // ------------------------------------------------------------ "which path suits your class?" quiz
-  (function quiz() {
-    const card = $("#quiz .quiz-card");
-    if (!card) return;
-    const Q = [
-      ["What's on your students' desks?", [["🍓", "Raspberry Pis", 2], ["💻", "Windows or Mac laptops", -2], ["🤷", "A bit of both", 0]]],
-      ["Which language would you like them to learn?", [["🐍", "Python, the language used everywhere", 2], ["⚙️", "C++, like real Arduino makers use", -2], ["🤔", "Not sure yet", 0]]],
-      ["What would get them most excited?", [["📸", "A camera they teach to recognise things", 2], ["📶", "Gadgets they control from a phone over WiFi", -2], ["🚦", "Lights, buttons, buzzers and games", 0]]],
-    ];
-    let i = 0, score = 0;
-    function ask() {
-      card.innerHTML = "";
-      const dots = h("div", { class: "quiz-dots" }, Q.map((_, k) => h("i", { class: k <= i ? "on" : "" })));
-      card.append(dots, h("div", { class: "quiz-step" }, `Question ${i + 1} of ${Q.length}`), h("h3", {}, Q[i][0]));
-      const box = h("div", { class: "answers" });
-      Q[i][1].forEach(([emo, text, pts]) => box.append(h("button", { type: "button", onclick: () => { score += pts; i++; i < Q.length ? ask() : result(); } },
-        h("b", { "aria-hidden": "true" }, emo), text)));
-      card.append(box);
-      if (i) box.firstChild.focus();
-    }
-    function result() {
-      const pi = score > 1, ard = score < -1;
-      const name = pi ? "PiPath" : ard ? "ArduinoPath" : "Both!";
-      const why = pi ? "Python on Raspberry Pis, with cameras, sensors and a machine that learns. Perfect for a Pi lab."
-        : ard ? "Real Arduino C++ on the laptops you already have, from blinking lights to WiFi gadgets."
-        : "They share one way of learning, so students can start on either and move across. Try both demos and see which one your class lights up for.";
-      card.innerHTML = "";
-      card.append(h("div", { class: "result" }, h("div", { class: "quiz-step" }, "Our suggestion"),
-        h("div", { class: "big " + (pi ? "pi" : ard ? "ard" : "") }, name), h("p", {}, why),
-        h("div", { class: "row" },
-          pi || !ard ? h("a", { href: "#pipath", "data-go": "pipath" }, "Explore PiPath ▸") : null,
-          ard || !pi ? h("a", { href: "#arduinopath", "data-go": "arduinopath" }, "Explore ArduinoPath ▸") : null,
-          h("button", { type: "button", onclick: () => { i = 0; score = 0; ask(); } }, "↺ Start again"))));
-      if (pi || ard) confetti();
-    }
-    ask();
-  })();
+  // ------------------------------------------------------------ the program finder (embedded): size the frame to fit
+  addEventListener("message", (e) => {
+    const d = e.data;
+    if (!d || d.type !== "cp-finder-height") return;
+    const f = $("#finder iframe");
+    if (f) f.style.height = Math.max(420, Math.ceil(d.height) + 2) + "px";
+  });
+
+  // a walkthrough button whose video isn't in the folder yet stays hidden
+  $$(".play-full[data-optional]").forEach((b) => {
+    b.hidden = true;
+    const v = document.createElement("video");
+    v.preload = "metadata"; v.muted = true;
+    v.addEventListener("loadedmetadata", () => { b.hidden = false; $$("[data-blocks-note]").forEach((n) => { n.hidden = false; }); }, { once: true });
+    v.src = b.dataset.video;
+  });
 
   // ------------------------------------------------------------ reading progress (inside an app's page)
   const bar = h("div", { class: "progress", "aria-hidden": "true" });
