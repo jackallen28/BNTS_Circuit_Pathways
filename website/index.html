@@ -18,8 +18,9 @@
 <header class="topbar" aria-label="Site">
   <a class="brand" href="#" data-go="home"><img src="img/bnts-mark.svg" alt=""><span>Circuit Pathways</span></a>
   <nav class="switch" aria-label="Choose an app">
-    <a href="#pipath" data-go="pipath" class="sw sw-pi">PiPath</a>
     <a href="#arduinopath" data-go="arduinopath" class="sw sw-ard">ArduinoPath</a>
+    <a href="#pipath" data-go="pipath" class="sw sw-pi">PiPath</a>
+    <a href="#compare" data-go="compare" class="sw sw-cmp">Compare the Pair</a>
   </nav>
 </header>
 
@@ -59,8 +60,8 @@
         </span>
       </a>
     </div>
-    <a class="finder-cta hero-cta" href="#finder" data-go="finder">Not sure? Find the right program for your students ▸</a>
-    <p class="scroll-hint">or scroll for the overview, then find the right program for your students <span aria-hidden="true">▾</span></p>
+    <a class="cmp-link" href="#compare" data-go="compare">Or <b>compare the pair</b>: PiPath, ArduinoPath and the micro:bit side by side ▸</a>
+    <p class="scroll-hint">Scroll for the overview <span aria-hidden="true">▾</span></p>
   </div>
 
   <div class="shared reveal">
@@ -206,10 +207,15 @@
 
   <article class="chapter" data-chapter="Full walkthrough">
     <div class="full reveal">
-      <h2>Watch Mia's whole Traffic Lights project</h2>
-      <p>The full walkthrough, with captions (2 min 44 s).</p>
-      <button class="play-full" data-video="media/full/PiPath-TrafficLights-walkthrough.mp4" data-title="PiPath: Traffic Lights walkthrough"><span>▶</span> Play the full walkthrough</button>
-      <p class="small"><a href="media/full/PiPath-TrafficLights-walkthrough.mp4" download>Download the video</a> · <a href="#arduinopath" data-go="arduinopath">Explore ArduinoPath next ▸</a></p>
+      <div class="full-head">
+        <div>
+          <h2>Watch Mia's whole Traffic Lights project</h2>
+          <p>The full walkthrough, with captions (2 min 44 s).</p>
+          <button class="play-full" data-video="media/full/PiPath-TrafficLights-walkthrough.mp4" data-title="PiPath: Traffic Lights walkthrough, with captions"><span>▶</span> Play the full walkthrough</button>
+        </div>
+        <figure class="bin-loop"><video src="media/extra/smartbin-loop.mp4" poster="media/extra/smartbin-loop.jpg" muted loop playsinline autoplay aria-label="The Smart Bin prototype: the lid opens, then closes"></video><figcaption>The Smart Bin: a project students build in the program</figcaption></figure>
+      </div>
+      <p class="small"><a href="media/full/PiPath-TrafficLights-walkthrough.mp4" download>Download the video</a> · <a href="#arduinopath" data-go="arduinopath">Explore ArduinoPath ▸</a> · <a href="#compare" data-go="compare">Compare the pair ▸</a></p>
       <a class="finder-cta" href="#finder" data-go="finder">Which program is right for your students? ▸</a>
     </div>
   </article>
@@ -317,9 +323,9 @@
   <article class="chapter" data-chapter="Boards">
     <div class="story wide reveal">
       <span class="num">9</span>
-      <h2>Works with the board on the desk</h2>
-      <p>Pick a board to see where the distance sensor plugs in. The wizard, the simulator, the test and the code all follow the same pin plan.</p>
-      <div class="boards" id="boards-demo"></div>
+      <h2>One project, many boards</h2>
+      <p>The same Smart Bin runs on every one of these. Students pick the board on their desk, and ArduinoPath does the rest.</p>
+      <div class="board-gallery" id="boards-demo"></div>
     </div>
   </article>
 
@@ -334,24 +340,98 @@
 
   <article class="chapter" data-chapter="Full walkthroughs">
     <div class="full reveal">
-      <h2>Watch Mia's whole Smart Bin project</h2>
-      <p>Full walkthroughs with captions: Mia in typed code (11 min 43 s)<span data-blocks-note hidden>, and again in blocks</span>.</p>
-      <div class="full-buttons">
-        <button class="play-full" data-video="media/full/ArduinoPath-SmartBin-text-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in text, with captions"><span>▶</span> Text version (captions)</button>
-        <button class="play-full alt" data-video="media/full/ArduinoPath-SmartBin-blocks-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in blocks, with captions" data-optional><span>▶</span> Blocks version (captions)</button>
+      <div class="full-head">
+        <div>
+          <h2>Watch Mia's whole Smart Bin project</h2>
+          <p>Two full walkthroughs, both with captions: the same project in typed code and in blocks.</p>
+        </div>
+        <figure class="bin-loop"><video src="media/extra/smartbin-loop.mp4" poster="media/extra/smartbin-loop.jpg" muted loop playsinline autoplay aria-label="The Smart Bin prototype: the lid opens, then closes"></video><figcaption>The Smart Bin: the lid opens when a hand comes close</figcaption></figure>
       </div>
-      <p class="small"><a href="media/full/ArduinoPath-SmartBin-text-walkthrough.mp4" download>Download the text version</a> · <a href="#pipath" data-go="pipath">Explore PiPath ▸</a></p>
+      <div class="walks">
+        <div class="walk">
+          <button class="walk-pic play-full" data-video="media/full/ArduinoPath-SmartBin-text-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in typed code, with captions">
+            <img src="media/full/code-text.jpg" alt="ArduinoPath in Text mode: the Smart Bin's C++ code" loading="lazy"><span class="walk-play">▶</span></button>
+          <h3>Typed code (C++)</h3>
+          <p>Mia writes the Smart Bin in real Arduino code (11 min 43 s).</p>
+          <button class="play-full" data-video="media/full/ArduinoPath-SmartBin-text-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in typed code, with captions"><span>▶</span> Text version (captions)</button>
+        </div>
+        <div class="walk">
+          <button class="walk-pic play-full" data-video="media/full/ArduinoPath-SmartBin-blocks-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in blocks, with captions" data-needs-video>
+            <img src="media/full/code-blocks.jpg" alt="ArduinoPath in Blocks mode: the Smart Bin built from blocks, with its C++ underneath" loading="lazy"><span class="walk-play">▶</span></button>
+          <h3>Blocks</h3>
+          <p>The same project built from blocks, with the C++ shown underneath.</p>
+          <button class="play-full" data-video="media/full/ArduinoPath-SmartBin-blocks-walkthrough.mp4" data-title="ArduinoPath: Smart Bin in blocks, with captions" data-needs-video><span>▶</span> Blocks version (captions)</button>
+          <p class="small walk-soon" hidden>The captioned blocks video is on its way.</p>
+        </div>
+      </div>
+      <p class="small"><a href="#pipath" data-go="pipath">Explore PiPath ▸</a> · <a href="#compare" data-go="compare">Compare the pair ▸</a></p>
       <a class="finder-cta" href="#finder" data-go="finder">Which program is right for your students? ▸</a>
     </div>
   </article>
 </section>
 
+
+<!-- ============================================================ COMPARE THE PAIR -->
+<section class="view compare" id="compare" aria-label="Compare the pair">
+  <div class="cmp-hero reveal">
+    <p class="eyebrow">Compare the pair</p>
+    <h1>PiPath or ArduinoPath?</h1>
+    <p class="lede">Both teach real coding with real electronics, one small step at a time. Here's how they differ, with the <b>micro:bit</b> beside them, because that's where many students start.</p>
+  </div>
+
+  <div class="cmp-cards reveal">
+    <a class="cmp-card cc-pi" href="#pipath" data-go="pipath">
+      <span class="cc-art" aria-hidden="true"><svg viewBox="0 0 170 112"><rect x="4" y="6" width="162" height="100" rx="8" fill="#3f9b4b"/><rect x="4" y="6" width="162" height="100" rx="8" fill="none" stroke="#2c7537" stroke-width="2"/><g fill="#d8b43c"><rect x="18.0" y="10" width="4.4" height="4.4"/><rect x="18.0" y="16" width="4.4" height="4.4"/><rect x="25.2" y="10" width="4.4" height="4.4"/><rect x="25.2" y="16" width="4.4" height="4.4"/><rect x="32.4" y="10" width="4.4" height="4.4"/><rect x="32.4" y="16" width="4.4" height="4.4"/><rect x="39.6" y="10" width="4.4" height="4.4"/><rect x="39.6" y="16" width="4.4" height="4.4"/><rect x="46.8" y="10" width="4.4" height="4.4"/><rect x="46.8" y="16" width="4.4" height="4.4"/><rect x="54.0" y="10" width="4.4" height="4.4"/><rect x="54.0" y="16" width="4.4" height="4.4"/><rect x="61.2" y="10" width="4.4" height="4.4"/><rect x="61.2" y="16" width="4.4" height="4.4"/><rect x="68.4" y="10" width="4.4" height="4.4"/><rect x="68.4" y="16" width="4.4" height="4.4"/><rect x="75.6" y="10" width="4.4" height="4.4"/><rect x="75.6" y="16" width="4.4" height="4.4"/><rect x="82.8" y="10" width="4.4" height="4.4"/><rect x="82.8" y="16" width="4.4" height="4.4"/><rect x="90.0" y="10" width="4.4" height="4.4"/><rect x="90.0" y="16" width="4.4" height="4.4"/><rect x="97.2" y="10" width="4.4" height="4.4"/><rect x="97.2" y="16" width="4.4" height="4.4"/><rect x="104.4" y="10" width="4.4" height="4.4"/><rect x="104.4" y="16" width="4.4" height="4.4"/><rect x="111.6" y="10" width="4.4" height="4.4"/><rect x="111.6" y="16" width="4.4" height="4.4"/><rect x="118.8" y="10" width="4.4" height="4.4"/><rect x="118.8" y="16" width="4.4" height="4.4"/><rect x="126.0" y="10" width="4.4" height="4.4"/><rect x="126.0" y="16" width="4.4" height="4.4"/><rect x="133.2" y="10" width="4.4" height="4.4"/><rect x="133.2" y="16" width="4.4" height="4.4"/><rect x="140.4" y="10" width="4.4" height="4.4"/><rect x="140.4" y="16" width="4.4" height="4.4"/><rect x="147.6" y="10" width="4.4" height="4.4"/><rect x="147.6" y="16" width="4.4" height="4.4"/><rect x="154.8" y="10" width="4.4" height="4.4"/><rect x="154.8" y="16" width="4.4" height="4.4"/></g><rect x="64" y="44" width="34" height="34" rx="2" fill="#2a2a2a"/><rect x="134" y="30" width="34" height="24" fill="#c8ccd0"/><rect x="134" y="62" width="34" height="24" fill="#c8ccd0"/><rect x="124" y="88" width="44" height="16" fill="#b5bbc0"/><circle cx="14" cy="98" r="4" fill="#fff" opacity=".8"/><circle cx="14" cy="14" r="0" /></svg></span>
+      <span class="cc-name">PiPath</span><span class="cc-what">Python on the Raspberry Pi</span><span class="cc-go">Explore PiPath ▸</span></a>
+    <a class="cmp-card cc-ard" href="#arduinopath" data-go="arduinopath">
+      <span class="cc-art" aria-hidden="true"><img src="img/fritzing/uno.svg" alt=""></span>
+      <span class="cc-name">ArduinoPath</span><span class="cc-what">Blocks or C++ on Arduino and ESP boards</span><span class="cc-go">Explore ArduinoPath ▸</span></a>
+    <div class="cmp-card cc-mb">
+      <span class="cc-art" aria-hidden="true"><svg viewBox="0 0 170 112"><path d="M20 8h130a12 12 0 0 1 12 12v62H8V20A12 12 0 0 1 20 8z" fill="#2b2b2b"/><g fill="#ff3b30"><rect x="71" y="32" width="5" height="5" rx="1"/><rect x="91" y="32" width="5" height="5" rx="1"/><rect x="61" y="52" width="5" height="5" rx="1"/><rect x="101" y="52" width="5" height="5" rx="1"/><rect x="71" y="62" width="5" height="5" rx="1"/><rect x="81" y="62" width="5" height="5" rx="1"/><rect x="91" y="62" width="5" height="5" rx="1"/></g><g fill="#555"><rect x="61" y="22" width="5" height="5" rx="1"/><rect x="71" y="22" width="5" height="5" rx="1"/><rect x="81" y="22" width="5" height="5" rx="1"/><rect x="91" y="22" width="5" height="5" rx="1"/><rect x="101" y="22" width="5" height="5" rx="1"/><rect x="61" y="32" width="5" height="5" rx="1"/><rect x="81" y="32" width="5" height="5" rx="1"/><rect x="101" y="32" width="5" height="5" rx="1"/><rect x="61" y="42" width="5" height="5" rx="1"/><rect x="71" y="42" width="5" height="5" rx="1"/><rect x="81" y="42" width="5" height="5" rx="1"/><rect x="91" y="42" width="5" height="5" rx="1"/><rect x="101" y="42" width="5" height="5" rx="1"/><rect x="71" y="52" width="5" height="5" rx="1"/><rect x="81" y="52" width="5" height="5" rx="1"/><rect x="91" y="52" width="5" height="5" rx="1"/><rect x="61" y="62" width="5" height="5" rx="1"/><rect x="101" y="62" width="5" height="5" rx="1"/></g><circle cx="30" cy="45" r="8" fill="#111" stroke="#777"/><circle cx="140" cy="45" r="8" fill="#111" stroke="#777"/><path d="M8 82h154v10a8 8 0 0 1-8 8H16a8 8 0 0 1-8-8z" fill="#c9a43a"/><g fill="#2b2b2b"><circle cx="30" cy="92" r="5"/><circle cx="62" cy="92" r="5"/><circle cx="94" cy="92" r="5"/><circle cx="126" cy="92" r="5"/><circle cx="150" cy="92" r="4"/></g></svg></span>
+      <span class="cc-name">micro:bit</span><span class="cc-what">MakeCode blocks, JavaScript or Python</span><span class="cc-go muted">Where many students start</span></div>
+  </div>
+
+  <div class="cmp-pick reveal">
+    <h2>What do your students want to do?</h2>
+    <div class="cmp-chips" role="group" aria-label="What do your students want to do?"><button type="button" data-fit="ard mb" data-say="Blocks: the micro:bit's MakeCode, or ArduinoPath's Blocks for real Arduino projects.">Start with blocks</button><button type="button" data-fit="pi mb" data-say="Python: PiPath on the Raspberry Pi, or MicroPython on the micro:bit.">Learn Python</button><button type="button" data-fit="ard" data-say="Real C++: ArduinoPath, with the Coach explaining every compiler error.">Learn real C++</button><button type="button" data-fit="ard" data-say="Gadgets: ArduinoPath, with servos, sensors and displays on a breadboard.">Build gadgets with motors and sensors</button><button type="button" data-fit="pi" data-say="Camera and AI: PiPath, where students train their own classifier.">Use a camera and AI</button><button type="button" data-fit="ard" data-say="Phone control: ArduinoPath's WiFi projects on an ESP board.">Control it from a phone</button><button type="button" data-fit="mb ard" data-say="Quick wins: the micro:bit, or ArduinoPath in blocks.">Quick wins in one lesson</button></div>
+    <p class="cmp-say" aria-live="polite"></p>
+  </div>
+
+  <div class="cmp-wrap reveal">
+    <table class="cmp-table">
+      <thead><tr><th></th><th class="c-pi" scope="col">PiPath</th><th class="c-ard" scope="col">ArduinoPath</th><th class="c-mb" scope="col">micro:bit</th></tr></thead>
+      <tbody>
+          <tr><th scope="row">The board</th><td class="c-pi">Raspberry Pi 3B: a whole computer</td><td class="c-ard">Arduino Uno or Nano, or an ESP board (NodeMCU, ESP32)</td><td class="c-mb">BBC micro:bit</td></tr>
+          <tr><th scope="row">Students code in</th><td class="c-pi">Python</td><td class="c-ard">Blocks or real Arduino C++, and they can switch any time</td><td class="c-mb">MakeCode blocks, JavaScript or Python</td></tr>
+          <tr><th scope="row">Where it runs</th><td class="c-pi">On the Pi itself, with a screen and keyboard</td><td class="c-ard">On the student's laptop (Windows or Mac). Upload sends the code to the board over USB</td><td class="c-mb">In a web browser, then copied to the micro:bit over USB</td></tr>
+          <tr><th scope="row">Hands-on parts</th><td class="c-pi">LEDs, buttons, buzzers, an ultrasonic sensor and a camera, on a GPIO HAT</td><td class="c-ard">LEDs, buttons, servos, sensors, displays and NeoPixels, on a breadboard</td><td class="c-mb">Built-in lights, buttons and sensors, plus crocodile clips</td></tr>
+          <tr><th scope="row">Wiring help</th><td class="c-pi">A wiring card for every part, then Check my wiring</td><td class="c-ard">The Wiring Wizard: meet each part, wire it, then a test before coding</td><td class="c-mb">Crocodile clips straight onto the pins</td></tr>
+          <tr><th scope="row">On-screen simulator</th><td class="c-pi">Yes: the board on screen, then the real pins</td><td class="c-ard">Yes: a breadboard on screen, then the real board</td><td class="c-mb">Yes: the MakeCode simulator</td></tr>
+          <tr><th scope="row">Help built in</th><td class="c-pi">The Coach for every error, help levels, hints and stars</td><td class="c-ard">The Coach for every error, help levels, hints and stars</td><td class="c-mb">Tutorials and hints in MakeCode</td></tr>
+          <tr><th scope="row">Big ideas</th><td class="c-pi">Camera and machine learning, the Pi's own numbers, files and data</td><td class="c-ard">WiFi projects controlled from a phone, motors and sensors</td><td class="c-mb">Radio between micro:bits, quick wins</td></tr>
+          <tr><th scope="row">Activities</th><td class="c-pi">24 step-by-step activities, plus Free Play</td><td class="c-ard">23 step-by-step projects, plus Free Play</td><td class="c-mb">MakeCode's tutorials and projects</td></tr>
+          <tr><th scope="row">A great fit for</th><td class="c-pi">Students ready for typed code, curious about computers, data and AI</td><td class="c-ard">Students who love building gadgets. Blocks make it a first step too</td><td class="c-mb">First steps in coding and electronics</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cmp-path reveal">
+    <h2>A pathway, not just a choice</h2>
+    <p>Many students go further one step at a time. Each step keeps what they already know.</p>
+    <ol class="steps-path">
+      <li class="sp-mb"><b>micro:bit</b><span>Blocks and quick wins</span></li>
+      <li class="sp-ard"><b>ArduinoPath in Blocks</b><span>Real Arduino parts, still in blocks</span></li>
+      <li class="sp-ard2"><b>ArduinoPath in C++</b><span>The same projects, typed. WiFi on ESP boards</span></li>
+      <li class="sp-pi"><b>PiPath</b><span>Python, data, a camera and AI</span></li>
+    </ol>
+    <a class="finder-cta" href="#finder" data-go="finder">Which program is right for your students? ▸</a>
+  </div>
+</section>
 </main>
 
 <footer class="foot">
   <img src="img/bnts-mark.svg" alt="">
-  <p><b>Circuit Pathways</b>: PiPath and ArduinoPath, by the Banyule Nillumbik Tech School. Developed by BNTS and reviewed by teachers. No AI: everything runs locally, and student work stays on the student's computer.</p>
-  <p class="small">Part pictures in ArduinoPath come from the Fritzing parts library (CC BY-SA 3.0).</p>
+  <p class="small">Part and board pictures come from the Fritzing parts library (CC BY-SA 3.0), as in ArduinoPath.</p>
 </footer>
 
 <!-- the full-walkthrough player -->

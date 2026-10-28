@@ -33,13 +33,13 @@
   const ready = {};
   function show(view) {
     const toFinder = view === "finder";
-    if (!["home", "pipath", "arduinopath"].includes(view)) view = "home";
+    if (!["home", "pipath", "arduinopath", "compare"].includes(view)) view = "home";
     document.body.dataset.view = view;
     if (!ready[view]) { ready[view] = true; build(view); }
     if (toFinder) setTimeout(() => { const f = $("#finder"); f.classList.add("in"); f.scrollIntoView({ behavior: reduced ? "auto" : "smooth" }); }, 60);
     else window.scrollTo(0, 0);
     pauseHidden();
-    document.title = view === "home" ? "Circuit Pathways" : `${view === "pipath" ? "PiPath" : "ArduinoPath"} · Circuit Pathways`;
+    document.title = view === "home" ? "Circuit Pathways" : `${{ pipath: "PiPath", arduinopath: "ArduinoPath", compare: "Compare the pair" }[view]} · Circuit Pathways`;
   }
   document.addEventListener("click", (e) => {
     const a = e.target.closest("[data-go]");
@@ -56,6 +56,7 @@
   function build(view) {
     if (view === "home") return;
     const root = document.getElementById(view);
+    if (view === "compare") { compare(root); observe(root); return; }
     $$(".shot", root).forEach(buildShot);
     $$("[data-levels]", root).forEach(buildLevels);
     $$("[data-fade]", root).forEach(buildFade);
@@ -80,7 +81,7 @@
   }), { threshold: [0, 0.45, 0.8] });
   function observe(root) {
     $$(".reveal", root).forEach((el) => revealer.observe(el));
-    $$(".shot video", root).forEach((v) => player.observe(v));
+    $$(".shot video, .bin-loop video", root).forEach((v) => player.observe(v));
   }
   $$(".home .reveal").forEach((el) => revealer.observe(el));
   function pauseHidden() { $$("video").forEach((v) => { if (!v.offsetParent) v.pause(); }); }
@@ -216,10 +217,7 @@
       });
     }
     draw("all");
-    const extra = app === "pipath"
-      ? "Plus Free Play, a camera you can teach to recognise things, and your Pi's own numbers, all offline."
-      : "Plus Free Play (a blank sketch with the simulator and a real board), and WiFi projects you control from a pretend phone.";
-    el.append(filter, grid, h("div", { class: "release" }, h("b", {}, "Everything on this page and in the videos is in the release version"), h("p", {}, extra)));
+    el.append(filter, grid);
   }
 
   // ------------------------------------------------------------ full-walkthrough player
@@ -467,15 +465,43 @@
   }
 
   // ============================================================ ArduinoPath lab: the ultrasonic sensor
-  function sonarSVG(px = 120) {
-    return `<svg width="${px}" viewBox="0 0 120 64" aria-hidden="true"><rect x="2" y="4" width="116" height="48" rx="4" fill="#1d5fa8" stroke="#123d6e"/>
-      <circle cx="30" cy="28" r="19" fill="#c9ced3" stroke="#7d8790" stroke-width="3"/><circle cx="30" cy="28" r="11" fill="#2b2f33"/>
-      <circle cx="90" cy="28" r="19" fill="#c9ced3" stroke="#7d8790" stroke-width="3"/><circle cx="90" cy="28" r="11" fill="#2b2f33"/>
-      <rect x="54" y="8" width="12" height="6" rx="1" fill="#c0c6cc"/>
-      ${["VCC", "Trig", "Echo", "Gnd"].map((t, i) => `<rect x="${41 + i * 10}" y="52" width="3" height="11" fill="#d6b24a"/><text x="${42 + i * 10}" y="49" font-size="5" fill="#fff" text-anchor="middle">${t}</text>`).join("")}</svg>`;
+  // Parts are drawn with the Fritzing parts library's own pictures (img/fritzing/, CC BY-SA 3.0), like the app.
+  // Positions are in Fritzing's units (0.01 inch), from the app's part files.
+  const FZ = "img/fritzing/";
+  const WIRES = [
+    { id: "gnd", c: "#3a3a3a", t: "Black wire: GND on the board → GND on the sensor",
+      bb: "M128.96,100 C128.96,28 472,232 455.17,160", sch: "M80,250 V272 H392 V140 H339.5" },
+    { id: "vcc", c: "#d0202a", t: "Red wire: 5V on the board → VCC on the sensor",
+      bb: "M175,290 C175,336 425.17,252 425.17,160", sch: "M70,20 V2 H230 V120 H260.5" },
+    { id: "trig", c: "#f29b00", t: "", bb: "M214.96,100 C214.96,48 435.17,222 435.17,160", sch: "M150,120 H210 V140 H260.5" },
+    { id: "echo", c: "#1f6fd6", t: "", bb: "M204.96,100 C204.96,38 445.17,232 445.17,160", sch: "M150,130 H190 V192 H370 V120 H339.5" },
+  ];
+  const ends = (d) => { const n = d.match(/-?[\d.]+/g).map(Number); return [[n[0], n[1]], [n[n.length - 2], n[n.length - 1]]]; };
+  function fzWire(d, c, on, dots) {
+    let s = `<g opacity="${on ? 1 : .2}"><path d="${d}" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="${on ? 5.6 : 4.4}" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="${c}" stroke-width="${on ? 3.8 : 3}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if (dots) ends(d).forEach(([x, y]) => { s += `<circle cx="${x}" cy="${y}" r="2.6" fill="${c}" stroke="rgba(0,0,0,.5)" stroke-width="1"/>`; });
+    return s + "</g>";
+  }
+  function bbScene(onId) {
+    return `<svg viewBox="0 18 650 320" role="img" aria-label="Breadboard view: an Arduino Uno wired to the distance sensor on a breadboard">
+      <image href="${FZ}breadboard.svg" x="320" y="70" width="324.9" height="210"/>
+      <image href="${FZ}uno.svg" x="0" y="90" width="294.96" height="210"/>
+      <image href="${FZ}hc-sr04.svg" x="352.74" y="29.2" width="177.55" height="92.93"/>
+      ${WIRES.map((w) => fzWire(w.bb, w.c, !onId || onId === w.id, true)).join("")}</svg>`;
+  }
+  function schScene(onId) {
+    const lab = (x, y, t, a = "start") => `<text x="${x}" y="${y}" font-size="9" fill="#555" text-anchor="${a}" font-family="Segoe UI, Arial, sans-serif">${t}</text>`;
+    return `<svg viewBox="-10 -8 420 292" role="img" aria-label="Schematic view: the Arduino Uno connected to the distance sensor">
+      <image href="${FZ}uno-schematic.svg" x="0" y="20" width="150" height="230"/>
+      <image href="${FZ}hc-sr04-schematic.svg" x="260" y="100" width="80" height="60"/>
+      ${WIRES.map((w) => fzWire(w.sch, w.c, !onId || onId === w.id, false)).join("")}
+      ${lab(266, 96, "HC-SR04")}</svg>`;
   }
   function ardLab(root) {
     const parts = D.arduinopath.parts, uno = D.arduinopath.boards.uno;
+    WIRES[2].t = `Pin ${uno.pins.TRIG_PIN} → Trig (the sensor's "speaker")`;
+    WIRES[3].t = `Pin ${uno.pins.ECHO_PIN} → Echo (the sensor's "ear")`;
     const win = h("div", { class: "vista labv" });
     win.append(h("div", { class: "vista-bar" }, h("span", {}, "Wiring Wizard: Distance Sensor (Uno)"), h("i", { class: "x" }, "✕")));
     const body = h("div", { class: "vista-body" });
@@ -489,7 +515,7 @@
     const next = h("button", { class: "vbtn prime", type: "button" }, "Next ▸");
     const note = h("span", { class: "small", style: "color:#556" });
     body.append(dots, page, h("div", { class: "wiz-foot" }, back, note, next));
-    let at = 0, tested = false, sawIt = false, stopTest = null;
+    let at = 0, tested = false, stopTest = null;
 
     function goTo(i) {
       if (stopTest) { stopTest(); stopTest = null; }
@@ -504,58 +530,34 @@
     function meet() {
       const p = parts["hc-sr04"];
       page.append(h("div", { class: "part-card" },
-        h("div", { class: "part-pic", html: sonarSVG(190) }),
+        h("div", { class: "part-pic fz" }, h("img", { src: FZ + "hc-sr04.svg", alt: "The HC-SR04 ultrasonic distance sensor" }),
+          h("div", { class: "legs" }, ["VCC", "Trig", "Echo", "GND"].map((t) => h("span", {}, t)))),
         h("div", {}, h("h4", {}, "Meet the " + p.name),
           h("dl", {}, h("dt", {}, "What it does"), h("dd", {}, p.what), h("dt", {}, "Which leg is which?"), h("dd", {}, p.legs)),
           h("div", { class: "dyk" }, h("b", {}, "Did you know? "), p.did_you_know))));
       next.textContent = "Next ▸"; next.disabled = false; note.textContent = "1 part in this test · real projects have a card for each part";
     }
 
-    const WIRES = [
-      { t: "Black wire: GND on the board → GND on the sensor", c: "#222", id: "gnd" },
-      { t: "Red wire: 5V on the board → VCC on the sensor", c: "#d22", id: "vcc" },
-      { t: `Pin ${uno.pins.TRIG_PIN} → Trig (the sensor's "speaker")`, c: "#e2a400", id: "trig" },
-      { t: `Pin ${uno.pins.ECHO_PIN} → Echo (the sensor's "ear")`, c: "#1e88e5", id: "echo" },
-    ];
-    function wiringSVG(onId) {
-      // the sensor sits top right with its pins facing down; the Uno sits below, its pin header along the top
-      const P = { vcc: 232.5, trig: 242.5, echo: 252.5, gnd: 262.5 };
-      const paths = {
-        trig: "M52,84 C52,48 242.5,112 242.5,72",
-        echo: "M40,84 C40,40 252.5,118 252.5,72",
-        vcc: "M112,214 C112,236 300,236 300,150 S232.5,104 232.5,72",
-        gnd: "M132,214 C132,230 316,230 316,140 S262.5,98 262.5,72",
-      };
-      const w = WIRES.map((wr) => {
-        const on = !onId || onId === wr.id;
-        return `<path d="${paths[wr.id]}" fill="none" stroke="${wr.c}" stroke-width="${on ? 5 : 3}" stroke-linecap="round" opacity="${on ? 1 : .18}"/>`;
-      }).join("");
-      const sensor = sonarSVG(120).replace("<svg ", "<svg x='190' y='6' height='64' ");
-      return `<svg viewBox="0 0 330 240" role="img" aria-label="An Arduino Uno wired to the distance sensor">
-        <rect x="10" y="92" width="170" height="114" rx="8" fill="#0f6e8c" stroke="#0a4f66"/>
-        <rect x="12" y="150" width="34" height="26" rx="2" fill="#b9c0c6"/><circle cx="160" cy="185" r="7" fill="#20262c"/>
-        <text x="110" y="160" font-size="18" fill="#fff" text-anchor="middle" font-weight="700">UNO</text>
-        <rect x="20" y="84" width="150" height="9" fill="#222"/><rect x="60" y="205" width="110" height="9" fill="#222"/>
-        <text x="40" y="104" font-size="8" fill="#9be7ec" text-anchor="middle">${uno.pins.ECHO_PIN}</text>
-        <text x="52" y="104" font-size="8" fill="#9be7ec" text-anchor="middle">${uno.pins.TRIG_PIN}</text>
-        <text x="112" y="200" font-size="8" fill="#9be7ec" text-anchor="middle">5V</text>
-        <text x="132" y="200" font-size="8" fill="#9be7ec" text-anchor="middle">GND</text>
-        ${sensor}${w}</svg>`;
-    }
     function wireIt() {
-      const dia = h("div", { class: "diagram", html: wiringSVG(null) });
+      let view = "bb", on = null;
+      const dia = h("div", { class: "diagram fz-dia" });
+      const draw = () => { dia.innerHTML = view === "bb" ? bbScene(on) : schScene(on); };
+      const tabs = h("div", { class: "fz-tabs", role: "group", "aria-label": "View" },
+        [["bb", "Breadboard"], ["sch", "Schematic"]].map(([k, n]) => h("button", { type: "button", class: k === view ? "on" : "", onclick: (e) => {
+          view = k; $$("button", tabs).forEach((b) => b.classList.toggle("on", b === e.currentTarget)); draw(); } }, n)));
       const list = h("ol", { class: "wire-list" });
       WIRES.forEach((wr) => {
         const li = h("li", { tabindex: "0", onclick: () => pick(wr.id, li), onkeydown: (e) => { if (e.key === "Enter") pick(wr.id, li); } },
           h("span", { class: "sw-c", style: "background:" + wr.c }), h("span", {}, wr.t));
         list.append(li);
       });
-      function pick(id, li) { $$("li", list).forEach((x) => x.classList.toggle("on", x === li)); dia.innerHTML = wiringSVG(id); }
+      function pick(id, li) { on = on === id ? null : id; $$("li", list).forEach((x) => x.classList.toggle("on", x === li && on)); draw(); }
+      draw();
       page.append(h("div", { class: "wire-grid" },
         h("div", {}, h("p", { style: "margin-top:0" }, h("b", {}, "Unplug the USB cable"), " before changing wires, and plug it back in after. Tap a wire to highlight it."), list,
           h("div", { class: "warn" }, "⚠ Never connect 5V to an ESP pin: on a 3.3V ESP board the wizard adds two 10kΩ resistors on Echo. And always use a resistor with an LED.")),
-        dia));
-      next.textContent = "Next: test it ▸"; next.disabled = false; note.textContent = "In the app: a Fritzing-style breadboard and a schematic";
+        h("div", {}, tabs, dia)));
+      next.textContent = "Next: test it ▸"; next.disabled = false; note.textContent = "Fritzing parts, as in the app";
     }
 
     function testIt() {
@@ -563,23 +565,32 @@
       const bar = h("i");
       const status = h("span", { class: "small", style: "color:#b3261e;font-weight:700" }, "✗");
       const range = h("input", { type: "range", class: "hand-range", min: "2", max: "400", value: "100", "aria-label": "Something in front: distance (cm)" });
-      const hand = h("div", { class: "hand", "aria-hidden": "true" }, "✋");
-      const wave = h("div", { class: "wave" });
-      const scene = h("div", { class: "sonar-scene" }, h("div", { class: "sensor", html: sonarSVG(96) }), wave, hand);
+      const label = h("b", {}, "100 cm");
+      // the sensor faces up the page; the ping arcs travel up to whatever is in front
+      const scene = h("div", { class: "fz-test", html: `<svg viewBox="0 0 400 300" role="img" aria-label="The distance sensor sends a ping up to something in front of it">
+        <defs><linearGradient id="fzt-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef7f9"/><stop offset="1" stop-color="#ffffff"/></linearGradient></defs>
+        <rect width="400" height="300" fill="url(#fzt-bg)"/>
+        <g stroke="#cfdde2" stroke-width="1">${[50, 100, 150].map((y) => `<line x1="20" x2="380" y1="${y}" y2="${y}" stroke-dasharray="3 5"/>`).join("")}</g>
+        <g class="pings" fill="none" stroke="#0fb3bc" stroke-width="4" stroke-linecap="round">
+          ${[0, 1, 2].map((k) => `<path class="ping" style="animation-delay:${k * .4}s" d="M168,206 A40,40 0 0 1 232,206"/>`).join("")}</g>
+        <g class="thing"><rect x="-70" y="-14" width="140" height="22" rx="11" fill="#7a5c99"/><rect x="-70" y="-14" width="140" height="8" rx="4" fill="#fff" opacity=".25"/>
+          <text class="thing-cm" x="82" y="2" font-size="15" font-weight="700" fill="#4b3a63" font-family="Segoe UI, Arial, sans-serif">100 cm</text></g>
+        <image href="${FZ}hc-sr04.svg" x="111" y="205" width="177.55" height="92.93"/></svg>` });
+      const svg = $("svg", scene), thing = $(".thing", svg), cmText = $(".thing-cm", svg);
       const serial = h("div", { class: "serial", "aria-label": "Serial Monitor" });
-      const label = h("span", { class: "small" }, "Distance: 100 cm");
       let first = null;
       const place = () => {
-        const cm = +range.value, w = scene.clientWidth || 400, f = Math.min(1, cm / 200);
-        hand.style.left = (110 + (w - 170) * f) + "px";
-        wave.style.setProperty("--reach", (w - 170) * f + "px");
-        label.textContent = `Distance: ${cm} cm`;
+        const cm = +range.value, y = 196 - Math.min(1, cm / 400) * 176;
+        thing.setAttribute("transform", `translate(200,${y})`);
+        cmText.textContent = cm + " cm";
+        svg.style.setProperty("--reach", Math.max(.4, (206 - y) / 40).toFixed(2));
+        label.textContent = cm + " cm";
       };
       range.addEventListener("input", place);
-      setTimeout(place, 0);
+      place();
       const timer = setInterval(() => {                 // every 400 ms, like the app's test sketch
         const cm = Math.max(2, Math.round(+range.value));
-        reading.textContent = cm + " cm"; bar.style.width = Math.min(100, cm / 2) + "%";
+        reading.textContent = cm + " cm"; bar.style.width = Math.min(100, cm / 4) + "%";
         serial.append(h("div", {}, `READ:sonar:${cm}`)); while (serial.childNodes.length > 60) serial.firstChild.remove(); serial.scrollTop = 1e6;
         if (first === null) first = cm;
         if (!tested && cm > 0 && Math.abs(cm - first) > 4) {    // the app ticks it by itself on a change of more than 4 cm
@@ -593,14 +604,13 @@
         h("div", {},
           h("p", { style: "margin-top:0" }, "The test program for this part is running ", h("b", {}, "in the simulator"), "."),
           scene,
-          h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-top:8px" }, h("b", { class: "small" }, "Something in front"), label),
-          range,
-          h("div", { class: "small", style: "display:flex;justify-content:space-between" }, h("span", {}, "2 cm"), h("span", {}, "400 cm"))),
+          h("div", { class: "fz-slider" }, h("div", { class: "fz-slider-top" }, h("span", {}, "Something in front"), label),
+            h("div", { class: "fz-slider-row" }, h("span", { class: "small" }, "Distance"), range))),
         h("div", {},
           h("div", { class: "test-row" }, h("h5", {}, "distance sensor", status),
-            h("p", { class: "small", style: "margin:0" }, "Move your hand towards the sensor and away."),
+            h("p", { class: "small", style: "margin:0" }, "Drag the distance: closer, then further away."),
             reading, h("div", { class: "bar" }, bar)),
-          serial)));
+          h("b", { class: "small" }, "Serial Monitor"), serial)));
       next.textContent = "Start programming ▸"; next.disabled = !tested;
       note.textContent = "The row ticks itself when the reading changes";
     }
@@ -727,23 +737,29 @@
         h("p", { class: "small", style: "margin:8px 0 0;color:#556" }, "The same checklist, Coach and Upload work in both blocks and text, and every project's starter code turns into blocks automatically.")));
   }
 
-  // ------------------------------------------------------------ boards
+  // ------------------------------------------------------------ boards: one project, many boards
   function boardsDemo(el) {
     const bs = Object.entries(D.arduinopath.boards).sort((a, b) => a[1].order - b[1].order);
-    const list = h("div", { class: "boards-list", role: "group", "aria-label": "Boards" });
-    const info = h("div", { class: "boards-info", "aria-live": "polite" });
-    bs.forEach(([id, b], i) => list.append(h("button", { type: "button", class: i ? "" : "on", onclick: (e) => {
-      $$("button", list).forEach((x) => x.classList.toggle("on", x === e.currentTarget)); draw(b); } }, b.name)));
-    function draw(b) {
-      info.innerHTML = "";
-      const t = h("table", {});
-      [["Distance sensor Trig", b.pins.TRIG_PIN], ["Distance sensor Echo", b.pins.ECHO_PIN], ["Lid servo", b.pins.SERVO_PIN], ["LED", b.pins.LED_PIN]]
-        .forEach(([k, v]) => t.append(h("tr", {}, h("td", {}, k), h("td", {}, v ? "pin " + v : "-"))));
-      info.append(h("h3", { style: "margin-top:0" }, b.name), t,
-        h("p", { class: "small" }, `${b.volts}V logic${b.wifi ? " · WiFi" : ""}${b.volts < 5 ? " · the wizard adds a voltage divider for the sensor's Echo" : ""}`));
-    }
-    draw(bs[0][1]);
-    el.append(list, info);
+    bs.forEach(([id, b]) => el.append(h("figure", { class: "bcard" },
+      h("div", { class: "bpic" }, h("img", { src: FZ + id + ".svg", alt: b.name, loading: "lazy" })),
+      h("figcaption", {}, h("b", {}, b.name.replace(/ \(.*\)$/, "")),
+        h("span", { class: "chips" }, h("i", { class: b.volts < 5 ? "v3" : "v5" }, b.volts + "V"), b.wifi ? h("i", { class: "wifi" }, "WiFi") : null)))));
+  }
+
+  // ------------------------------------------------------------ compare the pair: highlight what fits
+  function compare(root) {
+    const chips = $(".cmp-chips", root), table = $(".cmp-table", root), say = $(".cmp-say", root);
+    if (!chips) return;
+    chips.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      const was = b.classList.contains("on");
+      $$("button", chips).forEach((x) => x.classList.remove("on"));
+      const fit = was ? [] : b.dataset.fit.split(" ");
+      if (!was) b.classList.add("on");
+      ["pi", "ard", "mb"].forEach((k) => table.classList.toggle("fit-" + k, fit.includes(k)));
+      table.classList.toggle("fitting", fit.length > 0);
+      say.textContent = was ? "" : b.dataset.say;
+    });
   }
 
   // ------------------------------------------------------------ the program finder (embedded): size the frame to fit
@@ -754,14 +770,17 @@
     if (f) f.style.height = Math.max(420, Math.ceil(d.height) + 2) + "px";
   });
 
-  // a walkthrough button whose video isn't in the folder yet stays hidden
-  $$(".play-full[data-optional]").forEach((b) => {
-    b.hidden = true;
+  // a walkthrough whose video isn't in the folder yet: the card stays, its buttons wait
+  const needs = $$("[data-needs-video]");
+  if (needs.length) {
     const v = document.createElement("video");
     v.preload = "metadata"; v.muted = true;
-    v.addEventListener("loadedmetadata", () => { b.hidden = false; $$("[data-blocks-note]").forEach((n) => { n.hidden = false; }); }, { once: true });
-    v.src = b.dataset.video;
-  });
+    needs.forEach((b) => { b.disabled = true; b.classList.add("waiting"); });
+    const soon = $(".walk-soon");
+    v.addEventListener("loadedmetadata", () => needs.forEach((b) => { b.disabled = false; b.classList.remove("waiting"); }), { once: true });
+    v.addEventListener("error", () => { if (soon) soon.hidden = false; }, { once: true });
+    v.src = needs[0].dataset.video;
+  }
 
   // ------------------------------------------------------------ reading progress (inside an app's page)
   const bar = h("div", { class: "progress", "aria-hidden": "true" });

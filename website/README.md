@@ -12,8 +12,12 @@ any web server. (Nothing is sent anywhere: no trackers, no fonts or scripts from
 - **Home:** an overview: the spinning 3D BNTS logo (the pixel squares and the words), "Where do you want to explore?",
   what the two apps share, and then the **Program finder** (`#finder`).
 - **Program finder** (`program-finder.html`, embedded at the end of the home page and linked from
-  both app pages): seven questions about the class that recommend a program, a platform and a
-  version, with curriculum links. It also opens on its own.
+  the other pages): seven questions about the class that recommend a program, a platform and a
+  version, then **How we can tailor it** (coding style, help level, wiring support, simulator or
+  real kit, with our pick for that class), and curriculum links. The tailoring options are data
+  (`tailoring` in its `finder-config`). It also opens on its own.
+- **Compare the Pair** (`#compare`): PiPath and ArduinoPath side by side, with the micro:bit beside
+  them, a "What do your students want to do?" picker, and the micro:bit → ArduinoPath → PiPath pathway.
 - **PiPath** (`#pipath`) and **ArduinoPath** (`#arduinopath`): a scrolling story following Mia
   through one project each, mixing:
   - short silent clips from the apps (`media/snippets/`), some with numbered notes that pause the
@@ -22,12 +26,15 @@ any web server. (Nothing is sent anywhere: no trackers, no fonts or scripts from
     - **PiPath:** Check my wiring, then Traffic Lights step 1 (Run first, the Coach's clue,
       fill in the blank, the checklist, "I saw it happen", stars), with the help-level switch
     - **ArduinoPath:** the Wiring Wizard for the ultrasonic distance sensor (meet it, wire it,
-      the forced test, then program it with the Serial Monitor)
+      the forced test, then program it with the Serial Monitor), drawn with the Fritzing parts
   - small interactive bits: help levels, nudge cards, gradual release, text or blocks, boards
   - the rest of each app's activities and projects (everything shown on the site and in the videos
     is in the release version)
   - ArduinoPath's blocks compared with MakeCode on the micro:bit
-  - the **full walkthrough videos** at the bottom (`media/full/`), always with captions
+  - the boards ArduinoPath runs on (Fritzing pictures)
+  - the **full walkthrough videos** at the bottom (`media/full/`), always with captions, next to
+    the Smart Bin prototype animation (`media/extra/smartbin-loop.mp4`); ArduinoPath shows the text
+    and blocks versions side by side, each with a picture of the app (`code-text.jpg`, `code-blocks.jpg`)
 
 ## Files
 
@@ -38,10 +45,13 @@ css/site.css        the look: BNTS colours, Windows 95 bits for PiPath, Vista gl
 js/site.js          views, scroll reveals, clips + notes, the two demos
 js/data.js          activity / project / part / board lists, made from the two apps' own content
 img/                the BNTS logo and pixel mark
+img/fritzing/       boards, breadboard and the HC-SR04 from the Fritzing parts library (CC BY-SA 3.0,
+                    see LICENSE-fritzing.md), copied from ArduinoPath's ui/parts
+media/extra/        the Smart Bin prototype animation (cropped, plays open then close)
 media/snippets/     short silent clips (960×540) + poster frames
 media/full/         the full walkthroughs, all with captions: PiPath Traffic Lights, ArduinoPath
                     Smart Bin in text and in blocks (ArduinoPath-SmartBin-blocks-walkthrough.mp4;
-                    its button only appears once that file is there)
+                    its buttons switch on once that file is there)
 ```
 
 ## Updating it
