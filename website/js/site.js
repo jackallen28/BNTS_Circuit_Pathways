@@ -81,7 +81,7 @@
   }), { threshold: [0, 0.45, 0.8] });
   function observe(root) {
     $$(".reveal", root).forEach((el) => revealer.observe(el));
-    $$(".shot video, .bin-loop video", root).forEach((v) => player.observe(v));
+    $$(".shot video", root).forEach((v) => player.observe(v));
   }
   $$(".home .reveal").forEach((el) => revealer.observe(el));
   function pauseHidden() { $$("video").forEach((v) => { if (!v.offsetParent) v.pause(); }); }

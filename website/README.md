@@ -32,8 +32,7 @@ any web server. (Nothing is sent anywhere: no trackers, no fonts or scripts from
     is in the release version)
   - ArduinoPath's blocks compared with MakeCode on the micro:bit
   - the boards ArduinoPath runs on (Fritzing pictures)
-  - the **full walkthrough videos** at the bottom (`media/full/`), always with captions, next to
-    the Smart Bin prototype animation (`media/extra/smartbin-loop.mp4`); ArduinoPath shows the text
+  - the **full walkthrough videos** at the bottom (`media/full/`), always with captions; ArduinoPath shows the text
     and blocks versions side by side, each with a picture of the app (`code-text.jpg`, `code-blocks.jpg`)
 
 ## Files
@@ -47,7 +46,6 @@ js/data.js          activity / project / part / board lists, made from the two a
 img/                the BNTS logo and pixel mark
 img/fritzing/       boards, breadboard and the HC-SR04 from the Fritzing parts library (CC BY-SA 3.0,
                     see LICENSE-fritzing.md), copied from ArduinoPath's ui/parts
-media/extra/        the Smart Bin prototype animation (cropped, plays open then close)
 media/snippets/     short silent clips (960×540) + poster frames
 media/full/         the full walkthroughs, all with captions: PiPath Traffic Lights, ArduinoPath
                     Smart Bin in text and in blocks

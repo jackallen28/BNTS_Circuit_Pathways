@@ -626,3 +626,4 @@ a.cmp-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0
 .fl:hover { transform: translateY(-2px); }
 .fl-pi { background: var(--w95-desk); color: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.3); }
 .fl-ard { background: linear-gradient(180deg, #4fd9e0, var(--teal2)); color: #fff; box-shadow: 0 8px 22px rgba(11,154,161,.35); }
+.full-head { grid-template-columns: 1fr; text-align: center; }

@@ -936,8 +936,7 @@ function radioGroup({ label, options, value, onChange, cls, keyStart }) {
     const b = h('button', {
       type: 'button', role: 'radio', class: 'opt', 'data-id': o.id, 'data-key': keyStart ? keyStart + i : null,
       'aria-checked': String(o.id === value), tabindex: (o.id === value || (value == null && i === 0)) ? '0' : '-1'
-    }, h('span', { class: 't' }, o.label), o.detail ? h('span', { class: 'd' }, o.detail) : null,
-      keyStart ? h('kbd', { 'aria-hidden': 'true' }, String(keyStart + i)) : null);
+    }, h('span', { class: 't' }, o.label), o.detail ? h('span', { class: 'd' }, o.detail) : null,);
     return b;
   });
   const select = (id) => {
@@ -967,7 +966,7 @@ const SCREEN = {
     return h('div', {}, radioGroup({
       label: 'Year level', cls: 'years', keyStart: 1, value: state.year,
       options: CFG.years, onChange: (id) => { state.year = id; if (!pathwayVisible(state)) state.subjects = {}; renderProgress(); renderDebug(); setStatus(''); $('#next').setAttribute('aria-disabled', 'false'); }
-    }), h('p', { class: 'hint', style: 'margin-top:14px' }, 'Press 1 to 6 to choose a year level.'));
+    }));
   },
   coding() {
     const ns = CFG.codingLevels.length - 1;
@@ -1060,8 +1059,7 @@ const SCREEN = {
       h('div', { class: 'group-label', id: 'pj-l' }, 'Project'),
       radioGroup({ label: 'Project', cls: 'projects', keyStart: 1, value: state.project, options: CFG.projects, onChange: (id) => { state.project = id; renderDebug(); } }),
       h('div', { class: 'group-label', id: 'tm-l', style: 'margin-top:18px' }, 'Time available'),
-      radioGroup({ label: 'Time available', cls: 'times', keyStart: 5, value: state.time, options: CFG.times, onChange: (id) => { state.time = id; renderDebug(); } }),
-      h('p', { class: 'hint', style: 'margin-top:12px' }, 'Press 1 to 4 to choose a project and 5 to 7 to choose the time.'));
+      radioGroup({ label: 'Time available', cls: 'times', keyStart: 5, value: state.time, options: CFG.times, onChange: (id) => { state.time = id; renderDebug(); } }));
   }
 };
 
