@@ -6,3 +6,5 @@ pi-bridge
 *.md
 .git
 **/__pycache__
+private
+content-pipath
