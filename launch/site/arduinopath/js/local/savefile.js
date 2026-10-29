@@ -111,6 +111,6 @@ export function planImport(file, sketches, progress) {
 
 export function saveFileName(names, now = new Date()) {
   const date = now.toISOString().slice(0, 10);
-  const ascii = names.join("-").replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "My";
+  const ascii = names.join("-").replace(/[^A-Za-z0-9-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "") || "My";
   return `${ascii}_ArduinoPath_${date}.circuit`;
 }

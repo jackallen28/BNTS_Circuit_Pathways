@@ -21,6 +21,7 @@ import (
 	"circuitpathways/internal/arduino"
 	"circuitpathways/internal/classes"
 	"circuitpathways/internal/content"
+	"circuitpathways/internal/pirelay"
 )
 
 // Compiler compiles a sketch (arduino.Tools; tests use a fake).
@@ -40,6 +41,8 @@ type Config struct {
 	Now       func() time.Time // nil: time.Now
 	// MaxCompiles is how many compiles can run at once (default 2).
 	MaxCompiles int
+	// Relay connects browsers to Raspberry Pis (nil: a new one).
+	Relay *pirelay.Relay
 }
 
 // Server is the http.Handler.
@@ -48,7 +51,7 @@ type Server struct {
 	static  http.Handler
 	handler http.Handler
 	slots   chan struct{}
-	limits  struct{ signin, join, class, compile *limiter }
+	limits  struct{ signin, join, class, compile, piRegister, piCommand *limiter }
 }
 
 const (
@@ -77,6 +80,16 @@ func New(cfg Config) *Server {
 	s.limits.join = newLimiter(20, time.Minute)
 	s.limits.class = newLimiter(30, time.Minute)
 	s.limits.compile = newLimiter(15, time.Minute)
+	s.limits.piRegister = newLimiter(6, time.Minute)
+	s.limits.piCommand = newLimiter(900, time.Minute)
+	if s.Relay == nil {
+		s.Relay = pirelay.New(cfg.Now)
+	}
+	go func() {
+		for range time.Tick(30 * time.Second) {
+			s.Relay.Sweep()
+		}
+	}()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
@@ -84,6 +97,7 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("POST /api/teacher/class", s.handleNewClass)
 	mux.HandleFunc("POST /api/class/join", s.handleJoin)
 	mux.HandleFunc("POST /api/compile", s.handleCompile)
+	s.piRoutes(mux)
 	mux.HandleFunc("GET /api/info", s.handleInfo)
 	mux.HandleFunc("GET /arduinopath/data/catalogue.json", s.handleCatalogue)
 	mux.HandleFunc("GET /arduinopath/data/projects/{id}", s.handleProject)
@@ -166,6 +180,9 @@ type statusRecorder struct {
 }
 
 func (r *statusRecorder) WriteHeader(code int) { r.status = code; r.ResponseWriter.WriteHeader(code) }
+
+// Unwrap lets http.ResponseController reach the real writer (for streaming).
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

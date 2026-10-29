@@ -397,7 +397,7 @@
     {
       "id": "port-not-found",
       "kind": "upload",
-      "pattern": "(?:can't open device|could not open port|cannot find the file specified|no such file or directory|Port .* not found|No device found on)",
+      "pattern": "(?:can't open device|could not open port|cannot find the file specified|no such file or directory|Port .* not found|No device found on|port couldn't be opened|isn't there any more)",
       "title": "ArduinoPath can't find your board",
       "explain": "Your board isn't on the port you picked. It might be unplugged, plugged in after you chose the port, or the USB cable might only charge (some cables can't carry data).",
       "hints": [
@@ -425,7 +425,7 @@
     {
       "id": "avr-not-responding",
       "kind": "upload",
-      "pattern": "(?:stk500_recv\\(\\): programmer is not responding|stk500_getsync\\(\\)|not in sync|stk500v2_ReceiveMessage\\(\\): timeout)",
+      "pattern": "(?:stk500_recv\\(\\): programmer is not responding|stk500_getsync\\(\\)|not in sync|stk500v2_ReceiveMessage\\(\\): timeout|The board isn't answering|The board stopped answering|answered, but not in the way|The board refused a command)",
       "title": "The board didn't answer",
       "explain": "ArduinoPath found the port but the board didn't answer. Usually the board setting doesn't match your board. Many Nano clones need the \"old bootloader\" setting.",
       "hints": [
@@ -453,7 +453,7 @@
     {
       "id": "esp-not-connecting",
       "kind": "upload",
-      "pattern": "(?:Failed to connect to ESP|Timed out waiting for packet header|Wrong boot mode detected|No serial data received)",
+      "pattern": "(?:Failed to connect to ESP|Failed to connect to the board|Timed out waiting for packet header|Wrong boot mode detected|No serial data received)",
       "title": "The ESP board didn't start uploading",
       "explain": "Some ESP boards need a little help to start an upload. Holding the BOOT (or FLASH) button tells the board to get ready for new code.",
       "hints": [

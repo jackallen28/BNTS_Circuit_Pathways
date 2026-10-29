@@ -42,6 +42,11 @@ export function chipOf(vid) {
   }
 }
 
+/** Adds a port to the list (used when the browser hands us one, and by the tests). Returns its id. */
+export function register(port) {
+  return describe(port).port;
+}
+
 /** Boards this site has already been allowed to use. */
 export async function listPorts() {
   if (!supported) return [];

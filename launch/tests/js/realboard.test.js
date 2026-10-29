@@ -29,9 +29,11 @@ test("a board that names itself is picked", () => {
   assert.equal(guessPort(ports, uno, null), "COM4");
 });
 
-test("USB ports are listed first, and built-in ones say so", () => {
-  assert.deepEqual(sortPorts(piPorts).map((p) => p.port), ["/dev/ttyUSB0", "/dev/ttyAMA0", "/dev/ttyS0"]);
-  assert.equal(isUsb(piPorts[2]), true);
-  assert.match(portLabel(piPorts[0]), /built into this computer/);
-  assert.equal(portLabel(piPorts[2]), "/dev/ttyUSB0 (CH340: most clone boards)");
+test("USB ports are listed first, and named by what the browser knows", () => {
+  const ports = [{ port: "port-1" }, { port: "usb-1a86-7523-2", vid: "1a86", pid: "7523", chip: "CH340" }];
+  assert.deepEqual(sortPorts(ports).map((p) => p.port), ["usb-1a86-7523-2", "port-1"]);
+  assert.equal(isUsb(ports[1]), true);
+  assert.equal(isUsb(ports[0]), false);
+  assert.equal(portLabel(ports[1]), "USB board 1a86:7523 (CH340: most clone boards)");
+  assert.equal(portLabel({ port: "usb-2341-43-1", vid: "2341", pid: "0043", board: "Arduino Uno" }), "USB board 2341:0043 (Arduino Uno)");
 });

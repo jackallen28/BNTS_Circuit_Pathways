@@ -2,7 +2,6 @@
 // page uploads it over USB with Web Serial (Edge or Chrome), and the Serial
 // Monitor reads the board's port.
 
-import { api } from "./api.js";
 import * as ws from "./webserial.js";
 import { flashAvr } from "./flash/stk500v1.js";
 import { flashEsp } from "./flash/esp.js";
@@ -29,6 +28,12 @@ export function uploadSettings(board, variant) {
   return v?.upload ?? board.upload ?? {};
 }
 
+// Loaded when first needed, so this file can be tested without the website around it.
+async function serverCompile(code, board, variant) {
+  const { api } = await import("./api.js");
+  return api.compile(code, board.id, variant);
+}
+
 /** The server's answer in the shape the workspace shows: { state, kind, result, output, error }. */
 function compileJob(res, kind) {
   const result = { ok: res.ok, output: res.output, errors: res.errors ?? [], size: res.size };
@@ -38,7 +43,7 @@ function compileJob(res, kind) {
 /** Compiles code for the student's board with the real compiler: the judge. */
 export async function compile(code, board, variant, onUpdate = () => {}) {
   onUpdate({ state: "compiling", output: "" });
-  const res = await api.compile(code, board.id, variant);
+  const res = await serverCompile(code, board, variant);
   const job = compileJob(res, "compile");
   onUpdate(job);
   return job;
@@ -47,7 +52,7 @@ export async function compile(code, board, variant, onUpdate = () => {}) {
 /** Compiles the code, then uploads it to the board on port (an id from listPorts / requestPort). */
 export async function upload(code, board, variant, port, onUpdate = () => {}) {
   onUpdate({ state: "compiling", output: "" });
-  const res = await api.compile(code, board.id, variant);
+  const res = await serverCompile(code, board, variant);
   if (!res.ok) {
     const job = compileJob(res, "upload");
     onUpdate(job);

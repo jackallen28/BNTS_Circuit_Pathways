@@ -1,0 +1,68 @@
+name: Launch (the website)
+
+on:
+  push:
+    paths: ["launch/**", "render.yaml", ".github/workflows/launch.yml"]
+  pull_request:
+    paths: ["launch/**", "render.yaml", ".github/workflows/launch.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launch-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: launch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: launch/go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Go formatting
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - run: go vet ./...
+      - name: Go tests (server, class codes, Pi relay, content)
+        run: go test -race ./...
+      - name: Pi Link app tests (no Pi needed)
+        run: python3 -m unittest discover pi-bridge
+      - run: npm ci
+      - name: JavaScript tests (simulator, wizard, saves, upload to a pretend board)
+        run: npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Browser tests (the whole site, with pretend boards and a pretend Pi)
+        run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: launch/test-results/screenshots
+          if-no-files-found: ignore
+
+  # The real compilers, for every board: every board's upload file comes out
+  # right, and a broken sketch comes back with a line number.
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: launch/go.mod
+      - uses: actions/cache@v4
+        with:
+          path: ~/circuitpathways-tools
+          key: tools-${{ hashFiles('launch/internal/arduino/requirements.json') }}
+      - run: go run ./cmd/launch -setup -warm -tools "$HOME/circuitpathways-tools"
+      - run: go test -count=1 -timeout 60m -run TestCompileEveryBoardForReal -v ./internal/arduino
+        env:
+          CIRCUITPATHWAYS_TOOLS: /home/runner/circuitpathways-tools

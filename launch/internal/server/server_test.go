@@ -221,3 +221,20 @@ func TestCatalogueAndProjects(t *testing.T) {
 		t.Fatalf("unknown project: %d", w.Code)
 	}
 }
+
+func TestStaticFilesAreRevalidatedWithETags(t *testing.T) {
+	s, _ := newTest(t)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest("GET", "/arduinopath/", nil))
+	tag := w.Header().Get("ETag")
+	if tag == "" || w.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("want an ETag and no-cache, got %q %q", tag, w.Header().Get("Cache-Control"))
+	}
+	r := httptest.NewRequest("GET", "/arduinopath/", nil)
+	r.Header.Set("If-None-Match", tag)
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != http.StatusNotModified {
+		t.Fatalf("an unchanged file should be a 304, got %d", w.Code)
+	}
+}

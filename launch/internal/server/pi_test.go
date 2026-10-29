@@ -1,0 +1,171 @@
+package server
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+// sseReader reads "data:" lines from a streaming response.
+type sseReader struct {
+	resp *http.Response
+	ch   chan string
+}
+
+func openSSE(t *testing.T, ctx context.Context, url string, hdr map[string]string) *sseReader {
+	t.Helper()
+	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &sseReader{resp: resp, ch: make(chan string, 64)}
+	go func() {
+		defer close(r.ch)
+		sc := bufio.NewScanner(resp.Body)
+		for sc.Scan() {
+			if d, ok := strings.CutPrefix(sc.Text(), "data: "); ok {
+				r.ch <- d
+			}
+		}
+	}()
+	return r
+}
+
+func (r *sseReader) next(t *testing.T) string {
+	t.Helper()
+	select {
+	case d, ok := <-r.ch:
+		if !ok {
+			t.Fatal("the stream ended")
+		}
+		return d
+	case <-time.After(3 * time.Second):
+		t.Fatal("nothing arrived")
+		return ""
+	}
+}
+
+func jsonPost(t *testing.T, url string, body any, hdr map[string]string) *http.Response {
+	t.Helper()
+	b, _ := json.Marshal(body)
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headerName, "1")
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func TestPiOverTheRelay(t *testing.T) {
+	s, _ := newTest(t)
+	ts := httptest.NewServer(s)
+	defer ts.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	class, _, _ := s.Signer.NewClass(time.Now(), 2)
+
+	// the Pi registers and opens its command stream
+	resp := jsonPost(t, ts.URL+"/api/pi/register", map[string]string{"name": "Pi 4", "version": "0.1"}, nil)
+	var reg struct{ Code, Secret string }
+	json.NewDecoder(resp.Body).Decode(&reg)
+	if resp.StatusCode != 200 || reg.Code == "" {
+		t.Fatalf("register: %d %+v", resp.StatusCode, reg)
+	}
+	piAuth := map[string]string{piSecretHeader: reg.Secret}
+	pi := openSSE(t, ctx, ts.URL+"/api/pi/pi/events?code="+reg.Code, piAuth)
+	if pi.resp.StatusCode != 200 {
+		t.Fatalf("Pi stream: %d", pi.resp.StatusCode)
+	}
+	// the Pi says hello
+	if r := jsonPost(t, ts.URL+"/api/pi/pi/send", map[string]any{"code": reg.Code, "event": map[string]any{"type": "hello", "data": map[string]string{"model": "Pi 4"}}}, piAuth); r.StatusCode != 204 {
+		t.Fatalf("send: %d", r.StatusCode)
+	}
+
+	// a browser without a class code is turned away; the wrong code isn't found
+	if r, _ := http.Get(ts.URL + "/api/pi/events?code=" + reg.Code); r.StatusCode != 401 {
+		t.Fatalf("no class code: %d", r.StatusCode)
+	}
+	if r, _ := http.NewRequest("GET", ts.URL+"/api/pi/events?code=ZZZ-ZZZ", nil); r != nil {
+		r.Header.Set(accessHeader, class)
+		if resp, _ := http.DefaultClient.Do(r); resp.StatusCode != 404 {
+			t.Fatalf("wrong pairing code: %d", resp.StatusCode)
+		}
+	}
+
+	browser := openSSE(t, ctx, ts.URL+"/api/pi/events?code="+strings.ToLower(reg.Code), map[string]string{accessHeader: class})
+	if got := browser.next(t); !strings.Contains(got, `"connected"`) || !strings.Contains(got, `"name":"Pi 4"`) {
+		t.Fatalf("first event: %s", got)
+	}
+	if got := browser.next(t); !strings.Contains(got, `"hello"`) {
+		t.Fatalf("second event: %s", got)
+	}
+
+	// browser -> Pi
+	cmd := map[string]any{"code": reg.Code, "cmd": map[string]any{"op": "write", "pin": 17, "value": 1}}
+	if r := jsonPost(t, ts.URL+"/api/pi/command", cmd, nil); r.StatusCode != 401 {
+		t.Fatalf("command without class: %d", r.StatusCode)
+	}
+	if r := jsonPost(t, ts.URL+"/api/pi/command", cmd, map[string]string{accessHeader: class}); r.StatusCode != 204 {
+		t.Fatalf("command: %d", r.StatusCode)
+	}
+	if got := pi.next(t); got != `{"op":"write","pin":17,"value":1}` {
+		t.Fatalf("the Pi got %s", got)
+	}
+	bad := map[string]any{"code": reg.Code, "cmd": map[string]any{"op": "write", "pin": 40, "value": 1}}
+	if r := jsonPost(t, ts.URL+"/api/pi/command", bad, map[string]string{accessHeader: class}); r.StatusCode != 400 {
+		t.Fatalf("a bad pin: %d", r.StatusCode)
+	}
+
+	// Pi -> browser, and only with the Pi's own secret
+	state := map[string]any{"code": reg.Code, "event": map[string]any{"type": "state", "data": map[string]any{"pins": map[string]any{"17": map[string]any{"mode": "out", "value": 1}}}}}
+	if r := jsonPost(t, ts.URL+"/api/pi/pi/send", state, map[string]string{piSecretHeader: "not-the-secret"}); r.StatusCode != 403 {
+		t.Fatalf("wrong secret: %d", r.StatusCode)
+	}
+	jsonPost(t, ts.URL+"/api/pi/pi/send", state, piAuth)
+	if got := browser.next(t); !strings.Contains(got, `"state"`) || !strings.Contains(got, `"17"`) {
+		t.Fatalf("the browser got %s", got)
+	}
+
+	// the Pi drops: the browser is told
+	pi.resp.Body.Close()
+	if got := browser.next(t); !strings.Contains(got, "pi-offline") {
+		t.Fatalf("after the Pi dropped: %s", got)
+	}
+}
+
+func TestPiRegistrationIsLimitedPerAddress(t *testing.T) {
+	s, _ := newTest(t)
+	var last int
+	for i := 0; i < 5; i++ {
+		last = post(s, "/api/pi/register", map[string]string{"name": "x"}, nil).Code
+	}
+	if last != http.StatusServiceUnavailable {
+		t.Fatalf("a fourth Pi from one address got %d, want 503", last)
+	}
+}
+
+func TestPiEndpointsNeedOurHeader(t *testing.T) {
+	s, _ := newTest(t)
+	r := httptest.NewRequest("POST", "/api/pi/command", strings.NewReader(`{}`))
+	r.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != 403 {
+		t.Fatalf("got %d", w.Code)
+	}
+}
