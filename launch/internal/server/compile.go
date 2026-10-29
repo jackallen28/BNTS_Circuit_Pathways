@@ -31,15 +31,15 @@ type compileResponse struct {
 // handleCompile compiles a sketch. The code is held in memory and in a
 // temporary folder for this one request and is never kept or logged.
 func (s *Server) handleCompile(w http.ResponseWriter, r *http.Request) {
-	if s.Compiler == nil {
-		writeError(w, http.StatusServiceUnavailable, "no_tools", "Compiling for real boards is switched off on this site. The simulator still works.")
-		return
-	}
 	if s.limited(w, r, s.limits.compile) {
 		return
 	}
 	if !s.Signer.CheckAccess(r.Header.Get(accessHeader), s.Now()) {
 		writeError(w, http.StatusUnauthorized, "no_class", "Join a class with your class code to upload to a board.")
+		return
+	}
+	if s.Compiler == nil {
+		writeError(w, http.StatusServiceUnavailable, "no_tools", "Compiling for real boards is switched off on this site. The simulator still works.")
 		return
 	}
 	var req compileRequest

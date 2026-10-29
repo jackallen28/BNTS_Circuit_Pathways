@@ -1,6 +1,6 @@
 // Talks to a Raspberry Pi through the Circuit Pathways site. The Pi runs
-// circuitpathways_pi.py, which shows a pairing code; connect(code) pairs this
-// page with it. Nothing here is stored. Events: "status", "hello", "state", "problem".
+// circuitpathways_pi.py (started at boot by its installer); connect(id) links this
+// page to the Pi with that ID. Nothing here is stored. Events: "status", "hello", "state", "problem".
 //
 // A later PiPath "Real Pi" mode can use this same class to run a student's
 // gpiozero program's pin changes on the real pins.
@@ -31,7 +31,7 @@ export class PiRemote extends EventTarget {
     this._emit("status", { state, ...extra });
   }
 
-  /** Pairs with the Pi showing this code. Resolves when connected; rejects with a friendly message. */
+  /** Links to the Pi with this ID (the one on its label). Resolves when connected; rejects with a friendly message. */
   async connect(code) {
     this.disconnect();
     const access = getAccess();

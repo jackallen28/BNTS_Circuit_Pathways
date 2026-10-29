@@ -5,3 +5,4 @@ tests
 pi-bridge
 *.md
 .git
+**/__pycache__

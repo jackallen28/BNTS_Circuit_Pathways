@@ -21,6 +21,7 @@ import (
 	"circuitpathways/internal/arduino"
 	"circuitpathways/internal/classes"
 	"circuitpathways/internal/content"
+	"circuitpathways/internal/pilink"
 	"circuitpathways/internal/pirelay"
 )
 
@@ -43,6 +44,8 @@ type Config struct {
 	MaxCompiles int
 	// Relay connects browsers to Raspberry Pis (nil: a new one).
 	Relay *pirelay.Relay
+	// PiKeys checks Raspberry Pi keys (nil: Pi Link is off).
+	PiKeys *pilink.Keys
 }
 
 // Server is the http.Handler.
@@ -51,7 +54,7 @@ type Server struct {
 	static  http.Handler
 	handler http.Handler
 	slots   chan struct{}
-	limits  struct{ signin, join, class, compile, piRegister, piCommand *limiter }
+	limits  struct{ signin, join, class, compile, piCommand *limiter }
 }
 
 const (
@@ -80,7 +83,6 @@ func New(cfg Config) *Server {
 	s.limits.join = newLimiter(20, time.Minute)
 	s.limits.class = newLimiter(30, time.Minute)
 	s.limits.compile = newLimiter(15, time.Minute)
-	s.limits.piRegister = newLimiter(6, time.Minute)
 	s.limits.piCommand = newLimiter(900, time.Minute)
 	if s.Relay == nil {
 		s.Relay = pirelay.New(cfg.Now)

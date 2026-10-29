@@ -1,0 +1,323 @@
+{
+ "file_name": "waste_sorter.py",
+ "id": "c3_waste_sorter",
+ "intro": "## Build a learning sorting gate\nTrain a USB camera to tell your clean waste samples from your recycling samples. Code a nearest-neighbour classifier, then use two LEDs and a positional servo to point a cardboard gate towards the matching bin. Everything stays on this Pi and works offline.\nStart in the Simulator. **Ball means waste; Box means recycling** in this practice world. These are pretend labels, not real recycling rules. On your Pi, click the camera title and choose **USB**. Ask your teacher which clean items belong in each local bin. Never use sharp, dirty or hazardous rubbish.\nYou will test each part, collect your own examples, code the prediction, test unseen items and join the parts together. Allow two or three lessons.\n",
+ "outro": "## Test, improve, explain\nYour machine compares tiny greyscale pictures. It does not understand materials or local recycling rules. Similar shapes, new objects, shadows and a changed background can fool it. Keep a person checking every decision. Use only clean demonstration items, not real waste processing.\nTry more examples of different items, angles and lighting. Keep test items out of training. Compare the accuracy before and after retraining. Explain which mistakes matter most and why. Challenge: add an unsure result that keeps the gate centred when matches are too similar.\n",
+ "requires_camera": true,
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The green LED test finished",
+     "type": "output_contains",
+     "value": "Green tested"
+    },
+    {
+     "label": "I saw the green LED light",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\nwith LED(22) as green:\n    green.on()\n    sleep(1)\nprint(\"Green tested\")\n",
+   "error_hints": {},
+   "hints": [
+    "LED() needs the BCM GPIO number, not the physical pin number.",
+    "Use LED(22) for the green LED."
+   ],
+   "id": "step1",
+   "starter": "from gpiozero import LED\nfrom time import sleep\nwith LED(___) as green:\n    green.on()\n    sleep(1)\nprint(\"Green tested\")\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "guided",
+   "text": "**Your task:** Wire only the green LED. Fill the blank with GPIO22. Run and check it lights for one second.\n",
+   "title": "Test the recycling LED"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Both LED tests finished",
+     "type": "output_contains",
+     "value": "Both LEDs tested"
+    },
+    {
+     "label": "Each LED lit on its own",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\nwith LED(22) as green, LED(17) as red:\n    green.on()\n    sleep(1)\n    green.off()\n    red.on()\n    sleep(1)\nprint(\"Both LEDs tested\")\n",
+   "error_hints": {},
+   "hints": [
+    "Turn green off before turning red on.",
+    "Use red = LED(17), then red.on() and sleep(1)."
+   ],
+   "id": "step2",
+   "starter": "from gpiozero import LED\nfrom time import sleep\nwith LED(22) as green, LED(17) as red:\n    green.on()\n    sleep(1)\n    green.off()\n    red.___()\n    sleep(1)\nprint(\"Both LEDs tested\")\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "guided",
+   "text": "**Your task:** Add the red LED on GPIO17 with its own resistor. Fill the blank to turn red on after green. Check both colours separately.\n",
+   "title": "Add the waste LED"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Servo test finished",
+     "type": "output_contains",
+     "value": "Servo tested"
+    },
+    {
+     "label": "The arm moved both ways and returned to centre",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import Servo\nfrom time import sleep\nwith Servo(18, initial_value=None) as gate:\n    for position in (-0.5, 0, 0.5, 0):\n        gate.value = position\n        print(\"Gate\", position)\n        sleep(0.7)\n    gate.detach()\nprint(\"Servo tested\")\n",
+   "error_hints": {},
+   "hints": [
+    "Servo() needs the signal pin number. The external supply powers the motor.",
+    "Use Servo(18, initial_value=None). Set gate.value to move it."
+   ],
+   "id": "step3",
+   "starter": "from gpiozero import Servo\nfrom time import sleep\nwith Servo(___, initial_value=None) as gate:\n    for position in (-0.5, 0, 0.5, 0):\n        gate.value = position\n        print(\"Gate\", position)\n        sleep(0.7)\n    gate.detach()\nprint(\"Servo tested\")\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "guided",
+   "text": "**Your task:** Ask your teacher to check the separate servo supply and common ground. Test without a gate attached. Servo values go from -1 to 1; use -0.5, 0 and 0.5 first. Fill the blank with 18. The Simulator arm should move both ways. On hardware, stop if it jams. detach() releases the motor; it does not hold a gate shut.\n",
+   "title": "Test the servo on its own"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "A camera grid was captured",
+     "type": "output_contains",
+     "value": "Camera tested"
+    },
+    {
+     "label": "I tried two different objects",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from pipath_camera import Camera\ncam = Camera()\nfor row in cam.capture_grid(16, 16):\n    print(row)\nprint(\"Camera tested\")\n",
+   "error_hints": {},
+   "hints": [
+    "Each row holds 16 brightness numbers from 0 to 255.",
+    "Use cam.capture_grid(16, 16), keeping the webcam still."
+   ],
+   "id": "step4",
+   "starter": "from pipath_camera import Camera\ncam = Camera()\nfor row in cam.capture_grid(16, 16):\n    print(row)\nprint(\"Camera tested\")\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "guided",
+   "text": "**Your task:** Choose USB for a real webcam, or Simulated for practice. Run with an item on the plain background. A picture becomes 16 rows of brightness numbers. Change the item and run again.\n",
+   "title": "See the camera picture"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Your training file exists",
+     "type": "file_exists",
+     "value": "waste_examples.json"
+    },
+    {
+     "label": "Ten labelled examples were collected",
+     "type": "output_contains",
+     "value": "Saved 10 training examples"
+    }
+   ],
+   "demo": "from pipath_camera import Camera\nfrom time import sleep\nimport json\ncam = Camera()\nexamples = []\nfor label in (\"waste\", \"recycling\"):\n    for number in range(5):\n        input(f\"Show {label} sample {number + 1}, then press Enter: \")\n        sleep(1)  # keep the item still while the camera settles\n        pixels = []\n        for row in cam.capture_grid(16, 16):\n            pixels = pixels + row\n        examples.append({\"label\": label, \"pixels\": pixels})\nwith open(\"waste_examples.json\", \"w\") as f:\n    json.dump(examples, f)\nprint(\"Saved\", len(examples), \"training examples\")\n",
+   "demo_events": [
+    "0 show ball",
+    "5.5 show box"
+   ],
+   "demo_input": "\n\n\n\n\n\n\n\n\n\n",
+   "error_hints": {},
+   "hints": [
+    "The list examples contains both the labels and the pixel numbers.",
+    "Save the list with json.dump(examples, f)."
+   ],
+   "id": "step5",
+   "starter": "from pipath_camera import Camera\nfrom time import sleep\nimport json\ncam = Camera()\nexamples = []\nfor label in (\"waste\", \"recycling\"):\n    for number in range(5):\n        input(f\"Show {label} sample {number + 1}, then press Enter: \")\n        sleep(1)  # keep the item still while the camera settles\n        pixels = []\n        for row in cam.capture_grid(16, 16):\n            pixels = pixels + row\n        examples.append({\"label\": label, \"pixels\": pixels})\nwith open(\"waste_examples.json\", \"w\") as f:\n    json.dump(___, f)\nprint(\"Saved\", len(examples), \"training examples\")\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "guided",
+   "text": "**Your task:** Collect five waste and five recycling pictures. Use several clean items in each group and vary their angle. Keep the same plain background for both groups so the Pi learns the items, not the backdrop. Each Enter captures one picture; wait for its next prompt. This replaces only waste_examples.json in this activity. In the Simulator choose Ball for waste, then Box for recycling. Fill the blank with examples to save your training set.\n",
+   "title": "Train with labelled examples"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Your classifier made a prediction",
+     "type": "output_regex",
+     "value": "Prediction: (waste|recycling)"
+    }
+   ],
+   "demo": "from pipath_camera import Camera\nimport json\n\ncam = Camera()\n\nwith open(\"waste_examples.json\") as f:\n    examples = json.load(f)\n\ndef distance(a, b):\n    total = 0\n    for x, y in zip(a, b):\n        total = total + abs(x - y)\n    return total\n\ndef classify(pixels):\n    \"\"\"Find the example that looks most like these pixels, and return its label.\"\"\"\n    best_label = None\n    best_distance = None\n    for ex in examples:\n        d = distance(pixels, ex[\"pixels\"])\n        if best_distance is None or d < best_distance:\n            best_distance = d\n            best_label = ex[\"label\"]\n    return best_label\n\ndef snap():\n    \"\"\"Take a 16 x 16 picture and join its rows into one list of 256 numbers.\"\"\"\n    grid = cam.capture_grid(16, 16)\n    pixels = []\n    for row in grid:\n        pixels = pixels + row\n    return pixels\n\nguess = classify(snap())\nprint(\"Prediction:\", guess)\n",
+   "demo_files": [
+    "c3/waste_examples.json"
+   ],
+   "error_hints": {
+    "FileNotFoundError": "Collect and save your own training examples in step 5 first."
+   },
+   "hints": [
+    "A smaller distance means a closer match.",
+    "Compare d < best_distance so the closest example wins."
+   ],
+   "id": "step6",
+   "starter": "from pipath_camera import Camera\nimport json\n\ncam = Camera()\n\nwith open(\"waste_examples.json\") as f:\n    examples = json.load(f)\n\ndef distance(a, b):\n    total = 0\n    for x, y in zip(a, b):\n        total = total + abs(x - y)\n    return total\n\ndef classify(pixels):\n    \"\"\"Find the example that looks most like these pixels, and return its label.\"\"\"\n    best_label = None\n    best_distance = None\n    for ex in examples:\n        d = distance(pixels, ex[\"pixels\"])\n        if best_distance is None or d < ___:\n            best_distance = d\n            best_label = ex[\"label\"]\n    return best_label\n\ndef snap():\n    \"\"\"Take a 16 x 16 picture and join its rows into one list of 256 numbers.\"\"\"\n    grid = cam.capture_grid(16, 16)\n    pixels = []\n    for row in grid:\n        pixels = pixels + row\n    return pixels\n\nguess = classify(snap())\nprint(\"Prediction:\", guess)\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "scaffolded",
+   "text": "**Your task:** The nearest neighbour is the training picture with the smallest sum of pixel differences. Fill the blank with best_distance. Run with both kinds of item. Your training file from the last step is needed; Watch the goal uses separate practice examples. A guess is a prediction, not proof that an item is recyclable.\n",
+   "title": "Code the learning rule"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Four held-out trials completed",
+     "type": "output_contains",
+     "value": "out of 4"
+    },
+    {
+     "label": "Accuracy was calculated",
+     "type": "output_contains",
+     "value": "Accuracy:"
+    },
+    {
+     "label": "I recorded errors for both waste and recycling on unseen items",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from pipath_camera import Camera\nimport json\n\ncam = Camera()\n\nwith open(\"waste_examples.json\") as f:\n    examples = json.load(f)\n\ndef distance(a, b):\n    total = 0\n    for x, y in zip(a, b):\n        total = total + abs(x - y)\n    return total\n\ndef classify(pixels):\n    \"\"\"Find the example that looks most like these pixels, and return its label.\"\"\"\n    best_label = None\n    best_distance = None\n    for ex in examples:\n        d = distance(pixels, ex[\"pixels\"])\n        if best_distance is None or d < best_distance:\n            best_distance = d\n            best_label = ex[\"label\"]\n    return best_label\n\ndef snap():\n    \"\"\"Take a 16 x 16 picture and join its rows into one list of 256 numbers.\"\"\"\n    grid = cam.capture_grid(16, 16)\n    pixels = []\n    for row in grid:\n        pixels = pixels + row\n    return pixels\n\ncorrect = 0\nfor trial in range(4):\n    actual = input(\"Show an UNSEEN item. Type waste or recycling, then Enter: \").strip().lower()\n    while actual not in (\"waste\", \"recycling\"):\n        actual = input(\"Type waste or recycling: \").strip().lower()\n    guess = classify(snap())\n    print(\"Actual:\", actual, \"Prediction:\", guess)\n    if guess == actual:\n        correct = correct + 1\nprint(\"Correct:\", correct, \"out of 4\")\nprint(\"Accuracy:\", correct / 4 * 100, \"%\")\n",
+   "demo_files": [
+    "c3/waste_examples.json"
+   ],
+   "demo_input": "waste\nwaste\nwaste\nwaste\n",
+   "error_hints": {
+    "FileNotFoundError": "Collect and save your own training examples in step 5 first."
+   },
+   "hints": [
+    "Use a new item or view, not a saved training picture.",
+    "Accuracy is correct / 4 * 100. Record wrong guesses too."
+   ],
+   "id": "step7",
+   "starter": "from pipath_camera import Camera\nimport json\n\ncam = Camera()\n\nwith open(\"waste_examples.json\") as f:\n    examples = json.load(f)\n\ndef distance(a, b):\n    total = 0\n    for x, y in zip(a, b):\n        total = total + abs(x - y)\n    return total\n\ndef classify(pixels):\n    \"\"\"Find the example that looks most like these pixels, and return its label.\"\"\"\n    best_label = None\n    best_distance = None\n    for ex in examples:\n        d = distance(pixels, ex[\"pixels\"])\n        if best_distance is None or d < best_distance:\n            best_distance = d\n            best_label = ex[\"label\"]\n    return best_label\n\ndef snap():\n    \"\"\"Take a 16 x 16 picture and join its rows into one list of 256 numbers.\"\"\"\n    grid = cam.capture_grid(16, 16)\n    pixels = []\n    for row in grid:\n        pixels = pixels + row\n    return pixels\n\ncorrect = 0\nfor trial in range(4):\n    actual = input(\"Show an UNSEEN item. Type waste or recycling, then Enter: \").strip().lower()\n    while actual not in (\"waste\", \"recycling\"):\n        actual = input(\"Type waste or recycling: \").strip().lower()\n    guess = classify(snap())\n    print(\"Actual:\", actual, \"Prediction:\", guess)\n    if guess == actual:\n        correct = correct + 1\nprint(\"Correct:\", correct, \"out of 4\")\nprint(\"Accuracy:\", correct / ___ * 100, \"%\")\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "scaffolded",
+   "text": "**Your task:** Set aside four test items or new views before training. Do not add these pictures to the training set. Type the true bin for each item BEFORE the prediction. Fill the accuracy blank with the number of trials. Record the accuracy and both kinds of mistake. Retrain with better examples, then compare on a fresh test set. Low accuracy is useful evidence; it is not a reason to change the true labels. The demo uses Ball practice pictures only, not real waste.\n",
+   "title": "Test items it has not learned"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The camera drove a sorting decision",
+     "type": "output_regex",
+     "value": "Prediction: (waste|recycling)"
+    },
+    {
+     "label": "I tested both routes, their LEDs and the return to centre",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Servo\nfrom time import sleep\nfrom pipath_camera import Camera\nimport json\n\ncam = Camera()\n\nwith open(\"waste_examples.json\") as f:\n    examples = json.load(f)\n\ndef distance(a, b):\n    total = 0\n    for x, y in zip(a, b):\n        total = total + abs(x - y)\n    return total\n\ndef classify(pixels):\n    \"\"\"Find the example that looks most like these pixels, and return its label.\"\"\"\n    best_label = None\n    best_distance = None\n    for ex in examples:\n        d = distance(pixels, ex[\"pixels\"])\n        if best_distance is None or d < best_distance:\n            best_distance = d\n            best_label = ex[\"label\"]\n    return best_label\n\ndef snap():\n    \"\"\"Take a 16 x 16 picture and join its rows into one list of 256 numbers.\"\"\"\n    grid = cam.capture_grid(16, 16)\n    pixels = []\n    for row in grid:\n        pixels = pixels + row\n    return pixels\n\nwith LED(22) as green, LED(17) as red, Servo(18, initial_value=None) as gate:\n    try:\n        while True:\n            command = input(\"Place one item, then Enter to sort (q to quit): \").strip().lower()\n            if command == \"q\":\n                break\n            guess = classify(snap())\n            print(\"Prediction:\", guess)\n            green.value = guess == \"recycling\"\n            red.value = guess == \"waste\"\n            gate.value = 0.5 if guess == \"recycling\" else -0.5\n            sleep(1)\n            gate.value = 0\n            sleep(0.5)\n            gate.detach()\n            green.off()\n            red.off()\n    finally:\n        green.off()\n        red.off()\n        gate.detach()\nprint(\"Sorter stopped\")\n",
+   "demo_files": [
+    "c3/waste_examples.json"
+   ],
+   "demo_input": "\nq\n",
+   "error_hints": {
+    "FileNotFoundError": "Collect and save your own training examples in step 5 first."
+   },
+   "hints": [
+    "The green LED already uses the recycling comparison.",
+    "Use 0.5 if guess == \"recycling\" else -0.5 for the gate."
+   ],
+   "id": "step8",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import LED, Servo\nfrom time import sleep\nfrom pipath_camera import Camera\nimport json\n\ncam = Camera()\n\nwith open(\"waste_examples.json\") as f:\n    examples = json.load(f)\n\ndef distance(a, b):\n    total = 0\n    for x, y in zip(a, b):\n        total = total + abs(x - y)\n    return total\n\ndef classify(pixels):\n    \"\"\"Find the example that looks most like these pixels, and return its label.\"\"\"\n    best_label = None\n    best_distance = None\n    for ex in examples:\n        d = distance(pixels, ex[\"pixels\"])\n        if best_distance is None or d < best_distance:\n            best_distance = d\n            best_label = ex[\"label\"]\n    return best_label\n\ndef snap():\n    \"\"\"Take a 16 x 16 picture and join its rows into one list of 256 numbers.\"\"\"\n    grid = cam.capture_grid(16, 16)\n    pixels = []\n    for row in grid:\n        pixels = pixels + row\n    return pixels\n\nwith LED(22) as green, LED(17) as red, Servo(18, initial_value=None) as gate:\n    try:\n        while True:\n            command = input(\"Place one item, then Enter to sort (q to quit): \").strip().lower()\n            if command == \"q\":\n                break\n            guess = classify(snap())\n            print(\"Prediction:\", guess)\n            green.value = guess == \"recycling\"\n            red.value = guess == \"waste\"\n            gate.value = 0.5 if ___ else -0.5\n            sleep(1)\n            gate.value = 0\n            sleep(0.5)\n            gate.detach()\n            green.off()\n            red.off()\n    finally:\n        green.off()\n        red.off()\n        gate.detach()\nprint(\"Sorter stopped\")\n",
+   "starter_mode": "replace",
+   "success": "Part tested. Explain what you observed before moving on.",
+   "support": "brief",
+   "text": "**Your task:** Join the tested parts. With teacher help fit a light cardboard pointer, leaving space for both movements. Check +0.5 points towards recycling and -0.5 towards waste BEFORE placing items. Swap the sign in code or move the bin labels if needed. Fill the blank with the condition for recycling. Run with both groups: green and right for recycling; red and left for waste. The gate returns to centre, then releases. This is a supervised pointer, not a load-bearing trapdoor. Type q to quit, or Stop. Test new items and keep a human checking each prediction.\n",
+   "title": "Build your sorting gate"
+  }
+ ],
+ "title": "Waste Sorter",
+ "wiring": [
+  {
+   "connect": "Plug into USB. Click the camera panel title and select USB on the real Pi. Keep it fixed above a plain background.",
+   "part": "USB camera"
+  },
+  {
+   "colour": "green",
+   "connect": "GPIO22 (physical pin 15) → 330Ω resistor → green LED long leg. Short leg → GND.",
+   "kind": "led",
+   "part": "Recycling LED",
+   "pin": 22,
+   "wire_steps": [
+    "Connect GPIO22 (physical pin 15) to one end of a 330Ω resistor.",
+    "Connect the other end of that resistor to the green LED long leg (+).",
+    "Connect the green LED short leg (−) to GND (physical pin 6, or the common GND rail)."
+   ]
+  },
+  {
+   "colour": "red",
+   "connect": "GPIO17 (physical pin 11) → 330Ω resistor → red LED long leg. Short leg → GND.",
+   "kind": "led",
+   "part": "Waste LED",
+   "pin": 17,
+   "wire_steps": [
+    "Connect GPIO17 (physical pin 11) to one end of a second 330Ω resistor.",
+    "Connect the other end of this resistor to the red LED long leg (+).",
+    "Connect the red LED short leg (−) to the same GND rail. Each LED needs its own resistor."
+   ]
+  },
+  {
+   "connect": "Use a positional hobby servo, not continuous rotation. Signal → GPIO18 (physical pin 12). Teacher supplies a separate regulated supply rated for the servo: positive → servo power, negative → servo ground AND Pi GND (physical pin 6). Never join external positive to the Pi power pins. Never power a servo from GPIO or 3V3. Check the servo's wire colours and voltage with your teacher.",
+   "kind": "servo",
+   "part": "Sorting servo",
+   "pin": 18,
+   "wire_steps": [
+    "Use a positional hobby servo. Ask your teacher to choose a regulated external supply matched to its voltage and current rating. Keep the supply disconnected while wiring.",
+    "Connect the servo signal wire to GPIO18 (physical pin 12). Check your servo wire colours with your teacher.",
+    "Connect external supply positive to the servo power wire. Do not connect it to any Pi power or GPIO pin. Do not power the motor from GPIO or 3V3.",
+    "Connect external supply negative to servo ground AND Pi GND (physical pin 6). The separate supply and Pi must share a ground.",
+    "Ask your teacher to check the connections before replacing the blue HAT and reconnecting the external supply. Test the bare arm first; keep fingers clear. Fit a light cardboard pointer only after this test."
+   ]
+  },
+  {
+   "connect": "Take the blue HAT off before changing wires; do not turn the Pi off. Disconnect the external servo supply while rewiring. Teacher checks before reconnecting. Test the bare servo first; fit a light cardboard gate only afterwards. Keep fingers clear. Start with small movements; stop if the gate jams or the servo buzzes.",
+   "part": "Before moving"
+  }
+ ]
+}

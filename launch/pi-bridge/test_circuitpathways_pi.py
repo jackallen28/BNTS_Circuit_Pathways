@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 import sys
 
+sys.dont_write_bytecode = True  # never leave cache files inside the website folder
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "site", "pipath", "remote"))
 import circuitpathways_pi as pi
 
@@ -102,10 +103,13 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(g.pins, {})
 
 
+KEY = "CPK1-K7M2QX9P-AB12CD34EF"
+
+
 class FakeWebsite(BaseHTTPRequestHandler):
-    """Just enough of the website's /api/pi/ to test the Pi's side of the conversation."""
+    """Just enough of the website's /api/pi/pi/ to test the Pi's side of the conversation."""
     sent, commands = [], []
-    forget = False
+    refuse = False
 
     def log_message(self, *a):
         pass
@@ -121,17 +125,16 @@ class FakeWebsite(BaseHTTPRequestHandler):
     def do_POST(self):
         assert self.headers["X-Circuit-Pathways"] == "1"
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        if self.path == "/api/pi/register":
-            return self._json(200, {"code": "ABC-123", "secret": "s3cret"})
-        assert self.headers["X-Pi-Secret"] == "s3cret"
+        if type(self).refuse or self.headers["X-Pi-Key"] != KEY:
+            return self._json(403, {"error": "pi_key"})
         type(self).sent.append(body["event"])
         self.send_response(204)
         self.end_headers()
 
     def do_GET(self):
-        assert self.path == "/api/pi/pi/events?code=ABC-123" and self.headers["X-Pi-Secret"] == "s3cret"
-        if type(self).forget:
-            return self._json(404, {"error": "pi_not_found"})
+        assert self.path == "/api/pi/pi/events"
+        if type(self).refuse or self.headers["X-Pi-Key"] != KEY:
+            return self._json(403, {"error": "pi_key"})
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.end_headers()
@@ -145,7 +148,7 @@ class FakeWebsite(BaseHTTPRequestHandler):
 
 class LinkTests(unittest.TestCase):
     def setUp(self):
-        FakeWebsite.sent, FakeWebsite.forget = [], False
+        FakeWebsite.sent, FakeWebsite.refuse = [], False
         FakeWebsite.commands = [
             {"op": "mode", "pin": 17, "mode": "out"},
             {"op": "write", "pin": 17, "value": 1},
@@ -159,35 +162,35 @@ class LinkTests(unittest.TestCase):
     def tearDown(self):
         self.http.shutdown()
 
-    def test_registers_runs_commands_and_reports_back(self):
+    def test_connects_with_its_key_runs_commands_and_reports_back(self):
         logs = []
         b = bridge()
-        link = pi.Link(b, pi.Server(self.base, "Pi 4"), log=logs.append)
-        t = threading.Thread(target=link.run, daemon=True)
-        t.start()
+        link = pi.Link(b, pi.Server(self.base, KEY, "Pi 4"), log=logs.append)
+        threading.Thread(target=link.run, daemon=True).start()
         deadline = time.time() + 5
         while time.time() < deadline and not any(e["type"] == "pong" for e in FakeWebsite.sent):
             time.sleep(0.05)
         link.stop.set()
         types = [e["type"] for e in FakeWebsite.sent]
         self.assertEqual(types[0], "hello")
+        self.assertEqual(FakeWebsite.sent[0]["data"]["name"], "Pi 4")
         self.assertIn("pong", types)
         errors = [e for e in FakeWebsite.sent if e["type"] == "error"]
         self.assertEqual(len(errors), 1)
         self.assertIn("GPIO 99", errors[0]["data"]["message"])
         self.assertEqual(b.snapshot()["17"]["value"], 1, "the command from the website switched the pin on")
-        self.assertEqual(link.server.code, "ABC-123")
 
-    def test_if_the_website_forgets_this_pi_it_asks_for_a_new_code(self):
-        FakeWebsite.forget = True
-        logs = []
-        link = pi.Link(bridge(), pi.Server(self.base, "Pi"), sleep=lambda s: time.sleep(0.01), log=logs.append)
+    def test_a_key_the_website_refuses_is_explained_and_retried_slowly(self):
+        FakeWebsite.refuse = True
+        logs, sleeps = [], []
+        link = pi.Link(bridge(), pi.Server(self.base, KEY), sleep=lambda s: (sleeps.append(s), time.sleep(0.01)), log=logs.append)
         threading.Thread(target=link.run, daemon=True).start()
         deadline = time.time() + 5
-        while time.time() < deadline and not any("forgot" in l for l in logs):
+        while time.time() < deadline and not any("key isn't valid" in l for l in logs):
             time.sleep(0.05)
         link.stop.set()
-        self.assertTrue(any("forgot" in l for l in logs))
+        self.assertTrue(any("key isn't valid" in l for l in logs))
+        self.assertIn(60.0, sleeps)
 
     def test_losing_the_website_switches_outputs_off(self):
         b = bridge()
@@ -195,7 +198,7 @@ class LinkTests(unittest.TestCase):
         b.handle({"op": "write", "pin": 17, "value": 1})
         t = [0.0]
         logs = []
-        link = pi.Link(b, pi.Server("http://127.0.0.1:1", "Pi"), log=logs.append, clock=lambda: t[0], sleep=lambda s: time.sleep(0.01))
+        link = pi.Link(b, pi.Server("http://127.0.0.1:1", KEY), log=logs.append, clock=lambda: t[0], sleep=lambda s: time.sleep(0.01))
         link.lost_at = 0.0
         t[0] = pi.FAILSAFE_SECONDS + 1
         threading.Thread(target=link._poller, daemon=True).start()
@@ -207,10 +210,26 @@ class LinkTests(unittest.TestCase):
         self.assertTrue(any("switched off" in l for l in logs))
 
 
-class StartTests(unittest.TestCase):
-    def test_server_must_be_a_web_address(self):
+class KeyAndConfigTests(unittest.TestCase):
+    def test_the_id_on_the_label_comes_from_the_key(self):
+        self.assertEqual(pi.pi_id(KEY), "K7M2-QX9P")
+        self.assertEqual(pi.pi_id("  " + KEY.lower() + " "), "K7M2-QX9P")
+        for bad in ["", "hello", "CPK2-K7M2QX9P-AB12CD34EF", "CPK1-K7M2QX9-AB12CD34EF", "CPK1-K7M2QX9P-AB12"]:
+            with self.assertRaises(ValueError):
+                pi.pi_id(bad)
+
+    def test_config_file_lines(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".conf", delete=False) as f:
+            f.write('# made by the installer\nKEY=%s\nSERVER="https://example.org"\nNAME=Lab Pi 3\n' % KEY)
+        self.assertEqual(pi.read_config(f.name), {"KEY": KEY, "SERVER": "https://example.org", "NAME": "Lab Pi 3"})
         with self.assertRaises(SystemExit):
-            pi.main(["--mock", "--server", "file:///etc/passwd"])
+            pi.read_config("/nonexistent/file.conf")
+
+    def test_start_up_checks(self):
+        for argv in (["--mock"], ["--mock", "--key", "nope"], ["--mock", "--key", KEY, "--server", "file:///etc/passwd"]):
+            with self.assertRaises(SystemExit, msg=str(argv)):
+                pi.main(argv)
 
 
 if __name__ == "__main__":

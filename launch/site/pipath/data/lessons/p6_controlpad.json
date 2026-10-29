@@ -1,0 +1,397 @@
+{
+ "file_name": "control_pad.py",
+ "id": "p6_controlpad",
+ "intro": "## Your own control pad\n\nStreamers and video editors use a **control pad** (a \"stream deck\" or \"macro pad\"): a box of buttons where each one makes the computer do a job. In this project you'll build one with three buttons and an LED.\n\nYou'll:\n- test the three buttons, then the LED, one part at a time\n- make button 1 take a **screenshot**\n- make buttons 2 and 3 turn the **volume** up and down\n- keep all the actions in a **dictionary**, with one function that runs the right one\n- **hold** button 1 to open a favourite website\n- keep a log of every action in a file\n\nThe helpers come from `pipath_computer`: `take_screenshot()`, `change_volume()` and `open_website()`.\n\n**Safety first:** take the blue GPIO HAT off before you change any wires, and put it back on after. Never turn the Pi off, or you'll lose your progress.\n",
+ "outro": "## You built a Control Pad!\n\nYou used `when_pressed` and `when_held`, functions, a **dictionary** that turns a pin number into an action, and a log file. Real control pads, TV remotes and game controllers all work like this: a button press is looked up in a table to find what to do.\n\n**How the helpers work (no magic):** they run the Pi's own commands with `subprocess`. On Raspberry Pi OS, `grim` takes a screenshot and `wpctl` changes the volume:\n\n```\nimport subprocess\nsubprocess.run([\"grim\", \"screenshot.png\"])\nsubprocess.run([\"wpctl\", \"set-volume\", \"@DEFAULT_AUDIO_SINK@\", \"5%+\"])\n```\n\n**Extension ideas:**\n- Swap the helpers for your own `subprocess.run(...)` lines with `grim` and `wpctl`. Try `wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle` for a mute button\n- Give every screenshot its own name with the date and time, so new ones don't replace old ones\n- Add a **mode** button: in \"music\" mode the buttons change the volume, in \"photo\" mode they take screenshots. Flash the LED once or twice to show the mode\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "All three buttons have a job",
+     "min": 3,
+     "type": "code_count",
+     "value": "attr:when_pressed"
+    },
+    {
+     "fail": "Press button 1 (GPIO23) while your program runs.",
+     "label": "Button 1 works",
+     "type": "output_contains",
+     "value": "Button 1 pressed"
+    },
+    {
+     "fail": "Press button 2 (GPIO24) while your program runs.",
+     "label": "Button 2 works",
+     "type": "output_contains",
+     "value": "Button 2 pressed"
+    },
+    {
+     "fail": "Press button 3 (GPIO25) while your program runs.",
+     "label": "Button 3 works",
+     "type": "output_contains",
+     "value": "Button 3 pressed"
+    }
+   ],
+   "demo": "from gpiozero import Button\nfrom signal import pause\n\nbutton1 = Button(23)\nbutton2 = Button(24)\nbutton3 = Button(25)\n\ndef say_one():\n    print(\"Button 1 pressed\")\n\ndef say_two():\n    print(\"Button 2 pressed\")\n\ndef say_three():\n    print(\"Button 3 pressed\")\n\nbutton1.when_pressed = say_one\nbutton2.when_pressed = say_two\nbutton3.when_pressed = say_three\n\nprint(\"Press each button, then press Stop\")\npause()\n",
+   "demo_events": [
+    "1 tap 23",
+    "2 tap 24",
+    "3 tap 25"
+   ],
+   "demo_seconds": 4.5,
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button."
+   },
+   "hints": [
+    "Look at how buttons 1 and 2 are done.",
+    "Button 3 should run the function called `say_three`.",
+    "The line is `button3.when_pressed = say_three` (no brackets)."
+   ],
+   "id": "step1",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import Button\nfrom signal import pause\n\nbutton1 = Button(23)\nbutton2 = Button(24)\nbutton3 = Button(25)\n\ndef say_one():\n    print(\"Button 1 pressed\")\n\ndef say_two():\n    print(\"Button 2 pressed\")\n\ndef say_three():\n    print(\"Button 3 pressed\")\n\nbutton1.when_pressed = say_one\nbutton2.when_pressed = say_two\nbutton3.when_pressed = ___\n\nprint(\"Press each button, then press Stop\")\npause()\n",
+   "starter_mode": "replace",
+   "success": "All three buttons work. Next, test the LED on its own.",
+   "support": "guided",
+   "text": "Start with the buttons. Wire up all three (see **Wiring + Safety**, and take the blue HAT off first).\n\n`button1.when_pressed = say_one` tells the button: \"when you're pressed, run `say_one`\". There are **no brackets** after `say_one`, because we don't want to run it now, only later.\n\n`pause()` keeps the program waiting for presses until you press **Stop**.\n\n**Your task:** fill in the blank so button 3 runs `say_three`. Run it, press each button, then press **Stop**.\n",
+   "title": "Test the three buttons"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "There's a flash() function",
+     "type": "code_regex",
+     "value": "def\\s+flash\\s*\\("
+    },
+    {
+     "label": "The LED turns off again",
+     "type": "code_regex",
+     "value": "light\\.off\\(\\s*\\)"
+    },
+    {
+     "label": "It flashed three times",
+     "type": "output_contains",
+     "value": "Flash 3"
+    },
+    {
+     "label": "I saw the LED flash three times",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\n\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\nprint(\"Watch the LED...\")\nfor i in range(3):\n    flash()\n    print(\"Flash\", i + 1)\n    sleep(0.5)\n",
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button."
+   },
+   "hints": [
+    "The LED is turned on with `light.on()`. How do you turn it off?",
+    "It's `off`.",
+    "The line is `light.off()`"
+   ],
+   "id": "step2",
+   "starter": "from gpiozero import LED\nfrom time import sleep\n\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.___()\n\nprint(\"Watch the LED...\")\nfor i in range(3):\n    flash()\n    print(\"Flash\", i + 1)\n    sleep(0.5)\n",
+   "starter_mode": "replace",
+   "success": "The LED flashes. Now join a button to it.",
+   "support": "guided",
+   "text": "Now the second part: the LED. On a real control pad, a light flashes to say \"done!\" when a button has done its job. (Your button code is safe in the `backups` folder.)\n\nThe `flash()` function turns the LED on, waits a fifth of a second, then turns it off again.\n\n**Your task:** fill in the blank so the LED turns **off** at the end of `flash()`. Run it: the LED should flash three times.\n",
+   "title": "Test the LED flash"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It takes a screenshot",
+     "type": "code_uses",
+     "value": "call:take_screenshot"
+    },
+    {
+     "fail": "Press button 1 (GPIO23) while your program runs.",
+     "label": "Button 1 saved a screenshot",
+     "type": "output_contains",
+     "value": "▶ Screenshot saved"
+    },
+    {
+     "label": "The picture is in your folder",
+     "type": "file_exists",
+     "value": "*.png"
+    },
+    {
+     "label": "The LED flashed after each screenshot",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import Button, LED\nfrom signal import pause\nfrom time import sleep\nfrom pipath_computer import take_screenshot\n\nbutton1 = Button(23)\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\ndef screenshot():\n    name = take_screenshot(\"screenshot.png\")\n    print(\"Saved\", name)\n    flash()\n\nbutton1.when_pressed = screenshot\n\nprint(\"Press button 1 to take a screenshot\")\npause()\n",
+   "demo_events": [
+    "1 tap 23",
+    "2.5 tap 23"
+   ],
+   "demo_seconds": 4,
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button."
+   },
+   "hints": [
+    "The first blank is the name of the helper you imported at the top.",
+    "The first blank is `take_screenshot`. The second blank is the name of the function button 1 should run.",
+    "The lines are `name = take_screenshot(\"screenshot.png\")` and `button1.when_pressed = screenshot` (no brackets)."
+   ],
+   "id": "step3",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import Button, LED\nfrom signal import pause\nfrom time import sleep\nfrom pipath_computer import take_screenshot\n\nbutton1 = Button(23)\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\ndef screenshot():\n    name = ___(\"screenshot.png\")\n    print(\"Saved\", name)\n    flash()\n\nbutton1.when_pressed = ___\n\nprint(\"Press button 1 to take a screenshot\")\npause()\n",
+   "starter_mode": "replace",
+   "success": "Click! Your first control pad button works. Look for screenshot.png in your work folder.",
+   "support": "scaffolded",
+   "text": "Join the two parts. Button 1 will take a **screenshot** (a picture of the whole screen) and then flash the LED to say it's done. (Your LED code is safe in the `backups` folder.)\n\n`take_screenshot(\"screenshot.png\")` saves the picture in your work folder and gives back its file name.\n\n**Your task:** fill in the two blanks: the `screenshot()` function should call `take_screenshot`, and button 1 should run `screenshot` when it's pressed. Run it, press button 1, then press **Stop**.\n",
+   "title": "Button 1 takes a screenshot"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "One button turns the volume down",
+     "type": "code_regex",
+     "value": "change_volume\\(\\s*-\\s*\\d+"
+    },
+    {
+     "fail": "Press button 2 (GPIO24) while your program runs.",
+     "label": "Button 2 turned it up",
+     "type": "output_contains",
+     "value": "▶ Volume up"
+    },
+    {
+     "fail": "Press button 3 (GPIO25) while your program runs.",
+     "label": "Button 3 turned it down",
+     "type": "output_contains",
+     "value": "▶ Volume down"
+    },
+    {
+     "label": "The LED flashed for every button",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import Button, LED\nfrom signal import pause\nfrom time import sleep\nfrom pipath_computer import take_screenshot, change_volume\n\nbutton1 = Button(23)\nbutton2 = Button(24)\nbutton3 = Button(25)\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\ndef screenshot():\n    name = take_screenshot(\"screenshot.png\")\n    print(\"Saved\", name)\n    flash()\n\ndef louder():\n    change_volume(5)\n    flash()\n\ndef quieter():\n    change_volume(-5)\n    flash()\n\nbutton1.when_pressed = screenshot\nbutton2.when_pressed = louder\nbutton3.when_pressed = quieter\n\nprint(\"Button 1: screenshot. Button 2: louder. Button 3: quieter.\")\npause()\n",
+   "demo_events": [
+    "1 tap 24",
+    "2 tap 24",
+    "3 tap 25",
+    "4 tap 23"
+   ],
+   "demo_seconds": 5.5,
+   "error_hints": {
+    "NameError": "Did you import `change_volume`, and make `button2` and `button3` before you use them?"
+   },
+   "hints": [
+    "Copy the `louder()` function from the instructions, then make a copy called `quieter()` with `change_volume(-5)`.",
+    "Make the buttons before you give them jobs: `button2 = Button(24)` and `button3 = Button(25)`.",
+    "Near the bottom: `button2.when_pressed = louder` and `button3.when_pressed = quieter` (no brackets)."
+   ],
+   "id": "step4",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Three buttons, three jobs. Next, a tidier way to organise them.",
+   "support": "scaffolded",
+   "text": "Now buttons 2 and 3. `change_volume(5)` turns the sound **up** 5%, and `change_volume(-5)` turns it **down** 5%.\n\nAdd these to your program:\n\n1. Import it too: `from pipath_computer import take_screenshot, change_volume`\n2. Two more buttons: `button2 = Button(24)` and `button3 = Button(25)`\n3. Two new functions, like `screenshot()`:\n```\ndef louder():\n    change_volume(5)\n    flash()\n```\nand a `quieter()` one that uses `-5`.\n4. Give them to the buttons: `button2.when_pressed = louder` and the same for button 3.\n\n**Your task:** make button 2 turn the volume up and button 3 turn it down, with a flash each time. Keep button 1 taking screenshots.\n",
+   "title": "Louder and quieter"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The actions are in a dictionary",
+     "type": "code_uses",
+     "value": "node:Dict"
+    },
+    {
+     "label": "pressed() looks up the action",
+     "type": "code_regex",
+     "value": "actions\\s*\\[\\s*\\w+"
+    },
+    {
+     "fail": "Press button 1 (GPIO23) while your program runs.",
+     "label": "Pin 23 took a screenshot",
+     "type": "output_contains",
+     "value": "▶ Screenshot saved"
+    },
+    {
+     "fail": "Press button 2 (GPIO24) while your program runs.",
+     "label": "Pin 24 turned it up",
+     "type": "output_contains",
+     "value": "▶ Volume up"
+    },
+    {
+     "fail": "Press button 3 (GPIO25) while your program runs.",
+     "label": "Pin 25 turned it down",
+     "type": "output_contains",
+     "value": "▶ Volume down"
+    }
+   ],
+   "demo": "from gpiozero import Button, LED\nfrom signal import pause\nfrom time import sleep\nfrom pipath_computer import take_screenshot, change_volume\n\nbutton1 = Button(23)\nbutton2 = Button(24)\nbutton3 = Button(25)\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\ndef screenshot():\n    name = take_screenshot(\"screenshot.png\")\n    print(\"Saved\", name)\n\ndef louder():\n    change_volume(5)\n\ndef quieter():\n    change_volume(-5)\n\n# pin number -> what to do\nactions = {23: screenshot, 24: louder, 25: quieter}\n\ndef pressed(button):\n    number = button.pin.number         # which pin was pressed?\n    print(\"Pin\", number)\n    action = actions[number]           # look up its action\n    action()                           # run it\n    flash()\n\nfor button in [button1, button2, button3]:\n    button.when_pressed = pressed\n\nprint(\"Control pad ready!\")\npause()\n",
+   "demo_events": [
+    "1 tap 23",
+    "2 tap 24",
+    "3 tap 25"
+   ],
+   "demo_seconds": 4.5,
+   "error_hints": {
+    "KeyError": "That pin number isn't a key in your dictionary. Is every button's pin in `actions`?",
+    "TypeError": "Put the function's name in the dictionary, with no brackets: `24: louder`, not `24: louder()`."
+   },
+   "hints": [
+    "Pin 24 is the louder button, and pin 25 is the quieter one.",
+    "The dictionary is `{23: screenshot, 24: louder, 25: quieter}`. The last blank is the variable that holds the pin number.",
+    "The lines are `actions = {23: screenshot, 24: louder, 25: quieter}` and `action = actions[number]`"
+   ],
+   "id": "step5",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import Button, LED\nfrom signal import pause\nfrom time import sleep\nfrom pipath_computer import take_screenshot, change_volume\n\nbutton1 = Button(23)\nbutton2 = Button(24)\nbutton3 = Button(25)\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\ndef screenshot():\n    name = take_screenshot(\"screenshot.png\")\n    print(\"Saved\", name)\n\ndef louder():\n    change_volume(5)\n\ndef quieter():\n    change_volume(-5)\n\n# pin number -> what to do\nactions = {23: screenshot, 24: ___, 25: ___}\n\ndef pressed(button):\n    number = button.pin.number         # which pin was pressed?\n    print(\"Pin\", number)\n    action = actions[___]              # look up its action\n    action()                           # run it\n    flash()\n\nfor button in [button1, button2, button3]:\n    button.when_pressed = pressed\n\nprint(\"Control pad ready!\")\npause()\n",
+   "starter_mode": "replace",
+   "success": "One dictionary, one function, every button. To add a fourth button, you'd just add one line to the dictionary!",
+   "support": "scaffolded",
+   "text": "Your program has three `when_pressed` lines and a `flash()` in every function. What if you had 20 buttons? Real control pads keep their actions in a table instead. In Python that's a **dictionary**. (Your old code is safe in the `backups` folder.)\n\n```\nactions = {23: screenshot, 24: louder, 25: quieter}\n```\n\nThe **key** is a pin number, and the **value** is a function. `actions[24]` gives back the `louder` function, and `actions[24]()` runs it.\n\nNow **one** function, `pressed(button)`, can handle every button. gpiozero gives it the button that was pressed, and `button.pin.number` says which pin it's on. The flash happens once, in `pressed()`.\n\n**Your task:** fill in the blanks so the dictionary has all three actions, and `pressed()` looks up the pin number. Run it and press all three buttons.\n",
+   "title": "A dictionary of actions"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Button 1 has a hold time",
+     "type": "code_regex",
+     "value": "hold_time\\s*=\\s*[\\d.]+"
+    },
+    {
+     "label": "Holding button 1 has a job",
+     "type": "code_uses",
+     "value": "attr:when_held"
+    },
+    {
+     "fail": "Hold button 1 (GPIO23) down for a couple of seconds while your program runs.",
+     "label": "Holding button 1 opened a website",
+     "type": "output_contains",
+     "value": "▶ Opening http"
+    },
+    {
+     "fail": "Press button 2 (GPIO24) too, to check the quick presses still work.",
+     "label": "Quick presses still work",
+     "type": "output_contains",
+     "value": "▶ Volume up"
+    }
+   ],
+   "demo": "from gpiozero import Button, LED\nfrom signal import pause\nfrom time import sleep\nfrom pipath_computer import take_screenshot, change_volume, open_website\n\nbutton1 = Button(23, hold_time=1.5)\nbutton2 = Button(24)\nbutton3 = Button(25)\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\ndef screenshot():\n    name = take_screenshot(\"screenshot.png\")\n    print(\"Saved\", name)\n\ndef louder():\n    change_volume(5)\n\ndef quieter():\n    change_volume(-5)\n\ndef favourite():\n    open_website(\"https://projects.raspberrypi.org\")\n    flash()\n\n# pin number -> what to do\nactions = {23: screenshot, 24: louder, 25: quieter}\n\ndef pressed(button):\n    number = button.pin.number         # which pin was pressed?\n    print(\"Pin\", number)\n    action = actions[number]           # look up its action\n    action()                           # run it\n    flash()\n\nfor button in [button1, button2, button3]:\n    button.when_pressed = pressed\nbutton1.when_held = favourite\n\nprint(\"Control pad ready! Hold button 1 for your favourite site.\")\npause()\n",
+   "demo_events": [
+    "1 tap 24",
+    "2 press 23",
+    "4.5 release 23"
+   ],
+   "demo_seconds": 6,
+   "error_hints": {
+    "ValueError": "A web address starts with `https://`. Check the one in `open_website(...)`."
+   },
+   "hints": [
+    "The import line becomes `from pipath_computer import take_screenshot, change_volume, open_website`.",
+    "`hold_time=1.5` goes inside the brackets: `Button(23, hold_time=1.5)`.",
+    "Put `button1.when_held = favourite` after the `for` loop, so it's the last job you give the button (no brackets)."
+   ],
+   "id": "step6",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Press for a screenshot, hold for your favourite site. Two jobs on one button!",
+   "support": "scaffolded",
+   "text": "A button can do **two** jobs: one for a quick press, and one when you **hold** it down. gpiozero calls the second one `when_held`.\n\n1. Import `open_website` from `pipath_computer` too.\n2. Change button 1 so it counts as \"held\" after a second and a half: `button1 = Button(23, hold_time=1.5)`\n3. Write a `favourite()` function that opens a website you like, then flashes:\n```\ndef favourite():\n    open_website(\"https://projects.raspberrypi.org\")\n    flash()\n```\n4. After the `for` loop: `button1.when_held = favourite`\n\nA hold starts as a press, so button 1 takes a screenshot first, then opens the site. Websites need the internet: with no internet, the browser shows an error page, and that's OK.\n\n**Your task:** make holding button 1 open your favourite website. Quick presses should still work.\n",
+   "title": "Hold for a second action"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It writes to controlpad_log.csv",
+     "type": "code_contains",
+     "value": "controlpad_log.csv"
+    },
+    {
+     "label": "It records the time",
+     "type": "code_uses",
+     "value": "call:now"
+    },
+    {
+     "fail": "Press at least two buttons while your program runs, so the log gets two lines. Each line needs the time, a comma and the action.",
+     "file": "controlpad_log.csv",
+     "label": "The log has at least two actions",
+     "type": "file_contains",
+     "value": "\\d:\\d\\d.*,.*\\w\\n.*\\d:\\d\\d.*,.*\\w"
+    }
+   ],
+   "demo": "from gpiozero import Button, LED\nfrom signal import pause\nfrom time import sleep\nfrom datetime import datetime\nfrom pipath_computer import take_screenshot, change_volume, open_website\n\nbutton1 = Button(23, hold_time=1.5)\nbutton2 = Button(24)\nbutton3 = Button(25)\nlight = LED(17)\n\ndef flash():\n    light.on()\n    sleep(0.2)\n    light.off()\n\ndef log(action):\n    now = datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")\n    with open(\"controlpad_log.csv\", \"a\") as f:\n        f.write(now + \",\" + action + \"\\n\")\n    print(\"Logged\", action)\n\ndef screenshot():\n    name = take_screenshot(\"screenshot.png\")\n    print(\"Saved\", name)\n    log(\"screenshot\")\n\ndef louder():\n    change_volume(5)\n    log(\"louder\")\n\ndef quieter():\n    change_volume(-5)\n    log(\"quieter\")\n\ndef favourite():\n    open_website(\"https://projects.raspberrypi.org\")\n    log(\"website\")\n    flash()\n\n# pin number -> what to do\nactions = {23: screenshot, 24: louder, 25: quieter}\n\ndef pressed(button):\n    number = button.pin.number         # which pin was pressed?\n    action = actions[number]           # look up its action\n    action()                           # run it\n    flash()\n\nfor button in [button1, button2, button3]:\n    button.when_pressed = pressed\nbutton1.when_held = favourite\n\nprint(\"Control pad ready! Every action goes in controlpad_log.csv\")\npause()\n",
+   "demo_events": [
+    "1 tap 24",
+    "2 tap 25",
+    "3 tap 23"
+   ],
+   "demo_seconds": 4.5,
+   "error_hints": {},
+   "hints": [
+    "Write one function, `log(action)`, that opens the file with `\"a\"` and writes one line. Then call it from each action, like `log(\"louder\")`.",
+    "Inside `log()`: `with open(\"controlpad_log.csv\", \"a\") as f:` then `f.write(now + \",\" + action + \"\\n\")`. Don't forget `from datetime import datetime`."
+   ],
+   "id": "step7",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Your control pad keeps its own records. That's how real systems find out what people use most!",
+   "support": "brief",
+   "text": "**Goal:** keep a log of everything your control pad does. Each time a button does a job, add one line to a file called `controlpad_log.csv` with the date and time, a comma, and the action's name, like this:\n\n```\n2026-10-18 10:15:02,louder\n2026-10-18 10:15:07,screenshot\n```\n\nKeep every button (and the hold) working. Press at least two buttons, then open `controlpad_log.csv` in your work folder to check it.\n\nTips: `datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")` gives the date and time as text. Open the file with `\"a\"` (append) so new lines go on the end, instead of wiping the file each time.\n",
+   "title": "Challenge: the action log"
+  }
+ ],
+ "title": "Control Pad",
+ "wiring": [
+  {
+   "connect": "One leg → GPIO23 (pin 16). The leg across the middle gap → GND rail.",
+   "kind": "button",
+   "part": "Button 1 (screenshot)",
+   "pin": 23
+  },
+  {
+   "connect": "One leg → GPIO24 (pin 18). The leg across the middle gap → GND rail.",
+   "kind": "button",
+   "part": "Button 2 (louder)",
+   "pin": 24
+  },
+  {
+   "connect": "One leg → GPIO25 (pin 22). The leg across the middle gap → GND rail.",
+   "kind": "button",
+   "part": "Button 3 (quieter)",
+   "pin": 25
+  },
+  {
+   "colour": "green",
+   "connect": "GPIO17 (pin 11) → 330Ω → long leg; short leg → GND",
+   "kind": "led",
+   "part": "Done light",
+   "pin": 17
+  },
+  {
+   "connect": "To hear the volume change, plug headphones or a speaker into the Pi, or use a screen with speakers (HDMI). Keep it low in class!",
+   "part": "Speaker"
+  }
+ ]
+}

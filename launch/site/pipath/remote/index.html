@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pi Link (prototype) - PiPath</title>
+<title>Pi Link - PiPath</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="../../img/bnts-mark.svg">
 <link rel="stylesheet" href="../../css/site.css">
@@ -15,20 +15,24 @@
 <div class="sky" aria-hidden="true"></div>
 <main id="main" class="remote">
   <div class="w95">
-    <div class="w95-bar"><span>PiPath - Pi Link <small>(prototype)</small></span><a class="x" href="../" aria-label="Back to PiPath">✕</a></div>
+    <div class="w95-bar"><span>PiPath - Pi Link <small>(beta)</small></span><a class="x" href="../" aria-label="Back to PiPath">✕</a></div>
     <div class="w95-body">
       <h1>Control your Raspberry Pi from the browser</h1>
 
       <section id="connect" aria-labelledby="h1">
-        <h2 id="h1">1. Start the Pi Link on your Pi</h2>
-        <p>On the Pi, open a Terminal and type these two lines:</p>
-        <pre class="cmd" id="cmd"></pre>
-        <p>It shows a short code, like <b>K7M-2QX</b>. Type it here:</p>
+        <h2 id="h1">1. Link to your Pi</h2>
+        <p>Turn your Raspberry Pi on and wait a minute. Pi Link starts by itself. Then type the <b>Pi ID</b> from the label on your Pi, like <b>K7M2-QX9P</b>.</p>
         <form id="pair" autocomplete="off">
-          <label>Pairing code <input id="code" maxlength="10" spellcheck="false" autocapitalize="characters" placeholder="ABC-123" required></label>
-          <button class="btn" type="submit">Connect ▸</button>
+          <label>Pi ID <input id="code" maxlength="12" spellcheck="false" autocapitalize="characters" placeholder="K7M2-QX9P" required></label>
+          <button class="btn" type="submit">Link to my Pi ▸</button>
         </form>
         <p class="status" id="status" role="status" aria-live="polite"></p>
+        <details class="setup">
+          <summary>My Pi isn't set up yet (teachers)</summary>
+          <p>Set a Pi up once, and it links by itself every time it turns on. On the Pi, open a Terminal and type (with that Pi's key from your teacher):</p>
+          <pre class="cmd" id="cmd"></pre>
+          <p class="small">Or use the installer file made for that Pi. See <b>pi-bridge/README.md</b>.</p>
+        </details>
       </section>
 
       <section id="panel" hidden aria-labelledby="h2">

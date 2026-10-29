@@ -9,7 +9,7 @@ test("the simulator runs in a Web Worker under the app's security policy", async
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) problems.push(m.text()); });
   await page.goto("/arduinopath/");
   const out = await page.evaluate(async () => {
-    const { Simulation } = await import("/js/sim/simulation.js");
+    const { Simulation } = await import("/arduinopath/js/sim/simulation.js");
     const board = await (await fetch("/arduinopath/data/catalogue.json")).json().then((c) => c.boards.find((b) => b.id === "esp32")).catch(() => null);
     const events = [];
     const errors = [];

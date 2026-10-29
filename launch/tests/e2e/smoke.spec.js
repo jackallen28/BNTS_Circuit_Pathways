@@ -114,19 +114,19 @@ test("a student's whole first lesson, then the WIPE page", async ({ page }) => {
   await page.getByRole("button", { name: "Log out" }).click();
 
   // The WIPE page: save everyone's work, then type WIPE.
-  await page.getByRole("button", { name: "Wipe this laptop" }).click();
-  await expect(page.getByText("Profiles on this laptop (2)")).toBeVisible();
-  const wipeButton = page.getByRole("button", { name: "Wipe this laptop" });
+  await page.getByRole("button", { name: "Wipe this browser" }).click();
+  await expect(page.getByText("Profiles in this browser (2)")).toBeVisible();
+  const wipeButton = page.getByRole("button", { name: "Wipe this browser" });
   await expect(wipeButton).toBeDisabled();
   const everyonePromise = page.waitForEvent("download");
-  await page.getByRole("link", { name: /Save everyone's work/ }).click();
+  await page.getByRole("button", { name: /Save everyone's work/ }).click();
   expect((await everyonePromise).suggestedFilename()).toMatch(/^Everyone_ArduinoPath_\d{4}-\d{2}-\d{2}\.zip$/);
   await page.getByLabel("2. Type WIPE in capital letters").fill("wipe");
   await expect(wipeButton).toBeDisabled();
   await page.getByLabel("2. Type WIPE in capital letters").fill("WIPE");
   await shoot(page, "08-wipe");
   await wipeButton.click();
-  await expect(page.getByText("This laptop is wiped.")).toBeVisible();
+  await expect(page.getByText("This browser is wiped.")).toBeVisible();
   await page.getByRole("button", { name: "OK" }).click();
   await expect(page.getByRole("heading", { name: "Welcome to ArduinoPath!" })).toBeVisible();
 

@@ -2,12 +2,15 @@
 // Pi app (in --mock mode, so no Pi is needed) and the browser page.
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
+import { newPiKey } from "./pi-key.js";
 
 let pi;
 let piOut = "";
+let piKey;
 
 test.beforeEach(async ({ baseURL }) => {
-  pi = spawn("python3", ["site/pipath/remote/circuitpathways_pi.py", "--mock", "--server", baseURL], { stdio: ["pipe", "pipe", "pipe"] });
+  piKey = newPiKey();
+  pi = spawn("python3", ["site/pipath/remote/circuitpathways_pi.py", "--mock", "--key", piKey.key, "--server", baseURL], { stdio: ["pipe", "pipe", "pipe"] });
   piOut = "";
   pi.stdout.on("data", (d) => { piOut += d; });
   pi.stderr.on("data", (d) => { piOut += d; });
@@ -15,9 +18,10 @@ test.beforeEach(async ({ baseURL }) => {
 
 test.afterEach(() => { pi?.kill(); });
 
+// The Pi shows its ID when it starts, and it is the ID that was made with its key.
 async function pairingCode() {
-  await expect.poll(() => /\b([0-9A-Z]{3}-[0-9A-Z]{3})\b/.exec(piOut)?.[1] ?? "", { timeout: 15_000 }).not.toBe("");
-  return /\b([0-9A-Z]{3}-[0-9A-Z]{3})\b/.exec(piOut)[1];
+  await expect.poll(() => piOut.includes(piKey.display), { timeout: 15_000 }).toBe(true);
+  return piKey.display;
 }
 
 test("a browser pairs with a Pi and controls its pins", async ({ page }) => {
@@ -27,14 +31,14 @@ test("a browser pairs with a Pi and controls its pins", async ({ page }) => {
 
   const code = await pairingCode();
   await page.goto("/pipath/remote/");
-  await expect(page.locator("#cmd")).toContainText("circuitpathways_pi.py");
+  await expect(page.locator("#cmd")).toContainText("install.sh");
 
   // a wrong code is explained, a right one connects
-  await page.fill("#code", "ZZZ-ZZZ");
-  await page.getByRole("button", { name: /Connect/ }).click();
+  await page.fill("#code", "ZZZZ-ZZZZ");
+  await page.getByRole("button", { name: /Link to my Pi/ }).click();
   await expect(page.locator("#status")).toContainText("isn't connected");
   await page.fill("#code", code.toLowerCase());
-  await page.getByRole("button", { name: /Connect/ }).click();
+  await page.getByRole("button", { name: /Link to my Pi/ }).click();
   await expect(page.locator("#panel")).toBeVisible();
   await expect(page.locator("#pi-info")).toContainText("Pretend Pi");
   await expect(page.locator("#pi-name")).toHaveText("Raspberry Pi");
@@ -86,7 +90,7 @@ test("the page says so when the Pi app stops, and a second browser takes over", 
   const code = await pairingCode();
   await page.goto("/pipath/remote/");
   await page.fill("#code", code);
-  await page.getByRole("button", { name: /Connect/ }).click();
+  await page.getByRole("button", { name: /Link to my Pi/ }).click();
   await expect(page.locator("#panel")).toBeVisible();
 
   // a second browser (another student with the same class code) connects: the first is told
@@ -94,7 +98,7 @@ test("the page says so when the Pi app stops, and a second browser takes over", 
   const page2 = await other.newPage();
   await page2.goto("/pipath/remote/");
   await page2.fill("#code", code);
-  await page2.getByRole("button", { name: /Connect/ }).click();
+  await page2.getByRole("button", { name: /Link to my Pi/ }).click();
   await expect(page2.locator("#panel")).toBeVisible();
   await expect(page.locator("#status")).toContainText("Someone else connected");
 
@@ -103,6 +107,21 @@ test("the page says so when the Pi app stops, and a second browser takes over", 
   await expect(page2.locator("#pi-info")).toContainText("isn't running", { timeout: 10_000 });
   await other.close();
   void baseURL;
+});
+
+test("a Pi with a made-up key is refused", async ({ request }) => {
+  const res = await request.get("/api/pi/pi/events", { headers: { "X-Pi-Key": "CPK1-K7M2QX9P-AAAAAAAAAA" } });
+  expect(res.status()).toBe(403);
+});
+
+test("the installer is handed out with this website's address and takes the key as its argument", async ({ request, baseURL }) => {
+  const res = await request.get("/pipath/remote/install.sh");
+  expect(res.status()).toBe(200);
+  const sh = await res.text();
+  expect(sh.startsWith("#!/usr/bin/env bash")).toBe(true);
+  expect(sh).toContain(`SERVER="\${CP_SERVER:-${baseURL}}"`);
+  expect(sh).toContain("circuitpathways_pi.py");
+  expect(sh).not.toContain("onrender.com");
 });
 
 test("the Pi app can be downloaded with this website's address filled in", async ({ request, baseURL }) => {

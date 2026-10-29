@@ -1,0 +1,155 @@
+{
+ "file_name": "hello_pi.py",
+ "id": "s1_hello",
+ "intro": "## Welcome to your first program!\n\nA **program** is a list of instructions for a computer. Python reads your instructions from the **top down, one line at a time**.\n\nIn this project you will:\n- make Python **print** messages on the screen\n- write **comments** (notes for humans)\n- go on your first **bug hunt**, and learn how to read error messages\n\nDon't worry about breaking things. Mistakes are how programmers learn!\n",
+ "outro": "## You wrote your first Python program!\n\nYou used `print()` to show text, wrote comments with `#`, and fixed real bugs using the Coach.\n\n**Extension ideas** (try these in Free Play later):\n- Print a poem or a joke with a punchline line\n- Use `print()` with nothing in the brackets to add an empty line\n- Print a big ASCII-art picture of an animal\n",
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Make sure the line `print(\"Hello, Pi!\")` is still there.",
+     "label": "It prints a hello message",
+     "type": "output_contains",
+     "value": "Hello"
+    }
+   ],
+   "demo": "# This is a comment. Python ignores lines that start with #\n# Comments are notes for humans.\n\nprint(\"Hello, Pi!\")\n",
+   "error_hints": {},
+   "hints": [
+    "The Run button is green and sits just above the code.",
+    "After you press Run, look in the dark Output box at the bottom right."
+   ],
+   "id": "step1",
+   "starter": "# This is a comment. Python ignores lines that start with #\n# Comments are notes for humans.\n\nprint(\"Hello, Pi!\")\n",
+   "starter_mode": "replace",
+   "success": "That's your first program running! Python read the `print` line and showed the message.",
+   "support": "guided",
+   "text": "Some code is already in the **editor** on the right.\n\n`print()` tells Python to show something on the screen. The text inside the quotes is called a **string**.\n\n**Your task:** press the green **Run** button (or press **F5**) and look at the **Output** box.\n",
+   "title": "Run your first program"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Your message still says \"Hello, Pi!\". Change it to your name.",
+     "label": "It says hello to someone new",
+     "type": "output_regex",
+     "value": "Hello, (?!Pi!)\\S+"
+    }
+   ],
+   "demo": "# Change the blank to your own name\nprint(\"Hello, Sam!\")\n",
+   "error_hints": {},
+   "hints": [
+    "Click just after the three underscores, delete them, and type your name.",
+    "Your line should look like `print(\"Hello, Sam!\")` but with your name."
+   ],
+   "id": "step2",
+   "starter": "# Change the blank to your own name\nprint(\"Hello, ___!\")\n",
+   "starter_mode": "replace",
+   "success": "Nice! You just changed what a program does. That's coding!",
+   "support": "guided",
+   "text": "Now let's change the message.\n\nThe `___` is a **blank**. Replace it (all three underscores) with your own name.\n\nKeep the quote marks `\"` exactly where they are. They show Python where the text starts and ends.\n\n**Your task:** fill in the blank, then press **Run**.\n",
+   "title": "Make it say hello to YOU"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Add another `print(\"...\")` line so you have at least 3.",
+     "label": "You have at least 3 print lines",
+     "min": 3,
+     "type": "code_count",
+     "value": "call:print"
+    },
+    {
+     "label": "3 or more lines show in the Output",
+     "min": 3,
+     "type": "output_lines_min"
+    }
+   ],
+   "demo": "# Change the blank to your own name\nprint(\"Hello, Sam!\")\nprint(\"My favourite food is dumplings\")\nprint(\"I can juggle three balls\")\n",
+   "error_hints": {},
+   "hints": [
+    "Replace each `___` with your own words. Keep the quote marks.",
+    "Every print line needs brackets AND quotes: `print(\"I like pizza\")`.",
+    "Example:\n```\nprint(\"Hello, Sam!\")\nprint(\"My favourite food is dumplings\")\nprint(\"I can juggle three balls\")\n```"
+   ],
+   "id": "step3",
+   "starter": "print(\"My favourite food is ___\")\nprint(\"___\")\n",
+   "starter_mode": "append",
+   "success": "Three lines, in order. Python always reads from the top down.",
+   "support": "guided",
+   "text": "Python runs your lines in order, from top to bottom.\n\nTwo new `print` lines have been added under your code.\n\n**Your task:**\n- fill in your favourite food\n- make the last line print **anything you like** (a fact about you, a joke, a goal)\n\nYou should end up with **at least 3 lines** of output.\n",
+   "title": "More than one line"
+  },
+  {
+   "checks": [
+    {
+     "label": "No more errors",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Make sure you fixed the bugs rather than deleting the lines!",
+     "label": "Both messages print",
+     "type": "output_contains",
+     "value": "Bugs are just clues"
+    }
+   ],
+   "demo": "# Bug hunt! This code has TWO bugs on purpose.\n# Run it, read what the Coach says, and fix one bug at a time.\n\nprint(\"I am learning Python\")\nprint(\"Bugs are just clues\")\n",
+   "error_hints": {
+    "NameError": "Python reads `prnt` as a word it doesn't know. How should `print` be spelled?"
+   },
+   "hints": [
+    "Run the code first. The Coach will point to the line with the problem.",
+    "Bug 1 is about quote marks. Bug 2 is about spelling.",
+    "Text needs a quote at both ends, and the function is spelled `print`."
+   ],
+   "id": "step4",
+   "starter": "# Bug hunt! This code has TWO bugs on purpose.\n# Run it, read what the Coach says, and fix one bug at a time.\n\nprint(\"I am learning Python)\nprnt(\"Bugs are just clues\")\n",
+   "starter_mode": "replace",
+   "success": "Bugs squashed! You just used error messages like a real programmer.",
+   "support": "guided",
+   "text": "Every programmer writes bugs. A good programmer reads the error message and uses it as a **clue**.\n\nThis code has **two bugs** hidden in it on purpose.\n\n**Your task:**\n1. Press **Run**. The program will crash. That's expected!\n2. Read the **Coach** card that pops up below. It tells you which line and what went wrong.\n3. Fix that bug, then **Run again** to find the next one.\n\nThe line with the problem will glow **red** in the editor.\n",
+   "title": "Bug hunt!"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Add more `print` lines until your picture is 4 or more lines tall.",
+     "label": "Your picture is at least 4 lines tall",
+     "min": 4,
+     "type": "output_lines_min"
+    }
+   ],
+   "demo": "# Text art! Draw a picture using print lines.\n# Here's a robot head to get you started:\n\nprint(\"  [o_o]  \")\nprint(\" /[ = ]\\\\ \")\nprint(\"   | |   \")\nprint(\"  _| |_  \")\n",
+   "error_hints": {},
+   "hints": [
+    "Each row of your picture is its own `print(\"...\")` line.",
+    "Characters like `/ \\ | _ - ( ) [ ] o *` are great for drawing.",
+    "A cat:\n```\nprint(\" /\\\\_/\\\\ \")\nprint(\"( o.o )\")\nprint(\" > ^ < \")\nprint(\"/     \\\\\")\n```"
+   ],
+   "id": "step5",
+   "starter": "# Text art! Draw a picture using print lines.\n# Here's a robot head to get you started:\n\nprint(\"  [o_o]  \")\n",
+   "starter_mode": "replace",
+   "success": "Brilliant. A picture made of code!",
+   "support": "scaffolded",
+   "text": "Programmers sometimes draw pictures using only keyboard characters. It's called **ASCII art**.\n\n**Your task:** make a picture that's **at least 4 lines tall**. It could be a robot, a cat, a house, a rocket or your initials.\n\nThis time there's less help. Plan your picture first, then build it line by line, pressing **Run** to check as you go.\n",
+   "title": "Text art challenge"
+  }
+ ],
+ "title": "Hello, Pi!"
+}

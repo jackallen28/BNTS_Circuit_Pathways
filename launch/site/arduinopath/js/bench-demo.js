@@ -10,7 +10,7 @@ const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 
 async function main() {
-  const cat = await (await fetch("api/catalogue")).json();
+  const cat = await (await fetch("data/catalogue.json")).json();
   const boards = cat.boards;
   for (const p of cat.projects) $("project").append(new Option(p.title, p.id));
   for (const b of boards) $("board").append(new Option(b.name, b.id));
@@ -19,7 +19,7 @@ async function main() {
   let project = null, board = null, rp = null;
 
   async function load() {
-    project = await (await fetch(`api/projects/${encodeURIComponent($("project").value)}`)).json();
+    project = await (await fetch(`data/projects/${encodeURIComponent($("project").value)}.json`)).json();
     board = boards.find((b) => b.id === $("board").value);
     $("step").replaceChildren(...project.steps.map((s, i) => new Option(`${i + 1}. ${s.title}`, String(i))));
     $("step").value = params.get("step") || "0";

@@ -20,7 +20,7 @@ window.piRemote = remote; // handy for trying things in the browser's console, a
   }
 }
 
-$("#cmd").textContent = `curl -O ${location.origin}/pipath/remote/circuitpathways_pi.py\npython3 circuitpathways_pi.py`;
+$("#cmd").textContent = `curl -fsSL ${location.origin}/pipath/remote/install.sh | sudo bash -s -- CPK1-XXXXXXXX-XXXXXXXXXX`;
 
 function say(text, kind = "") {
   const s = $("#status");

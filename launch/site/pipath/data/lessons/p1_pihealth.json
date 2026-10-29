@@ -1,0 +1,353 @@
+{
+ "file_name": "pi_health.py",
+ "id": "p1_pihealth",
+ "intro": "## How is your Pi feeling?\n\nYour Raspberry Pi is a whole computer, and it keeps an eye on itself. It knows:\n- how **hot** its processor (CPU) is, in °C\n- how **busy** the processor is (the **CPU load**), as a percentage\n- how much of its **memory** (RAM) is in use\n\nIn this project you'll read those numbers with Python, print them on the screen, then show them **live** on three LEDs. Open a big program, like the web browser, and watch the lights change!\n\nYou'll use a little helper called `pipath_computer`. Later you'll see how it works: the numbers are just text in special files.\n\n**In the Simulator:** the numbers are real (they come from this computer). **Watch the goal** pretends the Pi gets hot and busy, so you can see the lights change.\n",
+ "outro": "## Your Pi has a health monitor!\n\nYou read the Pi's own numbers from files, used loops to keep watching, scaled numbers to **brightness**, and used `if` to warn when something's wrong. Big computer rooms (data centres) have dashboards that do exactly this.\n\n**Extension ideas:**\n- Use the buzzer on GPIO18 to beep when the Pi is hotter than 75 °C\n- Add the **Binary Clock** or **Bar Graph** LEDs and show the CPU load as a bar of six lights\n- Find the highest temperature in your log file and print it\n- Add a button that switches all three LEDs to show just one number as a bar graph\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Fill in the blank with `cpu_load()`.",
+     "label": "You ask for the CPU load",
+     "type": "code_uses",
+     "value": "call:cpu_load"
+    },
+    {
+     "label": "It prints all three numbers",
+     "type": "output_regex",
+     "value": "CPU busy:\\s*[\\d.]+"
+    }
+   ],
+   "demo": "from pipath_computer import cpu_temp, cpu_load, ram_used\n\ntemp = cpu_temp()\nprint(f\"Temperature: {temp} °C\")\n\nload = cpu_load()\nprint(f\"CPU busy: {load} %\")\n\nram = ram_used()\nprint(f\"RAM used: {ram} %\")\n",
+   "error_hints": {},
+   "hints": [
+    "Look at how `temp` and `ram` get their numbers.",
+    "The function for the CPU load is `cpu_load()`.",
+    "The line is `load = cpu_load()`"
+   ],
+   "id": "step1",
+   "starter": "from pipath_computer import cpu_temp, cpu_load, ram_used\n\ntemp = cpu_temp()\nprint(f\"Temperature: {temp} °C\")\n\nload = ___\nprint(f\"CPU busy: {load} %\")\n\nram = ram_used()\nprint(f\"RAM used: {ram} %\")\n",
+   "starter_mode": "replace",
+   "success": "Your Pi just told you how it's feeling. A Pi is happy below about 60 °C, and it slows itself down at 80 °C to stay safe.",
+   "support": "guided",
+   "text": "Three functions ask the Pi for its numbers:\n\n- `cpu_temp()` gives the processor's temperature in °C\n- `cpu_load()` gives how busy the processor is, from 0 to 100 %\n- `ram_used()` gives how much memory is in use, from 0 to 100 %\n\nEach one **returns** a number, so you can keep it in a variable and print it.\n\n**Your task:** fill in the blank so the program also asks for the CPU load. Run it a few times. Do the numbers change?\n",
+   "title": "Ask the Pi how it feels"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You divide by 1000",
+     "type": "code_regex",
+     "value": "/\\s*1000\\b"
+    },
+    {
+     "label": "It prints the temperature in °C",
+     "type": "output_regex",
+     "value": "That's\\s*\\d+(\\.\\d+)?\\s*°C"
+    }
+   ],
+   "demo": "# Read the Pi's temperature straight from its special file\ntry:\n    with open(\"/sys/class/thermal/thermal_zone0/temp\") as f:\n        raw = f.read().strip()\nexcept FileNotFoundError:\n    raw = \"45000\"          # not on a Pi? Pretend it's 45 °C\n\nprint(\"The file says:\", raw)\ntemp = int(raw) / 1000\nprint(f\"That's {temp} °C\")\n",
+   "error_hints": {},
+   "hints": [
+    "The file counts in thousandths of a degree. What do you divide by?",
+    "Divide by `1000`.",
+    "The line is `temp = int(raw) / 1000`"
+   ],
+   "id": "step2",
+   "starter": "# Read the Pi's temperature straight from its special file\ntry:\n    with open(\"/sys/class/thermal/thermal_zone0/temp\") as f:\n        raw = f.read().strip()\nexcept FileNotFoundError:\n    raw = \"45000\"          # not on a Pi? Pretend it's 45 °C\n\nprint(\"The file says:\", raw)\ntemp = int(raw) / ___\nprint(f\"That's {temp} °C\")\n",
+   "starter_mode": "replace",
+   "success": "That's all a helper function is: a few lines of code with a name, so you don't have to write them every time.",
+   "support": "guided",
+   "text": "How does `cpu_temp()` know the temperature? Linux keeps it in a **file**. It's just text, so Python can `open()` it and `read()` it like any file.\n\nThe file gives the temperature in **thousandths** of a degree. So `48312` means 48.312 °C.\n\nThe `try` / `except` part means: *try* to open the file, and if it isn't there (on a computer that isn't a Pi), use a pretend number instead of crashing.\n\n**Your task:** fill in the blank so the program turns the number from the file into degrees. Run it and compare it with `cpu_temp()`.\n",
+   "title": "Under the bonnet"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Use `for i in range(10):` to repeat the reading.",
+     "label": "You use a loop",
+     "type": "code_uses",
+     "value": "node:For"
+    },
+    {
+     "label": "It waits between readings",
+     "type": "code_uses",
+     "value": "call:sleep"
+    },
+    {
+     "fail": "Each of the 10 lines needs the °C, the CPU and the RAM numbers.",
+     "label": "It prints 10 lines with all three numbers",
+     "type": "output_regex",
+     "value": "(.*°C.*CPU.*RAM.*\\n){10}"
+    }
+   ],
+   "demo": "from pipath_computer import cpu_temp, cpu_load, ram_used\nfrom time import sleep\n\nfor i in range(10):\n    temp = cpu_temp()\n    load = cpu_load()\n    ram = ram_used()\n    print(f\"{temp} °C   CPU {load} %   RAM {ram} %\")\n    sleep(1)\n",
+   "error_hints": {},
+   "hints": [
+    "`for i in range(10):` repeats the indented lines 10 times.",
+    "Inside the loop, get all three numbers, print them in one f-string, then `sleep(1)`.",
+    "`print(f\"{cpu_temp()} °C   CPU {cpu_load()} %   RAM {ram_used()} %\")` then `sleep(1)`, both indented under the `for`."
+   ],
+   "id": "step3",
+   "starter": "from pipath_computer import cpu_temp, cpu_load, ram_used\nfrom time import sleep\n\n# Print the three numbers 10 times, one second apart.\n# Put them all on one line, like:   46.2 °C   CPU 12.5 %   RAM 38.1 %\n\n",
+   "starter_mode": "replace",
+   "success": "Ten readings, one a second. That's how every monitor works: read, show, wait, repeat.",
+   "support": "scaffolded",
+   "text": "One reading isn't much of a monitor. A monitor keeps **watching**.\n\n**Your task:** use a loop to print the temperature, the CPU load and the RAM **10 times**, one second apart. Put all three on **one line** each time, like this:\n\n```\n46.2 °C   CPU 12.5 %   RAM 38.1 %\n```\n\nWhile it runs, open the web browser (or another big program) and watch the CPU number jump.\n",
+   "title": "Keep watching"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "bar() returns # signs",
+     "type": "code_regex",
+     "value": "return\\s*[\"']#[\"']\\s*\\*"
+    },
+    {
+     "label": "The RAM shows as a bar",
+     "type": "output_regex",
+     "value": "RAM\\s+#+"
+    }
+   ],
+   "demo": "from pipath_computer import cpu_temp, cpu_load, ram_used\nfrom time import sleep\n\ndef bar(percent):\n    return \"#\" * int(percent / 5)      # one # for every 5 %\n\nfor i in range(10):\n    load = cpu_load()\n    ram = ram_used()\n    print(f\"CPU {bar(load):20} {load} %\")\n    print(f\"RAM {bar(ram):20} {ram} %\")\n    print()\n    sleep(1)\n",
+   "demo_events": [
+    "0.1 stat ram 40",
+    "0.1 stat load 20",
+    "3 stat load 70",
+    "6 stat load 35"
+   ],
+   "error_hints": {},
+   "hints": [
+    "You want a piece of text made of `#` signs.",
+    "Text goes in quotes: `\"#\"`.",
+    "The line is `return \"#\" * int(percent / 5)`"
+   ],
+   "id": "step4",
+   "starter": "from pipath_computer import cpu_temp, cpu_load, ram_used\nfrom time import sleep\n\ndef bar(percent):\n    return ___ * int(percent / 5)      # one # for every 5 %\n\nfor i in range(10):\n    load = cpu_load()\n    ram = ram_used()\n    print(f\"CPU {bar(load):20} {load} %\")\n    print(f\"RAM {bar(ram):20} {ram} %\")\n    print()\n    sleep(1)\n",
+   "starter_mode": "replace",
+   "success": "A text bar graph! Next, the LEDs take over from the bars.",
+   "support": "scaffolded",
+   "text": "Numbers are hard to read quickly. A **bar** is easier: the longer the bar, the bigger the number.\n\nIn Python you can multiply text by a number: `\"#\" * 4` gives `####`.\n\nThe function `bar(percent)` should **return** a bar with one `#` for every 5 %. So 50 % is 10 of them. `{bar(load):20}` makes the bar take up 20 spaces, so the numbers line up.\n\n**Your task:** fill in the blank so `bar()` returns a bar of `#` signs. Run it, and make the Pi busy to watch the CPU bar grow.\n",
+   "title": "Bar graphs on the screen"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The CPU LED is on GPIO27",
+     "type": "code_regex",
+     "value": "PWMLED\\(\\s*27\\s*\\)"
+    },
+    {
+     "label": "Each LED glowed dim, half, then full",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import PWMLED\nfrom time import sleep\n\ntemp_led = PWMLED(17)\ncpu_led = PWMLED(27)\nram_led = PWMLED(22)\n\nfor led in [temp_led, cpu_led, ram_led]:\n    led.value = 0.1      # dim\n    sleep(0.5)\n    led.value = 0.5      # half\n    sleep(0.5)\n    led.value = 1        # full\n    sleep(0.5)\n    led.off()\n",
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button."
+   },
+   "hints": [
+    "Look at the Wiring card: which GPIO is the CPU LED on?",
+    "It's on GPIO27.",
+    "The line is `cpu_led = PWMLED(27)`"
+   ],
+   "id": "step5",
+   "starter": "from gpiozero import PWMLED\nfrom time import sleep\n\ntemp_led = PWMLED(17)\ncpu_led = PWMLED(___)\nram_led = PWMLED(22)\n\nfor led in [temp_led, cpu_led, ram_led]:\n    led.value = 0.1      # dim\n    sleep(0.5)\n    led.value = 0.5      # half\n    sleep(0.5)\n    led.value = 1        # full\n    sleep(0.5)\n    led.off()\n",
+   "starter_mode": "replace",
+   "success": "All three LEDs can glow. Now connect them to the Pi's numbers.",
+   "support": "guided",
+   "text": "Now the hardware. Build the three LEDs (see **Wiring + Safety**, and take the blue HAT off first). Your code is safe in `backups/`.\n\nA `PWMLED` is an LED you can **dim**. `led.value = 0.5` is half brightness, `1` is full and `0` is off. That's how the LEDs will \"heat up\" as the numbers rise.\n\n**Your task:** the CPU LED is on **GPIO27**. Fill in the blank, then run it. Each LED should glow dim, half, then full.\n",
+   "title": "Test the three LEDs"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The RAM LED shows the RAM used",
+     "type": "code_regex",
+     "value": "ram_led\\.value\\s*=\\s*ram\\s*/\\s*100"
+    },
+    {
+     "label": "It keeps watching in a loop",
+     "type": "code_uses",
+     "value": "node:While"
+    },
+    {
+     "label": "The CPU light got brighter when the Pi was busy",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import PWMLED\nfrom pipath_computer import cpu_temp, cpu_load, ram_used\nfrom time import sleep\n\ntemp_led = PWMLED(17)\ncpu_led = PWMLED(27)\nram_led = PWMLED(22)\n\nwhile True:\n    temp = cpu_temp()\n    load = cpu_load()\n    ram = ram_used()\n\n    # 30 °C or less = off, 80 °C or more = full\n    temp_led.value = min(1, max(0, (temp - 30) / 50))\n    cpu_led.value = load / 100\n    ram_led.value = ram / 100\n\n    print(f\"{temp} °C   CPU {load} %   RAM {ram} %\")\n    sleep(0.5)\n",
+   "demo_events": [
+    "0.3 stat temp 42",
+    "0.3 stat load 8",
+    "0.3 stat ram 30",
+    "2 stat load 55",
+    "3 stat load 95",
+    "3.5 stat ram 70",
+    "4 stat temp 68",
+    "5.5 stat load 20",
+    "6.5 stat temp 50"
+   ],
+   "demo_seconds": 8,
+   "error_hints": {},
+   "hints": [
+    "Look at how the CPU LED does it.",
+    "Divide the RAM number by 100.",
+    "The line is `ram_led.value = ram / 100`"
+   ],
+   "id": "step6",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import PWMLED\nfrom pipath_computer import cpu_temp, cpu_load, ram_used\nfrom time import sleep\n\ntemp_led = PWMLED(17)\ncpu_led = PWMLED(27)\nram_led = PWMLED(22)\n\nwhile True:\n    temp = cpu_temp()\n    load = cpu_load()\n    ram = ram_used()\n\n    # 30 °C or less = off, 80 °C or more = full\n    temp_led.value = min(1, max(0, (temp - 30) / 50))\n    cpu_led.value = load / 100\n    ram_led.value = ___\n\n    print(f\"{temp} °C   CPU {load} %   RAM {ram} %\")\n    sleep(0.5)\n",
+   "starter_mode": "replace",
+   "success": "Live lights! Your Pi now shows how it feels without a screen.",
+   "support": "scaffolded",
+   "text": "Time to join the numbers to the lights. An LED's `value` goes from 0 to 1, but the Pi's numbers go from 0 to 100. Divide by 100 to change one into the other: 50 % becomes 0.5.\n\nThe temperature is different: it never gets near 0 °C. So 30 °C is \"off\" and 80 °C is \"full\". `min(1, max(0, ...))` keeps the answer between 0 and 1.\n\n**Your task:** fill in the blank so the RAM LED shows how much memory is used. Run it, then open the web browser and watch the CPU light glow brighter. Press **Stop** when you've seen it.\n",
+   "title": "Live lights"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It checks if the CPU is working hard",
+     "type": "code_regex",
+     "value": "if\\s+load\\s*>=?\\s*\\d+"
+    },
+    {
+     "label": "It checks if the Pi is hot",
+     "type": "code_regex",
+     "value": "if\\s+temp\\s*>=?\\s*\\d+"
+    },
+    {
+     "fail": "Print a warning that starts with ⚠ (copy it from the instructions).",
+     "label": "It prints a warning",
+     "type": "code_contains",
+     "value": "⚠"
+    }
+   ],
+   "demo": "from gpiozero import PWMLED\nfrom pipath_computer import cpu_temp, cpu_load, ram_used\nfrom time import sleep\n\ntemp_led = PWMLED(17)\ncpu_led = PWMLED(27)\nram_led = PWMLED(22)\n\nwhile True:\n    temp = cpu_temp()\n    load = cpu_load()\n    ram = ram_used()\n\n    # 30 °C or less = off, 80 °C or more = full\n    temp_led.value = min(1, max(0, (temp - 30) / 50))\n    cpu_led.value = load / 100\n    ram_led.value = ram / 100\n\n    print(f\"{temp} °C   CPU {load} %   RAM {ram} %\")\n    if load > 80:\n        print(\"⚠ The Pi is working hard!\")\n    if temp >= 70:\n        print(\"⚠ The Pi is getting hot!\")\n    sleep(0.5)\n",
+   "demo_events": [
+    "0.3 stat temp 45",
+    "0.3 stat load 10",
+    "2 stat load 92",
+    "4 stat temp 73",
+    "5.5 stat load 15",
+    "6.5 stat temp 50"
+   ],
+   "demo_seconds": 8,
+   "error_hints": {},
+   "hints": [
+    "Each warning is an `if` with a `print` indented under it.",
+    "`if load > 80:` and `if temp >= 70:`, both indented inside the `while`.",
+    "`if load > 80:` then on the next line, indented: `print(\"⚠ The Pi is working hard!\")`"
+   ],
+   "id": "step7",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Your monitor now speaks up when the Pi needs help.",
+   "support": "scaffolded",
+   "text": "A good monitor tells you when something's **wrong**. Add warnings to your loop, after the `print`:\n\n- if the CPU load is more than 80, print `⚠ The Pi is working hard!`\n- if the temperature is 70 °C or more, print `⚠ The Pi is getting hot!`\n\n**Your task:** add the two `if` statements inside the `while` loop. Make the Pi busy to test the first one. (It's hard to make a Pi that hot, and that's a good thing! **Watch the goal** pretends it gets hot.)\n",
+   "title": "Warnings"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It uses the time",
+     "type": "code_uses",
+     "value": "import:datetime"
+    },
+    {
+     "fail": "Each line in the file needs the time, then the three numbers, with commas between.",
+     "file": "*.csv",
+     "label": "pi_health.csv has time, temperature, CPU and RAM",
+     "type": "file_contains",
+     "value": "\\d+:\\d+:\\d+\\s*,\\s*[\\d.]+\\s*,\\s*[\\d.]+\\s*,\\s*[\\d.]+"
+    },
+    {
+     "label": "The lights still work",
+     "type": "code_regex",
+     "value": "temp_led\\.value"
+    }
+   ],
+   "demo": "from gpiozero import PWMLED\nfrom pipath_computer import cpu_temp, cpu_load, ram_used\nfrom datetime import datetime\nfrom time import sleep\n\ntemp_led = PWMLED(17)\ncpu_led = PWMLED(27)\nram_led = PWMLED(22)\ncount = 0\n\nwhile True:\n    temp = cpu_temp()\n    load = cpu_load()\n    ram = ram_used()\n\n    temp_led.value = min(1, max(0, (temp - 30) / 50))\n    cpu_led.value = load / 100\n    ram_led.value = ram / 100\n\n    print(f\"{temp} °C   CPU {load} %   RAM {ram} %\")\n    if load > 80:\n        print(\"⚠ The Pi is working hard!\")\n    if temp >= 70:\n        print(\"⚠ The Pi is getting hot!\")\n\n    if count % 10 == 0:\n        now = datetime.now().strftime(\"%H:%M:%S\")\n        with open(\"pi_health.csv\", \"a\") as f:\n            f.write(f\"{now},{temp},{load},{ram}\\n\")\n        print(\"(saved to the log)\")\n    count = count + 1\n    sleep(0.5)\n",
+   "demo_events": [
+    "0.3 stat temp 46",
+    "0.3 stat load 12",
+    "3 stat load 85",
+    "5 stat load 20"
+   ],
+   "demo_seconds": 7,
+   "error_hints": {},
+   "hints": [
+    "Your loop runs every 0.5 seconds, so every 10th time round is 5 seconds. Keep a counter: `count = 0` before the loop.",
+    "`count = count + 1`, then `if count % 10 == 0:` to write a line."
+   ],
+   "id": "step8",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "A log the Pi writes by itself. Open it in a spreadsheet to make a graph of your Pi's day!",
+   "support": "brief",
+   "text": "**Goal:** every 5 seconds, add a line to a file called `pi_health.csv` with the **time**, the temperature, the CPU load and the RAM, like this:\n\n```\n10:42:05,47.2,12.5,38.1\n```\n\nKeep the lights and warnings working. Run it for at least 10 seconds, then press **Stop** and open `pi_health.csv` in the file manager to look at it.\n\nTips: `from datetime import datetime`, then `datetime.now().strftime(\"%H:%M:%S\")` gives the time. `open(\"pi_health.csv\", \"a\")` adds to the end of a file. Count the loops to know when 5 seconds have passed.\n",
+   "title": "Challenge: keep a health log"
+  }
+ ],
+ "title": "Pi Health Lights",
+ "wiring": [
+  {
+   "colour": "red",
+   "connect": "GPIO17 (pin 11) → 330Ω resistor → LED long leg (+). Short leg (−) → GND rail.",
+   "kind": "led",
+   "part": "Temperature LED",
+   "pin": 17
+  },
+  {
+   "colour": "amber",
+   "connect": "GPIO27 (pin 13) → 330Ω resistor → LED long leg (+). Short leg (−) → GND rail.",
+   "kind": "led",
+   "part": "CPU LED",
+   "pin": 27
+  },
+  {
+   "colour": "green",
+   "connect": "GPIO22 (pin 15) → 330Ω resistor → LED long leg (+). Short leg (−) → GND rail.",
+   "kind": "led",
+   "part": "RAM LED",
+   "pin": 22
+  },
+  {
+   "connect": "You only need the LEDs from step 5. Steps 1 to 4 work on the screen.",
+   "part": "Tip"
+  }
+ ]
+}

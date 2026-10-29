@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# Circuit Pathways Pi Link: installer<%if .ID%> for the Pi labelled <%.ID%><%end%>
+#
+# Run this once on the Raspberry Pi:
+#     sudo bash <%if .ID%>install-pi-<%.IDFile%>.sh<%else%>install.sh CPK1-XXXXXXXX-XXXXXXXXXX<%end%>
+# It installs Pi Link, keeps this Pi's key, and starts Pi Link every time the Pi starts up.
+# Afterwards the student links to this Pi from the PiPath page by typing its ID.
+#
+# Nothing is sent anywhere except pin commands and pin states, through the Circuit Pathways site.
+# To remove it later:  sudo pilink uninstall
+set -euo pipefail
+
+SERVER="${CP_SERVER:-<%.Server%>}"
+<%if .Key%>KEY="${CP_KEY:-<%.Key%>}"<%else%>KEY="${1:-${CP_KEY:-}}"<%end%>
+NAME="${CP_NAME:-Raspberry Pi}"
+ROOT="${CP_PREFIX:-}"          # only for testing: install into this folder instead of the real system
+
+say() { printf '\n==> %s\n' "$*"; }
+die() { printf '\nSorry: %s\n' "$*" >&2; exit 1; }
+
+KEY="$(printf '%s' "$KEY" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+[[ "$KEY" =~ ^CPK1-([0-9A-Z]{8})-[0-9A-Z]{10}$ ]] || die "this Pi needs its key, like CPK1-K7M2QX9P-AB12CD34EF. Ask your teacher."
+RAW_ID="${BASH_REMATCH[1]}"
+ID="${RAW_ID:0:4}-${RAW_ID:4:4}"
+[[ "$SERVER" =~ ^https?://[^[:space:]\"\'\\]+$ ]] || die "the website address '$SERVER' isn't right."
+
+if [[ -z "$ROOT" && "$(id -u)" != 0 ]]; then
+  [[ -f "$0" ]] || die "run this with:  sudo bash <this file>"
+  exec sudo -E bash "$0" "$@"
+fi
+
+command -v python3 >/dev/null || die "Python 3 isn't installed. Is this a Raspberry Pi with Raspberry Pi OS?"
+
+if [[ -z "$ROOT" ]]; then
+  if ! python3 -c 'import gpiozero' 2>/dev/null; then
+    say "Installing gpiozero (needs the internet)"
+    apt-get update -qq && apt-get install -y -qq python3-gpiozero
+  fi
+  apt-get install -y -qq python3-lgpio >/dev/null 2>&1 || true   # the pin driver on newer Pis
+fi
+
+say "Installing Pi Link for the Pi $ID"
+install -d "$ROOT/opt/circuitpathways-pi" "$ROOT/etc" "$ROOT/usr/local/bin"
+cat > "$ROOT/opt/circuitpathways-pi/circuitpathways_pi.py" <<'PYTHON_APP_END'
+<%.App%>
+PYTHON_APP_END
+chmod 644 "$ROOT/opt/circuitpathways-pi/circuitpathways_pi.py"
+
+umask 077
+cat > "$ROOT/etc/circuitpathways-pi.conf" <<EOF
+# This Pi's key and the website it links to. Keep the key private.
+KEY=$KEY
+SERVER=$SERVER
+NAME=$NAME
+EOF
+umask 022
+printf '%s\n' "$ID" > "$ROOT/etc/circuitpathways-pi.id"
+for d in "$ROOT/boot/firmware" "$ROOT/boot"; do
+  if [[ -d "$d" ]]; then printf 'Pi Link ID: %s\nType this ID on the PiPath page to link to this Pi.\n' "$ID" > "$d/PI-LINK-ID.txt"; break; fi
+done
+
+cat > "$ROOT/usr/local/bin/pilink" <<'PILINK_END'
+#!/usr/bin/env bash
+# pilink: look after Pi Link on this Pi.   pilink id | show | status | log | restart | server URL | uninstall
+CONF=/etc/circuitpathways-pi.conf
+case "${1:-status}" in
+  id) cat /etc/circuitpathways-pi.id ;;
+  show)
+    printf '\n\n      Circuit Pathways Pi Link\n\n      This Pi'"'"'s ID:   %s\n\n      Type it on the PiPath page to link to this Pi.\n\n' "$(cat /etc/circuitpathways-pi.id)"
+    systemctl is-active --quiet circuitpathways-pi && echo "      Status: running" || echo "      Status: NOT running (try: sudo pilink restart)"
+    echo; read -r -t 120 -p "      Press Enter to close." _ || true ;;
+  status) printf 'ID: %s\n' "$(cat /etc/circuitpathways-pi.id)"; grep '^SERVER=' "$CONF"; systemctl --no-pager status circuitpathways-pi | head -12 ;;
+  log) journalctl -u circuitpathways-pi -n "${2:-40}" --no-pager ;;
+  restart) systemctl restart circuitpathways-pi && echo restarted ;;
+  server)
+    [[ "${2:-}" =~ ^https?:// ]] || { echo "usage: sudo pilink server https://your-site.example"; exit 1; }
+    sed -i "s|^SERVER=.*|SERVER=$2|" "$CONF" && systemctl restart circuitpathways-pi && echo "Now linking through $2" ;;
+  uninstall)
+    systemctl disable --now circuitpathways-pi 2>/dev/null || true
+    rm -f /etc/systemd/system/circuitpathways-pi.service /etc/xdg/autostart/circuitpathways-pi-id.desktop \
+          /etc/circuitpathways-pi.conf /etc/circuitpathways-pi.id /boot/firmware/PI-LINK-ID.txt /boot/PI-LINK-ID.txt /usr/local/bin/pilink
+    rm -rf /opt/circuitpathways-pi; systemctl daemon-reload; userdel cplink 2>/dev/null || true
+    echo "Pi Link has been removed." ;;
+  *) echo "usage: pilink id | show | status | log | restart | server URL | uninstall" ;;
+esac
+PILINK_END
+chmod 755 "$ROOT/usr/local/bin/pilink"
+
+if [[ -z "$ROOT" ]]; then
+  say "Setting up the service that starts at every boot"
+  if ! id cplink >/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin cplink
+  fi
+  GROUP=cplink
+  if getent group gpio >/dev/null; then usermod -a -G gpio cplink; GROUP=gpio; fi
+  chown cplink:"$GROUP" /etc/circuitpathways-pi.conf; chmod 600 /etc/circuitpathways-pi.conf
+  cat > /etc/systemd/system/circuitpathways-pi.service <<EOF
+[Unit]
+Description=Circuit Pathways Pi Link ($ID)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=cplink
+Group=$GROUP
+ExecStart=/usr/bin/python3 -u /opt/circuitpathways-pi/circuitpathways_pi.py --config /etc/circuitpathways-pi.conf
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  # On a Pi with a desktop, show the ID in a small window each time it starts.
+  if [[ -d /etc/xdg/autostart ]] && command -v lxterminal >/dev/null; then
+    cat > /etc/xdg/autostart/circuitpathways-pi-id.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Pi Link ID
+Exec=lxterminal --title="Pi Link" --geometry=60x14 -e pilink show
+EOF
+  fi
+  systemctl daemon-reload
+  systemctl enable --now circuitpathways-pi
+  sleep 2
+  if systemctl is-active --quiet circuitpathways-pi; then STATE="running"; else STATE="NOT running: see  sudo pilink log"; fi
+  if command -v curl >/dev/null && ! curl -fsS -m 8 "$SERVER/healthz" >/dev/null 2>&1; then
+    printf '\nNote: this Pi could not reach %s just now. Check its WiFi or network cable.\n' "$SERVER"
+  fi
+else
+  STATE="installed into $ROOT (test mode)"
+fi
+
+cat <<EOF
+
+=====================================================
+  Pi Link is installed and $STATE
+
+  This Pi's ID:   $ID
+
+  In the PiPath page, choose "Link to a Pi" and type
+  that ID. It starts by itself each time the Pi turns
+  on. Handy commands:  pilink show | status | log
+=====================================================
+EOF

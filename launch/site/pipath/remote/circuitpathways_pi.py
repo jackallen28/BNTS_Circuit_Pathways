@@ -3,12 +3,16 @@
 
 Run it on the Pi:
 
-    python3 circuitpathways_pi.py
+    python3 circuitpathways_pi.py --key CPK1-K7M2QX9P-AB12CD34EF
+    python3 circuitpathways_pi.py --config /etc/circuitpathways-pi.conf
 
 It connects OUT to the Circuit Pathways website (so it works on school WiFi that stops
-devices talking to each other), prints a short pairing code, and waits. The student types
-the code into the PiPath page. The browser then switches pins on and off, reads buttons
-and sensors, and fades LEDs with PWM.
+devices talking to each other) using this Pi's own key. It shows the Pi's ID (such as
+K7M2-QX9P). The student types the ID into the PiPath page. The browser then switches pins
+on and off, reads buttons and sensors, and fades LEDs with PWM.
+
+Each Pi has its own key, kept in a config file (the installer makes it). To start this at
+boot, run the installer for this Pi once instead of running this file by hand.
 
 It only does what the page asks for with pins 2 to 27, and nothing else: no programs, no
 shell commands, no files. If the connection drops, every output is switched off.
@@ -29,6 +33,7 @@ import urllib.request
 
 VERSION = "0.1.0"
 DEFAULT_SERVER = os.environ.get("CIRCUITPATHWAYS_URL", "https://circuit-pathways.onrender.com")
+KEY_RE = re.compile(r"^CPK1-([0-9A-Z]{8})-([0-9A-Z]{10})$")
 
 MIN_PIN, MAX_PIN = 2, 27
 FAILSAFE_SECONDS = 10      # no connection for this long: every output goes off
@@ -231,46 +236,48 @@ class Bridge:
     def state_event(self) -> dict:
         return {"type": "state", "data": {"pins": self.snapshot()}}
 
-    def hello_event(self) -> dict:
+    def hello_event(self, name="Raspberry Pi") -> dict:
         return {"type": "hello", "data": {
             "model": self.gpio.model(), "backend": self.gpio.name, "version": VERSION,
-            "pins": [MIN_PIN, MAX_PIN],
+            "pins": [MIN_PIN, MAX_PIN], "name": name,
         }}
 
 
 # ---------------------------------------------------------------- talking to the website
 
+def pi_id(key: str) -> str:
+    """The ID on this Pi's label (K7M2-QX9P), from its key. Raises ValueError if the key is badly typed."""
+    m = KEY_RE.match(key.strip().upper())
+    if not m:
+        raise ValueError("That isn't a Pi key. It looks like CPK1-K7M2QX9P-AB12CD34EF.")
+    return m.group(1)[:4] + "-" + m.group(1)[4:]
+
+
 class Server:
-    def __init__(self, base: str, name: str, opener=urllib.request.urlopen):
+    """The Circuit Pathways website, as this Pi sees it. The Pi proves who it is with its own key."""
+
+    def __init__(self, base: str, key: str, name: str = "Raspberry Pi", opener=urllib.request.urlopen):
         self.base = base.rstrip("/")
+        self.key = key.strip().upper()
+        self.id = pi_id(self.key)
         self.name = name
         self.open = opener
-        self.code = ""
-        self.secret = ""
 
-    def _request(self, path, body=None, headers=None, timeout=20):
-        h = {"X-Circuit-Pathways": "1", "User-Agent": f"circuitpathways-pi/{VERSION}"}
+    def _request(self, path, body=None, timeout=20):
+        h = {"X-Circuit-Pathways": "1", "X-Pi-Key": self.key, "User-Agent": f"circuitpathways-pi/{VERSION}"}
         data = None
         if body is not None:
             data = json.dumps(body).encode()
             h["Content-Type"] = "application/json"
-        h.update(headers or {})
         return self.open(urllib.request.Request(self.base + path, data=data, headers=h), timeout=timeout)
 
-    def register(self):
-        with self._request("/api/pi/register", {"name": self.name, "version": VERSION}) as r:
-            info = json.load(r)
-        self.code, self.secret = info["code"], info["secret"]
-        return self.code
-
     def send(self, event):
-        with self._request("/api/pi/pi/send", {"code": self.code, "event": event},
-                           {"X-Pi-Secret": self.secret}) as r:
+        with self._request("/api/pi/pi/send", {"event": event}) as r:
             r.read()
 
     def commands(self):
         """Yields each command from the website, until the connection ends."""
-        resp = self._request(f"/api/pi/pi/events?code={self.code}", headers={"X-Pi-Secret": self.secret}, timeout=45)
+        resp = self._request("/api/pi/pi/events", timeout=45)
         with resp:
             for raw in resp:
                 line = raw.decode("utf-8", "replace").strip()
@@ -281,9 +288,9 @@ class Server:
                         continue
 
 
-def show_code(code, server):
+def show_id(pid, server):
     bar = "=" * 46
-    print(f"\n{bar}\n  Circuit Pathways Pi Link\n\n  Type this code on the PiPath page:\n\n        {code}\n\n  ({server})\n{bar}\n", flush=True)
+    print(f"\n{bar}\n  Circuit Pathways Pi Link\n\n  This Pi's ID (type it on the PiPath page):\n\n        {pid}\n\n  ({server})\n{bar}\n", flush=True)
 
 
 class Link:
@@ -336,13 +343,15 @@ class Link:
         threading.Thread(target=self._sender, daemon=True).start()
         threading.Thread(target=self._poller, daemon=True).start()
         delay = 1.0
+        show_id(self.server.id, self.server.base)
         while not self.stop.is_set():
             try:
-                if not self.server.code:
-                    show_code(self.server.register(), self.server.base)
-                self.emit(self.bridge.hello_event())
-                self.connected, self.lost_at, delay = True, None, 1.0
+                self.emit(self.bridge.hello_event(self.server.name))
+                self.connected, self.lost_at = True, None
+                got_any = False
                 for cmd in self.server.commands():
+                    if not got_any:
+                        got_any, delay = True, 1.0
                     try:
                         reply = self.bridge.handle(cmd)
                     except BadCommand as e:
@@ -351,9 +360,9 @@ class Link:
                         self.emit(reply)
                 self.log("The website closed the connection. Reconnecting...")
             except urllib.error.HTTPError as e:
-                if e.code in (403, 404):  # the website has forgotten this Pi: get a new code
-                    self.log("The website forgot this Pi. Getting a new code...")
-                    self.server.code = ""
+                if e.code == 403:
+                    self.log("The website says this Pi's key isn't valid. Ask your teacher for this Pi's key. Trying again in a minute...")
+                    delay = 60.0
                 else:
                     self.log(f"The website said {e.code}. Trying again...")
             except Exception as e:
@@ -363,19 +372,46 @@ class Link:
                 if self.lost_at is None:
                     self.lost_at = self.clock()
             self.sleep(delay)
-            delay = min(delay * 2, 15.0)
+            delay = min(delay * 2, 15.0) if delay < 60 else 60.0
 
 
 # ---------------------------------------------------------------- start up
 
+def read_config(path):
+    """KEY=..., SERVER=... and NAME=... lines, as the installer writes them."""
+    out = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    out[k.strip().upper()] = v.strip().strip('"').strip("'")
+    except OSError as e:
+        raise SystemExit(f"Can't read {path}: {e}")
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Control this Raspberry Pi's pins from the Circuit Pathways website.")
-    ap.add_argument("--server", default=DEFAULT_SERVER, help="the Circuit Pathways website (default: %(default)s)")
-    ap.add_argument("--name", default="Raspberry Pi", help="a label shown on the website: no names, please")
+    ap.add_argument("--key", default=os.environ.get("CIRCUITPATHWAYS_KEY", ""), help="this Pi's key (CPK1-...)")
+    ap.add_argument("--config", help="a file with KEY=, SERVER= and NAME= lines (the installer makes /etc/circuitpathways-pi.conf)")
+    ap.add_argument("--server", default=None, help="the Circuit Pathways website (default: %s)" % DEFAULT_SERVER)
+    ap.add_argument("--name", default=None, help="a label shown on the website: no names, please")
     ap.add_argument("--mock", action="store_true", help="pretend pins, to try this on a computer that isn't a Pi")
     args = ap.parse_args(argv)
-    if not re.match(r"^https?://", args.server):
+    cfg = read_config(args.config) if args.config else {}
+    key = args.key or cfg.get("KEY", "")
+    server = args.server or cfg.get("SERVER") or DEFAULT_SERVER
+    name = args.name or cfg.get("NAME") or "Raspberry Pi"
+    if not re.match(r"^https?://", server):
         ap.error("--server must start with http:// or https://")
+    if not key:
+        ap.error("this Pi needs its key: --key CPK1-... (your teacher has it), or run this Pi's installer")
+    try:
+        pi_id(key)
+    except ValueError as e:
+        ap.error(str(e))
 
     if args.mock:
         gpio = MockGpio()
@@ -386,7 +422,7 @@ def main(argv=None):
             sys.exit("gpiozero isn't installed. On Raspberry Pi OS it is already there (sudo apt install python3-gpiozero).\n"
                      "To try this on another computer, add --mock.")
     bridge = Bridge(gpio)
-    link = Link(bridge, Server(args.server, args.name))
+    link = Link(bridge, Server(server, key, name))
     if args.mock:  # type "set 4 1" to press a pretend button on pin 4
         def stdin_inputs():
             for line in sys.stdin:

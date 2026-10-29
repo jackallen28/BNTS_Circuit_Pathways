@@ -1,0 +1,180 @@
+{
+ "file_name": "pibot.py",
+ "id": "s2_pibot",
+ "intro": "## Build a chatbot called PiBot\n\nReal apps **remember** things you tell them. Programs use **variables** to do that.\n\nIn this project you will build a chatbot that:\n- has its own name (stored in a **variable**)\n- asks you questions with `input()`\n- uses your answers in its replies with **f-strings**\n- does some maths with your answers (and you'll discover a very famous bug!)\n\nHelp gets a little lighter as you go. You're ready for it!\n",
+ "outro": "## PiBot is alive!\n\nYou used **variables** to remember things, `input()` to ask questions, **f-strings** to build replies, and `int()` to turn text into numbers.\n\nThe `input()` + `int()` bug you fixed is one of the most common bugs in Python, and now you know exactly what to do about it.\n\n**Extension ideas:**\n- Make PiBot work out how many days old you are (roughly `age * 365`)\n- Ask for two numbers and have PiBot add, subtract and multiply them\n- Give PiBot a personality: make it reply in ALL CAPS with `.upper()`\n",
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Change `\"PiBot\"` to a new name. Keep the quote marks.",
+     "label": "You gave your bot a new name",
+     "type": "code_regex",
+     "value": "bot_name\\s*=\\s*[\"'](?!PiBot[\"'])[^\"']+[\"']"
+    },
+    {
+     "label": "Your bot introduces itself",
+     "type": "output_contains",
+     "value": "I am"
+    }
+   ],
+   "demo": "# A variable is like a labelled box that stores a value\nbot_name = \"Sparky\"\n\nprint(\"Beep boop! I am\", bot_name)\n",
+   "error_hints": {},
+   "hints": [
+    "Only change the text inside the quotes on the `bot_name =` line.",
+    "Your line could look like `bot_name = \"Sparky\"`."
+   ],
+   "id": "step1",
+   "starter": "# A variable is like a labelled box that stores a value\nbot_name = \"PiBot\"\n\nprint(\"Beep boop! I am\", bot_name)\n",
+   "starter_mode": "replace",
+   "success": "Your bot has a name! The variable `bot_name` remembers it.",
+   "support": "guided",
+   "text": "A **variable** stores a value so you can use it later. Think of it as a box with a label on it.\n\n```\nbot_name = \"PiBot\"\n```\n\nThe `=` sign means **\"store this value in the box called bot_name\"**.\n\nNotice the `print` line has **no quotes** around `bot_name`. That tells Python to use what's *inside* the box.\n\n**Your task:** run it, then change `\"PiBot\"` to a robot name **you** invent, and run it again.\n",
+   "title": "Variables are labelled boxes"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You use input() to ask a question",
+     "type": "code_uses",
+     "value": "call:input"
+    },
+    {
+     "label": "You use an f-string",
+     "type": "code_uses",
+     "value": "fstring"
+    },
+    {
+     "fail": "Run your program and type your name into the box under the Output, then press Enter.",
+     "label": "PiBot greets you by name",
+     "type": "output_regex",
+     "value": "Nice to meet you, (?!\\{)\\S"
+    }
+   ],
+   "demo": "# A variable is like a labelled box that stores a value\nbot_name = \"Sparky\"\n\nprint(\"Beep boop! I am\", bot_name)\n\nname = input(\"What is your name? \")\nprint(f\"Nice to meet you, {name}!\")\n",
+   "demo_input": "Sam\n",
+   "error_hints": {},
+   "hints": [
+    "Which variable stores the answer to \"What is your name?\"",
+    "The blank should be the variable name, `name`. No quotes.",
+    "The finished line is `print(f\"Nice to meet you, {name}!\")`"
+   ],
+   "id": "step2",
+   "starter": "\nname = input(\"What is your name? \")\nprint(f\"Nice to meet you, {___}!\")\n",
+   "starter_mode": "append",
+   "success": "PiBot listened and used your answer. That's what variables are for!",
+   "support": "guided",
+   "text": "`input()` lets your program **ask a question** and wait for an answer. The answer gets stored in a variable:\n\n```\nname = input(\"What is your name? \")\n```\n\nThen you can use it in a message with an **f-string**. Put an `f` before the quotes, and any variable inside `{curly brackets}` gets swapped for its value.\n\n**Your task:** fill in the blank inside the curly brackets with the variable that holds the name. Run it and **type your answer in the box under the Output**, then press Enter.\n",
+   "title": "Ask a question"
+  },
+  {
+   "checks": [
+    {
+     "label": "No more errors",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Use `int()` to turn the age into a number.",
+     "label": "You use int() to make a number",
+     "type": "code_uses",
+     "value": "call:int"
+    },
+    {
+     "label": "PiBot works out next year's age",
+     "type": "output_regex",
+     "value": "Next year you will be \\d+"
+    }
+   ],
+   "demo": "# A variable is like a labelled box that stores a value\nbot_name = \"Sparky\"\n\nprint(\"Beep boop! I am\", bot_name)\n\nname = input(\"What is your name? \")\nprint(f\"Nice to meet you, {name}!\")\n\nage = int(input(\"How old are you? \"))\nnext_year = age + 1\nprint(f\"Next year you will be {next_year}!\")\n",
+   "demo_input": "Sam\n12\n",
+   "error_hints": {
+    "TypeError": "`age` holds text like \"12\", and you can't add the number 1 to text. How could you turn `age` into a number?"
+   },
+   "hints": [
+    "What type of value does `input()` give you: text or a number?",
+    "`int()` turns text like `\"12\"` into the number `12`.",
+    "Wrap the input in int():  `age = int(input(\"How old are you? \"))`"
+   ],
+   "id": "step3",
+   "starter": "\nage = input(\"How old are you? \")\nnext_year = age + 1\nprint(f\"Next year you will be {next_year}!\")\n",
+   "starter_mode": "append",
+   "success": "You fixed one of the most famous bugs in Python. Remember: input() gives text, int() makes it a number.",
+   "support": "scaffolded",
+   "text": "Let's have PiBot do some maths. Three new lines have been added.\n\n**Your task:**\n1. **Run it** and type your age. Something will go wrong. That's the point of this step!\n2. Read the Coach to understand why.\n3. Fix it so PiBot can work out how old you'll be next year.\n\n**Big idea:** `input()` *always* gives you **text**, even if you type a number. Text and numbers are different **types** in Python.\n",
+   "title": "The famous bug"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Add a new `input()` question that asks for a favourite food.",
+     "label": "PiBot asks at least 3 questions",
+     "min": 3,
+     "type": "code_count",
+     "value": "call:input"
+    },
+    {
+     "fail": "Use `.upper()` on the food variable, e.g. `food.upper()`.",
+     "label": "You use .upper()",
+     "type": "code_uses",
+     "value": "attr:upper"
+    }
+   ],
+   "demo": "# A variable is like a labelled box that stores a value\nbot_name = \"Sparky\"\n\nprint(\"Beep boop! I am\", bot_name)\n\nname = input(\"What is your name? \")\nprint(f\"Nice to meet you, {name}!\")\n\nage = int(input(\"How old are you? \"))\nnext_year = age + 1\nprint(f\"Next year you will be {next_year}!\")\n\nfood = input(\"What is your favourite food? \")\nprint(f\"{food.upper()}? YUM! I LOVE {food.upper()}!\")\n",
+   "demo_input": "Sam\n12\npizza\n",
+   "error_hints": {},
+   "hints": [
+    "Start with a new variable: `food = input(\"What's your favourite food? \")`",
+    "`.upper()` goes straight after the variable name: `food.upper()`",
+    "Example:\n```\nfood = input(\"What's your favourite food? \")\nprint(f\"{food.upper()}? YUM!\")\n```"
+   ],
+   "id": "step4",
+   "starter_mode": "keep",
+   "success": "SHOUTY PIBOT APPROVES!",
+   "support": "scaffolded",
+   "text": "Strings have built-in tools called **methods**. You use them with a dot:\n\n```\nfood = \"pizza\"\nprint(food.upper())    # prints PIZZA\n```\n\n**Your task:** add code at the bottom so PiBot:\n1. asks for your **favourite food** with `input()`\n2. replies with the food **in capital letters**, using `.upper()`\n\nFor example: `PIZZA? YUM! I LOVE PIZZA!`\n",
+   "title": "SHOUTY PiBot"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Add one more `input()` question.",
+     "label": "PiBot asks at least 4 questions",
+     "min": 4,
+     "type": "code_count",
+     "value": "call:input"
+    }
+   ],
+   "demo": "# A variable is like a labelled box that stores a value\nbot_name = \"Sparky\"\n\nprint(\"Beep boop! I am\", bot_name)\n\nname = input(\"What is your name? \")\nprint(f\"Nice to meet you, {name}!\")\n\nage = int(input(\"How old are you? \"))\nnext_year = age + 1\nprint(f\"Next year you will be {next_year}!\")\n\nfood = input(\"What is your favourite food? \")\nprint(f\"{food.upper()}? YUM! I LOVE {food.upper()}!\")\n\npets = int(input(\"How many pets do you have? \"))\nprint(f\"If they're all dogs, that's {pets * 4} legs!\")\n",
+   "demo_input": "Sam\n12\npizza\n2\n",
+   "error_hints": {},
+   "hints": [
+    "Copy the pattern you already know: a variable = input(...), then a print that uses it.",
+    "For a number question, remember `int()`.",
+    "Example:\n```\npets = int(input(\"How many dogs do you have? \"))\nprint(f\"That's {pets * 4} paws to clean!\")\n```"
+   ],
+   "id": "step5",
+   "starter_mode": "keep",
+   "success": "PiBot is now a real conversation, and you designed part of it yourself.",
+   "support": "brief",
+   "text": "Time to design your own part of the conversation.\n\n**Your task:** make PiBot ask **one more question** of your choice, and reply in a way that **uses the answer**.\n\nFor a bonus, make it a number question and do some maths with it (like *\"How many pets do you have?\"* and work out how many legs that is).\n",
+   "title": "Your turn: one more question"
+  }
+ ],
+ "title": "Meet PiBot"
+}

@@ -1,0 +1,326 @@
+{
+ "file_name": "doorbell_cam.py",
+ "id": "p4_doorbell",
+ "intro": "## Who's at the door?\n\nA smart doorbell notices someone coming, rings, takes their photo and shows it on a screen. You can build one with a Pi!\n\nYou'll put four parts together, one at a time:\n- an **ultrasonic distance sensor** that notices when someone comes close\n- the **camera**, and the **screen**: take a photo and open it\n- a **bell**: a light and a buzzer\n- then join them up: ring, snap and show the visitor\n\n**In the Simulator:** drag the slider under the sensor to bring a visitor closer, and pick what the pretend camera sees on the board (click the camera panel's title to choose a real camera).\n\n**Safety:** the sensor's ECHO pin sends back 5V. It must go through the two resistors (see **Wiring + Safety**). Take the blue HAT off before you change wires, and ask your teacher to check before you put it back on.\n",
+ "outro": "## Your Doorbell Cam is on duty!\n\nYou joined a sensor, a camera, a buzzer and the computer's screen. You used **events**, the photo's **file name** (a return value), a **cooldown** timer and a **log** file. That's a real smart-home gadget.\n\n**How open_file() works:** it runs the Pi's `xdg-open` command, which opens a file with its normal app:\n\n```\nimport subprocess\nsubprocess.Popen([\"xdg-open\", name])\n```\n\n**Extension ideas:**\n- Only ring at night: check `datetime.now().hour`\n- Use your **Teachable Machine** classifier to guess if the visitor is a person or a box\n- Keep the five newest photos and delete older ones with `os.remove()`\n- Add a \"do not disturb\" button that turns the bell off but still takes photos\n",
+ "requires_camera": true,
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You change metres to centimetres",
+     "type": "code_regex",
+     "value": "distance\\s*\\*\\s*100\\b"
+    },
+    {
+     "label": "It prints the distance in cm",
+     "type": "output_regex",
+     "value": "^\\d+\\s*cm\\s*$"
+    },
+    {
+     "label": "The number got smaller when something came closer",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import DistanceSensor\nfrom time import sleep\n\nsensor = DistanceSensor(echo=26, trigger=4)\n\nfor i in range(10):\n    cm = sensor.distance * 100       # metres -> centimetres\n    print(round(cm), \"cm\")\n    sleep(0.5)\n",
+   "demo_events": [
+    "0.5 distance 26 95",
+    "2 distance 26 50",
+    "3.5 distance 26 15",
+    "4.5 distance 26 80"
+   ],
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button."
+   },
+   "hints": [
+    "How many centimetres are in one metre?",
+    "Replace `___` with `100`.",
+    "The line is `cm = sensor.distance * 100`"
+   ],
+   "id": "step1",
+   "starter": "from gpiozero import DistanceSensor\nfrom time import sleep\n\nsensor = DistanceSensor(echo=26, trigger=4)\n\nfor i in range(10):\n    cm = sensor.distance * ___       # metres -> centimetres\n    print(round(cm), \"cm\")\n    sleep(0.5)\n",
+   "starter_mode": "replace",
+   "success": "The sensor works. Next, the camera.",
+   "support": "guided",
+   "text": "First, the part that notices visitors. Build the sensor (see **Wiring + Safety**).\n\n`sensor.distance` is how far away the nearest thing is, in **metres** (0 to 1). There are 100 centimetres in a metre.\n\n**Your task:** fill in the blank so it prints centimetres. While it runs, move your hand closer and further away (in the Simulator, drag the slider).\n",
+   "title": "Test the sensor"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It took a photo",
+     "type": "file_exists",
+     "value": "test.*"
+    },
+    {
+     "label": "It opens the photo it took",
+     "type": "code_regex",
+     "value": "open_file\\(\\s*name\\s*\\)"
+    },
+    {
+     "label": "The photo opened on the screen",
+     "type": "output_contains",
+     "value": "Opening"
+    }
+   ],
+   "demo": "from pipath_camera import Camera\nfrom pipath_computer import open_file\n\ncam = Camera()\nname = cam.take_photo(\"test.jpg\")\nprint(\"Saved\", name)\nopen_file(name)\n",
+   "demo_events": [
+    "0 show face"
+   ],
+   "error_hints": {},
+   "hints": [
+    "Which variable holds the photo's file name?",
+    "It's `name`.",
+    "The last line is `open_file(name)`"
+   ],
+   "id": "step2",
+   "starter": "from pipath_camera import Camera\nfrom pipath_computer import open_file\n\ncam = Camera()\nname = cam.take_photo(\"test.jpg\")\nprint(\"Saved\", name)\nopen_file(___)\n",
+   "starter_mode": "replace",
+   "success": "Snap and show! Two parts down, one to go.",
+   "support": "guided",
+   "text": "Next, the camera and the screen. Your sensor code is safe in `backups/`.\n\n`cam.take_photo(\"test.jpg\")` takes a photo and **returns** the name it saved it as. (Sometimes it has to save a `.png` instead, so always use the name it gives back.)\n\n`open_file()` opens a file on the screen, like double-clicking it.\n\n**Your task:** fill in the blank so the program opens the photo it just took.\n",
+   "title": "Test the camera and the screen"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It beeps twice",
+     "type": "code_regex",
+     "value": "n\\s*=\\s*2\\b"
+    },
+    {
+     "label": "The light came on and the buzzer went ding dong",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Buzzer\nfrom time import sleep\n\nlight = LED(17)\nbell = Buzzer(18)\n\nlight.on()\nbell.beep(0.1, 0.1, n=2, background=False)    # ding dong!\nsleep(1)\nlight.off()\n",
+   "error_hints": {},
+   "hints": [
+    "`n` is how many beeps.",
+    "Two beeps: `n=2`.",
+    "The line is `bell.beep(0.1, 0.1, n=2, background=False)`"
+   ],
+   "id": "step3",
+   "starter": "from gpiozero import LED, Buzzer\nfrom time import sleep\n\nlight = LED(17)\nbell = Buzzer(18)\n\nlight.on()\nbell.beep(0.1, 0.1, n=___, background=False)    # ding dong!\nsleep(1)\nlight.off()\n",
+   "starter_mode": "replace",
+   "success": "Ding dong! Every part works on its own. Now join them up.",
+   "support": "guided",
+   "text": "The last part is the **bell**: a light and a buzzer. Build them (see **Wiring + Safety**).\n\n`bell.beep(0.1, 0.1, n=2, background=False)` beeps twice (0.1 seconds on, 0.1 seconds off) and waits until it's finished.\n\n**Your task:** make the bell beep **twice**, like \"ding dong\". Run it.\n",
+   "title": "Test the bell"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "A visitor rings the bell",
+     "type": "code_regex",
+     "value": "when_in_range\\s*=\\s*visitor\\b"
+    },
+    {
+     "fail": "Bring something closer than 30 cm while your program runs.",
+     "label": "Someone came to the door",
+     "type": "output_contains",
+     "value": "Ding dong"
+    },
+    {
+     "label": "The light and buzzer came on when something came close",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import DistanceSensor, LED, Buzzer\nfrom signal import pause\n\nsensor = DistanceSensor(echo=26, trigger=4, threshold_distance=0.3)    # closer than 30 cm\nlight = LED(17)\nbell = Buzzer(18)\n\ndef visitor():\n    print(\"Ding dong! Someone's at the door.\")\n    light.on()\n    bell.beep(0.1, 0.1, n=2)\n\ndef gone():\n    print(\"They've gone.\")\n    light.off()\n\nsensor.when_in_range = visitor\nsensor.when_out_of_range = gone\n\nprint(\"Doorbell ready...\")\npause()\n",
+   "demo_events": [
+    "1.5 distance 26 15",
+    "3.5 distance 26 90"
+   ],
+   "demo_seconds": 5,
+   "error_hints": {},
+   "hints": [
+    "Which function should run when someone comes close?",
+    "The `visitor` function. No brackets!",
+    "The line is `sensor.when_in_range = visitor`"
+   ],
+   "id": "step4",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import DistanceSensor, LED, Buzzer\nfrom signal import pause\n\nsensor = DistanceSensor(echo=26, trigger=4, threshold_distance=0.3)    # closer than 30 cm\nlight = LED(17)\nbell = Buzzer(18)\n\ndef visitor():\n    print(\"Ding dong! Someone's at the door.\")\n    light.on()\n    bell.beep(0.1, 0.1, n=2)\n\ndef gone():\n    print(\"They've gone.\")\n    light.off()\n\nsensor.when_in_range = ___\nsensor.when_out_of_range = gone\n\nprint(\"Doorbell ready...\")\npause()\n",
+   "starter_mode": "replace",
+   "success": "Your doorbell rings by itself. Now give it eyes.",
+   "support": "scaffolded",
+   "text": "Join the sensor and the bell. The sensor has **events**, just like a button:\n\n- `sensor.when_in_range` runs a function when something comes closer than `threshold_distance` (30 cm here)\n- `sensor.when_out_of_range` runs a function when it goes away again\n\n**Your task:** fill in the blank so the `visitor` function runs when someone comes close. (No brackets: you're telling gpiozero *which* function to run later.) Run it, bring a visitor close, then send them away. Press **Stop** when you've seen it.\n",
+   "title": "Ding dong!"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It takes a photo",
+     "type": "code_uses",
+     "value": "call:take_photo"
+    },
+    {
+     "label": "Each photo gets its own name",
+     "type": "code_regex",
+     "value": "visitor_\\{"
+    },
+    {
+     "fail": "Bring a visitor closer than 30 cm while your program runs.",
+     "label": "A visitor's photo was saved",
+     "type": "file_exists",
+     "value": "visitor_*"
+    }
+   ],
+   "demo": "from gpiozero import DistanceSensor, LED, Buzzer\nfrom pipath_camera import Camera\nfrom datetime import datetime\nfrom signal import pause\n\nsensor = DistanceSensor(echo=26, trigger=4, threshold_distance=0.3)    # closer than 30 cm\nlight = LED(17)\nbell = Buzzer(18)\ncam = Camera()\n\ndef visitor():\n    print(\"Ding dong! Someone's at the door.\")\n    light.on()\n    bell.beep(0.1, 0.1, n=2)\n    stamp = datetime.now().strftime(\"%H-%M-%S\")\n    name = cam.take_photo(f\"visitor_{stamp}.jpg\")\n    print(\"Photo saved:\", name)\n\ndef gone():\n    print(\"They've gone.\")\n    light.off()\n\nsensor.when_in_range = visitor\nsensor.when_out_of_range = gone\n\nprint(\"Doorbell ready...\")\npause()\n",
+   "demo_events": [
+    "0 show face",
+    "1.5 distance 26 15",
+    "4 distance 26 90"
+   ],
+   "demo_seconds": 5.5,
+   "error_hints": {},
+   "hints": [
+    "The imports go at the very top, `cam = Camera()` goes before `def visitor():`.",
+    "The three new lines go inside `visitor()`, indented the same as `bell.beep(...)`.",
+    "Check the f-string: `f\"visitor_{stamp}.jpg\"`."
+   ],
+   "id": "step5",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Every visitor gets their photo taken. One step to go: show it!",
+   "support": "scaffolded",
+   "text": "Now give the doorbell eyes. Add these to your program:\n\n1. At the top:\n```\nfrom pipath_camera import Camera\nfrom datetime import datetime\n```\n2. Before the functions: `cam = Camera()`\n3. At the end of `visitor()` (indented):\n```\n    stamp = datetime.now().strftime(\"%H-%M-%S\")\n    name = cam.take_photo(f\"visitor_{stamp}.jpg\")\n    print(\"Photo saved:\", name)\n```\n\nThe time in the file name means every visitor gets their **own** photo, like `visitor_10-42-05.jpg`.\n\n**Your task:** add the three parts. Run it and bring a visitor close. (In the Simulator, pick a face for the camera first!)\n",
+   "title": "Snap the visitor"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It shows the photo",
+     "type": "code_uses",
+     "value": "call:open_file"
+    },
+    {
+     "fail": "Bring a visitor closer than 30 cm while your program runs.",
+     "label": "A visitor's photo opened",
+     "type": "output_contains",
+     "value": "Opening"
+    }
+   ],
+   "demo": "from gpiozero import DistanceSensor, LED, Buzzer\nfrom pipath_camera import Camera\nfrom pipath_computer import open_file\nfrom datetime import datetime\nfrom signal import pause\n\nsensor = DistanceSensor(echo=26, trigger=4, threshold_distance=0.3)    # closer than 30 cm\nlight = LED(17)\nbell = Buzzer(18)\ncam = Camera()\n\ndef visitor():\n    print(\"Ding dong! Someone's at the door.\")\n    light.on()\n    bell.beep(0.1, 0.1, n=2)\n    stamp = datetime.now().strftime(\"%H-%M-%S\")\n    name = cam.take_photo(f\"visitor_{stamp}.jpg\")\n    print(\"Photo saved:\", name)\n    open_file(name)\n\ndef gone():\n    print(\"They've gone.\")\n    light.off()\n\nsensor.when_in_range = visitor\nsensor.when_out_of_range = gone\n\nprint(\"Doorbell ready...\")\npause()\n",
+   "demo_events": [
+    "0 show face",
+    "1.5 distance 26 15",
+    "4 distance 26 90"
+   ],
+   "demo_seconds": 5.5,
+   "error_hints": {},
+   "hints": [
+    "The photo's name is in the variable `name`.",
+    "At the end of `visitor()`, indented: `open_file(name)`.",
+    "Check the import at the top: `from pipath_computer import open_file`."
+   ],
+   "id": "step6",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Ring, snap, show. That's a smart doorbell!",
+   "support": "scaffolded",
+   "text": "A smart doorbell shows you who's there. You already know how: `open_file()`.\n\n**Your task:** add `from pipath_computer import open_file` at the top, and open the visitor's photo at the end of `visitor()`, just after it's saved. Run it and bring a visitor close: their photo should pop up.\n",
+   "title": "Show it on the screen"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It counts the visitors",
+     "type": "output_contains",
+     "value": "Visitor 1"
+    },
+    {
+     "fail": "Bring a visitor close twice, less than 10 seconds apart. The second time should print `(too soon)`.",
+     "label": "It ignores a visitor that comes back too soon",
+     "type": "output_contains",
+     "value": "too soon"
+    },
+    {
+     "file": "*.csv",
+     "label": "visitors.csv has the number, time and photo",
+     "type": "file_contains",
+     "value": "^\\d+\\s*,\\s*[\\dT:.-]+\\s*,\\s*\\S+"
+    }
+   ],
+   "demo": "from gpiozero import DistanceSensor, LED, Buzzer\nfrom pipath_camera import Camera\nfrom pipath_computer import open_file\nfrom datetime import datetime\nfrom time import monotonic\nfrom signal import pause\n\nsensor = DistanceSensor(echo=26, trigger=4, threshold_distance=0.3)    # closer than 30 cm\nlight = LED(17)\nbell = Buzzer(18)\ncam = Camera()\nlast_visit = -100\ncount = 0\n\ndef visitor():\n    global last_visit, count\n    if monotonic() - last_visit < 10:\n        print(\"(too soon)\")\n        return\n    last_visit = monotonic()\n    count = count + 1\n    print(\"Ding dong! Visitor\", count)\n    light.on()\n    bell.beep(0.1, 0.1, n=2)\n    stamp = datetime.now().strftime(\"%H-%M-%S\")\n    name = cam.take_photo(f\"visitor_{stamp}.jpg\")\n    open_file(name)\n    with open(\"visitors.csv\", \"a\") as f:\n        f.write(f\"{count},{stamp},{name}\\n\")\n\ndef gone():\n    light.off()\n\nsensor.when_in_range = visitor\nsensor.when_out_of_range = gone\n\nprint(\"Doorbell ready...\")\npause()\n",
+   "demo_events": [
+    "0 show face",
+    "1 distance 26 15",
+    "2.5 distance 26 90",
+    "3.5 distance 26 12",
+    "5 distance 26 90"
+   ],
+   "demo_seconds": 6,
+   "error_hints": {},
+   "hints": [
+    "Before the functions: `last_visit = -100` and `count = 0`. In `visitor()`: `global last_visit, count`.",
+    "`if monotonic() - last_visit < 10:` then `print(\"(too soon)\")` and `return`. Otherwise set `last_visit = monotonic()` and add 1 to `count`."
+   ],
+   "id": "step7",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "A doorbell that knows when to ring, and remembers every visitor. Brilliant work!",
+   "support": "brief",
+   "text": "Someone standing at the door would set it off again and again. Make your doorbell smarter.\n\n**Goal:**\n- after a visit, ignore new visitors for **10 seconds** (a cooldown), and print `(too soon)` instead\n- count the visitors and print `Visitor 1`, `Visitor 2`, ...\n- add a line to `visitors.csv` for each visitor: the visitor number, the time and the photo's name\n\nTips: `from time import monotonic` gives a clock in seconds. Remember when the last visit was, and compare. A function that changes a variable from outside it needs `global`.\n",
+   "title": "Challenge: no spam, and a visitor log"
+  }
+ ],
+ "title": "Doorbell Cam",
+ "wiring": [
+  {
+   "connect": "VCC → 5V (pin 2). GND → GND (pin 6). TRIG → GPIO4 (pin 7). ECHO → 1kΩ resistor → GPIO26 (pin 37), plus a 2kΩ resistor from GPIO26 to GND. The two resistors turn the 5V echo into a safe 3.3V.",
+   "kind": "distance",
+   "part": "Distance sensor (HC-SR04)",
+   "pins": [
+    26,
+    4
+   ]
+  },
+  {
+   "colour": "yellow",
+   "connect": "GPIO17 (pin 11) → 330Ω resistor → LED long leg (+). Short leg (−) → GND rail.",
+   "kind": "led",
+   "part": "LED",
+   "pin": 17
+  },
+  {
+   "connect": "An *active* buzzer: + (the longer leg) → GPIO18 (pin 12). − → GND rail.",
+   "kind": "buzzer",
+   "part": "Buzzer",
+   "pin": 18
+  },
+  {
+   "connect": "A USB webcam in any USB port, or the Pi camera on its ribbon cable. Plug a USB camera in before you start PiPath. Only fit a ribbon camera when the Pi is shut down: ask your teacher.",
+   "part": "Camera"
+  }
+ ]
+}

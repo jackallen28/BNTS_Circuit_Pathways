@@ -10,25 +10,24 @@ import (
 	"strings"
 	"time"
 
+	"circuitpathways/internal/pilink"
 	"circuitpathways/internal/pirelay"
 )
 
 const (
-	piSecretHeader = "X-Pi-Secret"
-	perOwnerPis    = 3
+	piKeyHeader = "X-Pi-Key"
 )
 
 func (s *Server) piRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/pi/register", s.handlePiRegister)
 	mux.HandleFunc("GET /api/pi/pi/events", s.handlePiEvents)
 	mux.HandleFunc("POST /api/pi/pi/send", s.handlePiSend)
 	mux.HandleFunc("GET /api/pi/events", s.handlePiWatch)
 	mux.HandleFunc("POST /api/pi/command", s.handlePiCommand)
 	mux.HandleFunc("GET /pipath/remote/circuitpathways_pi.py", s.handlePiApp)
+	mux.HandleFunc("GET /pipath/remote/install.sh", s.handlePiInstaller)
 }
 
-// placeholderServer is the website address written into the Pi app's source.
-const placeholderServer = "https://circuit-pathways.onrender.com"
+const placeholderServer = pilink.PlaceholderServer
 
 // handlePiApp hands out the Pi app with this website's own address as its
 // default, so a student only has to download and run it.
@@ -49,25 +48,19 @@ func (s *Server) handlePiApp(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, out)
 }
 
-// handlePiRegister: a Pi asks for a pairing code. Nothing about the Pi is
-// kept except a plain label and its secret, in memory, while it stays connected.
-func (s *Server) handlePiRegister(w http.ResponseWriter, r *http.Request) {
-	if s.limited(w, r, s.limits.piRegister) {
-		return
+// piID checks the Pi's key and returns its ID.
+func (s *Server) piID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if s.PiKeys == nil {
+		writeError(w, http.StatusServiceUnavailable, "no_pi", "Pi Link is switched off on this site.")
+		return "", false
 	}
-	var req struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
+	id, ok := s.PiKeys.Verify(r.Header.Get(piKeyHeader))
+	if !ok {
+		time.Sleep(300 * time.Millisecond)
+		writeError(w, http.StatusForbidden, "pi_key", "That Pi key isn't valid.")
+		return "", false
 	}
-	if !readJSON(w, r, &req) {
-		return
-	}
-	code, secret, err := s.Relay.Register(req.Name, clientKey(r), perOwnerPis)
-	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, "pi_full", "Too many Raspberry Pis are connected right now. Try again in a few minutes.")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"code": code, "secret": secret, "register_ttl_s": int(pirelay.RegisterTTL.Seconds())})
+	return id, true
 }
 
 // sse starts a server-sent-events stream that can last as long as the Pi or
@@ -92,8 +85,8 @@ func piError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, pirelay.ErrNotFound):
 		writeError(w, http.StatusNotFound, "pi_not_found", "That code isn't connected. Check the code on your Pi, and that the Pi app is still running.")
-	case errors.Is(err, pirelay.ErrBadSecret):
-		writeError(w, http.StatusForbidden, "pi_secret", "That Pi isn't allowed.")
+	case errors.Is(err, pirelay.ErrFull):
+		writeError(w, http.StatusServiceUnavailable, "pi_full", "Too many Raspberry Pis are connected right now. Try again in a few minutes.")
 	case errors.Is(err, pirelay.ErrPiBusy):
 		writeError(w, http.StatusTooManyRequests, "pi_busy", "The Pi can't keep up. Slow down a little.")
 	case errors.Is(err, pirelay.ErrEventTooBig):
@@ -105,13 +98,16 @@ func piError(w http.ResponseWriter, err error) {
 
 // handlePiEvents: the Pi's stream of commands from the browser.
 func (s *Server) handlePiEvents(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	cmds, stream, err := s.Relay.PiConnected(code, r.Header.Get(piSecretHeader))
+	id, ok := s.piID(w, r)
+	if !ok {
+		return
+	}
+	cmds, stream, err := s.Relay.PiConnected(id)
 	if err != nil {
 		piError(w, err)
 		return
 	}
-	defer s.Relay.PiGone(code, stream)
+	defer s.Relay.PiGone(id, stream)
 	flush, ok := sse(w)
 	if !ok {
 		return
@@ -132,16 +128,19 @@ func (s *Server) handlePiEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handlePiSend: the Pi reports its pins.
+// handlePiSend: the Pi reports its pins (the Pi is known by its key).
 func (s *Server) handlePiSend(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.piID(w, r)
+	if !ok {
+		return
+	}
 	var req struct {
-		Code  string          `json:"code"`
 		Event json.RawMessage `json:"event"`
 	}
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if err := s.Relay.FromPi(req.Code, r.Header.Get(piSecretHeader), req.Event); err != nil {
+	if err := s.Relay.FromPi(id, req.Event); err != nil {
 		piError(w, err)
 		return
 	}
@@ -215,4 +214,28 @@ func (s *Server) handlePiCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handlePiInstaller hands out the installer that sets a Pi up to start Pi Link
+// at boot. It takes the Pi's key as its first argument:
+//
+//	curl -fsSL https://this-site/pipath/remote/install.sh | sudo bash -s -- CPK1-...
+func (s *Server) handlePiInstaller(w http.ResponseWriter, r *http.Request) {
+	app, err := fs.ReadFile(s.Site, "pipath/remote/circuitpathways_pi.py")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	scheme := "https"
+	if h := hostOnly(r.Host); h == "localhost" || h == "127.0.0.1" || h == "::1" {
+		scheme = "http"
+	}
+	script, err := pilink.Installer(scheme+"://"+r.Host, "", app)
+	if err != nil {
+		http.Error(w, "that website address can't be used in an installer", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	io.WriteString(w, script)
 }

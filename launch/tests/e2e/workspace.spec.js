@@ -157,6 +157,7 @@ test("a compile error from the real compiler is explained by the Coach", async (
   await newStudent(page, "Noor");
   await page.locator(".project-card", { hasText: "Serial Chatbot" }).click();
   await expect(page.locator(".editor-text")).toBeVisible();
+  await page.locator(".editor-text").fill("void setup() {\n  Serial.begin(9600)\n}\nvoid loop() {}\n");
   await page.locator("#tool-check").click();
   await expect(page.locator(".side-panel.guide .clue")).toContainText("semicolon", { timeout: 10_000 });
 });

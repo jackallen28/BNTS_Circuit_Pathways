@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"circuitpathways/internal/arduino"
 	"circuitpathways/internal/classes"
 	"circuitpathways/internal/content"
+	"circuitpathways/internal/pilink"
 	"circuitpathways/internal/server"
 )
 
@@ -33,7 +35,18 @@ func main() {
 	setup := flag.Bool("setup", false, "install arduino-cli, the board cores and libraries into -tools, then stop (done when the image is built)")
 	warm := flag.Bool("warm", false, "after -setup, compile once for every board so the first student isn't slow")
 	dev := flag.Bool("dev", false, "development: random secrets, a teacher code of 'teacher-code-dev', no board tools needed")
+	piKeys := flag.Int("pi-keys", 0, "make this many Raspberry Pi keys (and an installer for each Pi) with PI_KEY_SECRET, then stop")
+	piOut := flag.String("pi-out", "pi-keys", "the folder -pi-keys writes into")
+	piServer := flag.String("server", env("SITE_URL", pilink.PlaceholderServer), "the website address written into each Pi's installer (-pi-keys)")
 	flag.Parse()
+
+	if *piKeys > 0 {
+		if err := makePiKeys(*piKeys, *piOut, *piServer); err != nil {
+			fmt.Fprintln(os.Stderr, "Sorry:", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if *setup {
 		if err := runSetup(*toolsDir, *warm, log); err != nil {
@@ -60,6 +73,19 @@ func main() {
 		log.Error("set CLASS_SECRET to a long random text (at least 16 characters)", "err", err)
 		os.Exit(1)
 	}
+	piSecret := os.Getenv("PI_KEY_SECRET")
+	if *dev && piSecret == "" {
+		piSecret = devPiKeySecret
+	}
+	var keys *pilink.Keys
+	if piSecret != "" {
+		if keys, err = pilink.NewKeys(piSecret, strings.FieldsFunc(os.Getenv("REVOKED_PI_IDS"), func(r rune) bool { return r == ',' || r == ' ' || r == '\n' })); err != nil {
+			log.Error("set PI_KEY_SECRET to a long random text (at least 16 characters)", "err", err)
+			os.Exit(1)
+		}
+	} else {
+		log.Warn("PI_KEY_SECRET isn't set: Pi Link is switched off")
+	}
 	tc := classes.ParseTeacherCodes(teachers)
 	if tc.Len() == 0 {
 		log.Error("set TEACHER_CODES to one or more teacher codes (each at least 8 characters), separated by commas")
@@ -72,7 +98,7 @@ func main() {
 		}
 		os.Exit(1)
 	}
-	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, Version: Version, Log: log}
+	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log}
 	if tools, err := arduino.InstalledTools(*toolsDir, log); err == nil {
 		cfg.Compiler = tools
 	} else if *dev {

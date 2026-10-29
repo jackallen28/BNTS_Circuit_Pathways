@@ -1,0 +1,213 @@
+{
+ "file_name": "light_switch.py",
+ "id": "e1_lightswitch",
+ "intro": "## Build a light switch with code\n\nEvery light switch, game controller and keyboard works the same way: an **input** (a button) changes an **output** (a light).\n\nIn this project you will:\n- turn an LED on and off with code\n- read a **button** and react to it\n- use **events** (`when_pressed`) so your program reacts instantly\n- make a **toggle** switch and a **dimmer**\n\nCheck the **Wiring** card before you start. Ask your teacher to check your circuit if you're not sure.\n",
+ "outro": "## You built a smart light switch!\n\nYou used `LED`, `Button`, events with `when_pressed`, `toggle()`, and brightness with `PWMLED`.\n\n**Extension ideas:**\n- Add a second button: one turns the light on, the other turns it off\n- Make the LED blink faster each time you press the button\n- Make a \"night light\" that turns off by itself 5 seconds after you press the button\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The LED stays on for 3 seconds",
+     "type": "code_regex",
+     "value": "sleep\\(\\s*3\\s*\\)"
+    },
+    {
+     "label": "I saw the LED light up",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\n\nlight = LED(17)     # the LED is wired to GPIO17\n\nlight.on()\nsleep(3)            # stay on for 3 seconds\nlight.off()\n",
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button to use the on-screen board."
+   },
+   "hints": [
+    "Only the number inside `sleep()` needs changing.",
+    "`sleep(3)` waits 3 seconds."
+   ],
+   "id": "step1",
+   "starter": "from gpiozero import LED\nfrom time import sleep\n\nlight = LED(17)     # the LED is wired to GPIO17\n\nlight.on()\nsleep(1)            # wait 1 second\nlight.off()\n",
+   "starter_mode": "replace",
+   "success": "Your code just controlled real electricity!",
+   "support": "guided",
+   "text": "`LED(17)` creates an object that controls the LED on **GPIO17**. Objects have **methods** you call with a dot, like `light.on()` and `light.off()`.\n\n`sleep(1)` pauses the program for 1 second, so you can see the light.\n\n**Your task:** press **Run**. The LED should light up for one second. Then change the code so it stays on for **3 seconds**.\n",
+   "title": "Hello, LED"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "fail": "Run it again, then press the button while it says \"Press the button...\"",
+     "label": "The program noticed your press",
+     "type": "output_contains",
+     "value": "Pressed!"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button\nfrom time import sleep\n\nlight = LED(17)\nbutton = Button(23)\n\nprint(\"Press the button...\")\nbutton.wait_for_press()\nprint(\"Pressed!\")\nlight.on()\nsleep(2)\n",
+   "demo_events": [
+    "1.5 tap 23"
+   ],
+   "error_hints": {},
+   "hints": [
+    "Nothing happening? Check the button legs are on opposite sides of the breadboard's middle gap.",
+    "Try turning the button 90° on the breadboard. Button legs come in pairs."
+   ],
+   "id": "step2",
+   "starter": "from gpiozero import LED, Button\nfrom time import sleep\n\nlight = LED(17)\nbutton = Button(23)\n\nprint(\"Press the button...\")\nbutton.wait_for_press()\nprint(\"Pressed!\")\nlight.on()\nsleep(2)\n",
+   "starter_mode": "replace",
+   "success": "Input → program → output. That's every gadget ever made!",
+   "support": "guided",
+   "text": "`Button(23)` creates a button on **GPIO23**. `button.wait_for_press()` makes the program **stop and wait** until the button is pressed.\n\n**Your task:** run it and press the button. The Output should say *Pressed!* and the LED should come on.\n",
+   "title": "Read the button"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You use when_released",
+     "type": "code_uses",
+     "value": "attr:when_released"
+    },
+    {
+     "label": "Letting go turns the light off",
+     "type": "code_regex",
+     "value": "when_released\\s*=\\s*\\w+\\.off\\b(?!\\s*\\()"
+    },
+    {
+     "label": "The LED is on only while I hold the button",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button\nfrom signal import pause\n\nlight = LED(17)\nbutton = Button(23)\n\nbutton.when_pressed = light.on\nbutton.when_released = light.off\n\npause()\n",
+   "demo_events": [
+    "1 press 23",
+    "2.5 release 23",
+    "3.5 press 23",
+    "4.2 release 23"
+   ],
+   "demo_seconds": 5,
+   "error_hints": {
+    "TypeError": "Did you add brackets? Write `light.off`, not `light.off()`. We want Python to remember the method for later."
+   },
+   "hints": [
+    "What method turns the light off?",
+    "Use `light.off`, with no brackets.",
+    "The line is `button.when_released = light.off`"
+   ],
+   "id": "step3",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import LED, Button\nfrom signal import pause\n\nlight = LED(17)\nbutton = Button(23)\n\nbutton.when_pressed = light.on\nbutton.when_released = ___\n\npause()   # keep the program running, waiting for events\n",
+   "starter_mode": "replace",
+   "success": "Your program now reacts every single time. That's event-driven programming.",
+   "support": "scaffolded",
+   "text": "`wait_for_press()` only works once. For a real light switch we want the program to **react every time**.\n\n**Events** do that. This line means *\"whenever the button is pressed, run light.on\"*:\n\n```\nbutton.when_pressed = light.on\n```\n\nNotice there are **no brackets** after `light.on`. We're telling Python *which* method to run later, not running it now.\n\n`pause()` keeps the program alive so it can wait for events.\n\n**Your task:** fill in the blank so the light goes **off** when you let go. Run it, test it, then press **Stop**.\n",
+   "title": "Hold to light"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Pressing toggles the light",
+     "type": "code_regex",
+     "value": "when_pressed\\s*=\\s*\\w+\\.toggle\\b(?!\\s*\\()"
+    },
+    {
+     "label": "Press once = on, press again = off",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button\nfrom signal import pause\n\nlight = LED(17)\nbutton = Button(23)\n\nbutton.when_pressed = light.toggle\n\npause()\n",
+   "demo_events": [
+    "1 tap 23 every 1.5 until 4"
+   ],
+   "demo_seconds": 5.5,
+   "error_hints": {},
+   "hints": [
+    "Only one event is needed now: `when_pressed`.",
+    "Which method flips the light? `light.toggle`",
+    "Delete the `when_released` line and use `button.when_pressed = light.toggle`"
+   ],
+   "id": "step4",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "A working light switch!",
+   "support": "scaffolded",
+   "text": "Real light switches don't need to be held down. Press once for **on**, press again for **off**. That's called a **toggle**.\n\nLEDs have a `toggle()` method that flips them: on becomes off, off becomes on.\n\n**Your task:** change your code so each **press** toggles the light. You won't need `when_released` any more.\n",
+   "title": "Toggle switch"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You use PWMLED",
+     "type": "code_uses",
+     "value": "import:PWMLED"
+    },
+    {
+     "label": "You wrote a function",
+     "type": "code_uses",
+     "value": "node:FunctionDef"
+    },
+    {
+     "label": "Your brightness levels are in a list",
+     "type": "code_uses",
+     "value": "node:List"
+    },
+    {
+     "label": "Each press makes the LED a different brightness",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import PWMLED, Button\nfrom signal import pause\n\nlight = PWMLED(17)\nbutton = Button(23)\n\nlevels = [0, 0.25, 0.5, 1]\nlevel = 0\n\ndef next_level():\n    global level\n    level = (level + 1) % len(levels)\n    light.value = levels[level]\n    print(\"Brightness:\", levels[level])\n\nbutton.when_pressed = next_level\npause()\n",
+   "demo_events": [
+    "1 tap 23 every 1 until 5"
+   ],
+   "demo_seconds": 6,
+   "error_hints": {},
+   "hints": [
+    "Make a list: `levels = [0, 0.25, 0.5, 1]` and a variable `level = 0`.",
+    "In a function, add 1 to the position, then wrap with `% len(levels)`. You'll need `global level` inside the function.",
+    "Example:\n```\ndef next_level():\n    global level\n    level = (level + 1) % len(levels)\n    light.value = levels[level]\n\nbutton.when_pressed = next_level\n```"
+   ],
+   "id": "step5",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "You built a dimmer switch. Lists + functions + events, all working together!",
+   "support": "brief",
+   "text": "`PWMLED` is like `LED`, but it can be **dimmed**. Its `value` goes from `0` (off) to `1` (full brightness):\n\n```\nfrom gpiozero import PWMLED\nlight = PWMLED(17)\nlight.value = 0.5     # half brightness\n```\n\n**Goal:** each button press moves to the **next brightness level**: off → 0.25 → 0.5 → 1 → off → …\n\n**Tips:** keep the levels in a **list**, and write a **function** that moves to the next one. Use `%` to wrap back to the start.\n",
+   "title": "Challenge: the dimmer"
+  }
+ ],
+ "title": "Light Switch Lab",
+ "wiring": [
+  {
+   "colour": "red",
+   "connect": "GPIO17 (pin 11) → 330Ω resistor → LED long leg (+). LED short leg (−) → GND (pin 9).",
+   "kind": "led",
+   "part": "LED",
+   "pin": 17
+  },
+  {
+   "connect": "One leg → GPIO23 (pin 16). Opposite leg → GND (pin 14). No resistor needed: gpiozero turns on the Pi's built-in pull-up.",
+   "kind": "button",
+   "part": "Button",
+   "pin": 23
+  }
+ ]
+}

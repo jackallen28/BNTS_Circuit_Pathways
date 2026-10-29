@@ -2,6 +2,7 @@ package pirelay
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -32,23 +33,19 @@ func TestCommandsAreChecked(t *testing.T) {
 	}
 }
 
-func TestPairingCodes(t *testing.T) {
+func TestPisAreFoundByTheirIDEvenWhenTypedSloppily(t *testing.T) {
 	r := New(nil)
-	code, secret, err := r.Register("Pi 4", "1.2.3.4", 3)
-	if err != nil || len(code) != 7 || code[3] != '-' || len(secret) < 20 {
-		t.Fatalf("Register = %q %q %v", code, secret, err)
+	if _, _, err := r.PiConnected("K7M2QX9P"); err != nil {
+		t.Fatal(err)
+	}
+	if l, _, err := r.Watch(" k7m2-qx9p "); err != nil || l == nil {
+		t.Errorf("a typed ID should find the Pi: %v", err)
+	}
+	if _, _, err := r.Watch("ZZZZ-ZZZZ"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("an unknown ID: %v", err)
 	}
 	if NormaliseCode("abc-d1e") != "ABCD1E" || NormaliseCode(" o i l ") != "011" {
 		t.Error("typed codes should be tidied")
-	}
-	if _, _, err := r.PiConnected(code, "wrong"); !errors.Is(err, ErrBadSecret) {
-		t.Errorf("wrong secret: %v", err)
-	}
-	if _, _, err := r.PiConnected("ZZZ-ZZZ", secret); !errors.Is(err, ErrNotFound) {
-		t.Errorf("unknown code: %v", err)
-	}
-	if _, _, err := r.PiConnected(code, secret); err != nil {
-		t.Errorf("right secret: %v", err)
 	}
 }
 
@@ -63,34 +60,34 @@ func TestLabelNeverBecomesAHostName(t *testing.T) {
 	}
 }
 
-func TestLimits(t *testing.T) {
+func TestTooManyPis(t *testing.T) {
 	r := New(nil)
-	for i := 0; i < 3; i++ {
-		if _, _, err := r.Register("", "9.9.9.9", 3); err != nil {
-			t.Fatal(err)
+	for i := 0; i < MaxPis; i++ {
+		if _, _, err := r.PiConnected(fmt.Sprintf("PI%06d", i)); err != nil {
+			t.Fatalf("Pi %d: %v", i, err)
 		}
 	}
-	if _, _, err := r.Register("", "9.9.9.9", 3); !errors.Is(err, ErrFull) {
-		t.Errorf("a fourth Pi from one address: %v", err)
+	if _, _, err := r.PiConnected("ONEMORE00"); !errors.Is(err, ErrFull) {
+		t.Errorf("one more than the limit: %v", err)
 	}
-	if _, _, err := r.Register("", "8.8.8.8", 3); err != nil {
-		t.Errorf("another address is fine: %v", err)
+	if _, _, err := r.PiConnected("PI000000"); err != nil {
+		t.Errorf("a Pi that is already connected can reconnect: %v", err)
 	}
 }
 
 func TestBrowserAndPiTalk(t *testing.T) {
 	r := New(nil)
-	code, secret, _ := r.Register("", "ip", 3)
-	cmds, stream, _ := r.PiConnected(code, secret)
+	code := "K7M2QX9P"
+	cmds, stream, _ := r.PiConnected(code)
 
 	if err := r.ToPi(code, Command{Op: "shell"}); !errors.Is(err, ErrBadCommand) {
 		t.Fatalf("bad command: %v", err)
 	}
 	// the Pi says hello and shows its pins before any browser is there
-	if err := r.FromPi(code, secret, []byte(`{"type":"hello","data":{"model":"Pi 4"}}`)); err != nil {
+	if err := r.FromPi(code, []byte(`{"type":"hello","data":{"model":"Pi 4","name":"Pi 4"}}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.FromPi(code, secret, []byte(`{"type":"state","data":{"pins":{"17":{"mode":"out","value":1}}}}`)); err != nil {
+	if err := r.FromPi(code, []byte(`{"type":"state","data":{"pins":{"17":{"mode":"out","value":1}}}}`)); err != nil {
 		t.Fatal(err)
 	}
 	l, p, err := r.Watch(code)
@@ -117,17 +114,17 @@ func TestBrowserAndPiTalk(t *testing.T) {
 		t.Errorf("the Pi got %s", c)
 	}
 	// Pi -> browser
-	r.FromPi(code, secret, []byte(`{"type":"state","data":{"pins":{}}}`))
+	r.FromPi(code, []byte(`{"type":"state","data":{"pins":{}}}`))
 	if ev := <-l.C; string(ev) != `{"type":"state","data":{"pins":{}}}` {
 		t.Errorf("the browser got %s", ev)
 	}
 	// garbage from the Pi is refused
 	for _, bad := range []string{`nope`, `{"type":"exec","data":{}}`, `{"type":"state"}`} {
-		if err := r.FromPi(code, secret, []byte(bad)); !errors.Is(err, ErrBadCommand) {
+		if err := r.FromPi(code, []byte(bad)); !errors.Is(err, ErrBadCommand) {
 			t.Errorf("%s: %v", bad, err)
 		}
 	}
-	if err := r.FromPi(code, secret, make([]byte, 9000)); !errors.Is(err, ErrEventTooBig) {
+	if err := r.FromPi(code, make([]byte, 9000)); !errors.Is(err, ErrEventTooBig) {
 		t.Errorf("a huge event: %v", err)
 	}
 
@@ -139,7 +136,7 @@ func TestBrowserAndPiTalk(t *testing.T) {
 		t.Errorf("reason = %q", l.Reason)
 	}
 	r.Unwatch(p, l) // the old one ending must not remove the new one
-	r.FromPi(code, secret, []byte(`{"type":"pong","data":{}}`))
+	r.FromPi(code, []byte(`{"type":"pong","data":{}}`))
 	select {
 	case <-l2.C: // connected / hello / state arrive first; just check something flows
 	default:
@@ -156,36 +153,22 @@ func TestBrowserAndPiTalk(t *testing.T) {
 func TestQuietPisAreForgotten(t *testing.T) {
 	c := &clock{t: time.Date(2026, 10, 29, 9, 0, 0, 0, time.UTC)}
 	r := New(c.now)
-	never, _, _ := r.Register("", "a", 3)     // registered, never connected
-	gone, secret, _ := r.Register("", "b", 3) // connected, then dropped
-	_, stream, _ := r.PiConnected(gone, secret)
-	live, ls, _ := r.Register("", "c", 3)
-	r.PiConnected(live, ls)
-	l, _, _ := r.Watch(gone)
-	r.PiGone(gone, stream)
+	_, stream, _ := r.PiConnected("GONEGONE") // connected, then dropped
+	r.PiConnected("STAYSTAY")                 // still connected
+	l, _, _ := r.Watch("GONEGONE")
+	r.PiGone("GONEGONE", stream)
 
 	c.t = c.t.Add(OfflineGrace + time.Second)
 	r.Sweep()
-	if _, err := r.authed(gone, secret); !errors.Is(err, ErrNotFound) {
+	if r.find("GONEGONE") != nil {
 		t.Error("a Pi that stayed offline should be forgotten")
 	}
-	var last []byte
-	for ev := range l.C {
-		last = ev
+	for range l.C { // the browser is told, then its stream ends
 	}
-	_ = last
 	if l.Reason != "The Pi disconnected." {
 		t.Errorf("the browser should be told: %q", l.Reason)
 	}
-	if r.find(live) == nil {
-		t.Error("a connected Pi must stay")
-	}
-	c.t = c.t.Add(RegisterTTL)
-	r.Sweep()
-	if r.find(never) != nil {
-		t.Error("a code that was never used should expire")
-	}
-	if r.find(live) == nil {
+	if r.find("STAYSTAY") == nil {
 		t.Error("a connected Pi must stay")
 	}
 	if r.Count() != 1 {

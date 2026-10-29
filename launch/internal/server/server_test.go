@@ -15,6 +15,7 @@ import (
 	"circuitpathways/internal/arduino"
 	"circuitpathways/internal/classes"
 	"circuitpathways/internal/content"
+	"circuitpathways/internal/pilink"
 )
 
 type fakeCompiler struct {
@@ -37,12 +38,13 @@ func newTest(t *testing.T) (*Server, *fakeCompiler) {
 		t.Fatal(problems[0])
 	}
 	signer, _ := classes.New("test-secret-0123456789")
+	piKeys, _ := pilink.NewKeys("test-pi-secret-0123456789", nil)
 	fc := &fakeCompiler{ok: true}
 	site := fstest.MapFS{
 		"index.html":             {Data: []byte("<h1>home</h1>")},
 		"arduinopath/index.html": {Data: []byte("<h1>ap</h1>")},
 	}
-	return New(Config{Site: site, Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234"), Compiler: fc, Log: nil}), fc
+	return New(Config{Site: site, Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234"), Compiler: fc, PiKeys: piKeys, Log: nil}), fc
 }
 
 func post(s *Server, path string, body any, hdr map[string]string) *httptest.ResponseRecorder {

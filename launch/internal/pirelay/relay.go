@@ -7,16 +7,14 @@
 //	Pi app   --POST /api/pi/pi/send-->  relay  --stream-->  browser
 //	Pi app   <--stream----------------  relay  <--POST /api/pi/command--  browser
 //
-// A Pi registers and gets a short pairing code, which the student types into
-// the website. The relay keeps everything in memory, only for as long as the
-// Pi stays connected, and only passes pin commands and pin states. It never
-// stores them, and knows nothing about the student.
+// Each Pi has its own key (see package pilink). Its ID, such as K7M2-QX9P, is
+// what the student types into the website to link to that Pi. The relay keeps
+// everything in memory, only for as long as the Pi stays connected, and only
+// passes pin commands and pin states. It never stores them, and knows
+// nothing about the student.
 package pirelay
 
 import (
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,14 +24,9 @@ import (
 )
 
 const (
-	codeAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-	codeLen      = 6
-
-	// MaxPis is how many Pis can be registered at once.
+	// MaxPis is how many Pis can be connected at once.
 	MaxPis = 400
-	// RegisterTTL is how long a Pi's code works if the Pi never connects its stream.
-	RegisterTTL = 5 * time.Minute
-	// OfflineGrace is how long a Pi may be disconnected before its code is forgotten.
+	// OfflineGrace is how long a Pi may be disconnected before it is forgotten.
 	OfflineGrace = 90 * time.Second
 
 	maxEventBytes = 8 << 10
@@ -43,7 +36,6 @@ const (
 var (
 	ErrFull        = errors.New("too many Pis are connected right now")
 	ErrNotFound    = errors.New("that code isn't connected")
-	ErrBadSecret   = errors.New("wrong secret")
 	ErrBadCommand  = errors.New("that isn't a command a Pi understands")
 	ErrPiBusy      = errors.New("the Pi can't keep up")
 	ErrEventTooBig = errors.New("event too big")
@@ -63,25 +55,22 @@ func New(now func() time.Time) *Relay {
 	if now == nil {
 		now = time.Now
 	}
-	return &Relay{now: now, pis: map[string]*Pi{}, perIP: map[string]int{}}
+	return &Relay{now: now, pis: map[string]*Pi{}}
 }
 
 // Pi is one registered Raspberry Pi and the browser that is controlling it.
 type Pi struct {
-	Code   string
-	Name   string
-	secret string
-	owner  string // the address that registered it (only for counting, never logged)
+	ID   string
+	Name string
 
-	mu         sync.Mutex
-	registered time.Time
-	lastSeen   time.Time
-	cmds       chan []byte // browser -> Pi
-	piOnline   bool
-	piStream   int // which Pi connection is current
-	browser    *Listener
-	lastState  []byte
-	hello      []byte
+	mu        sync.Mutex
+	lastSeen  time.Time
+	cmds      chan []byte // browser -> Pi
+	piOnline  bool
+	piStream  int // which Pi connection is current
+	browser   *Listener
+	lastState []byte
+	hello     []byte
 }
 
 // Listener is a browser watching a Pi. Events arrive on C; it is closed when
@@ -90,18 +79,6 @@ type Listener struct {
 	C      chan []byte
 	closed bool
 	Reason string
-}
-
-func randomCode() (string, error) {
-	var b [codeLen]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	out := make([]byte, codeLen)
-	for i, v := range b {
-		out[i] = codeAlphabet[int(v)&31]
-	}
-	return string(out), nil
 }
 
 // NormaliseCode tidies a typed pairing code: upper case, no spaces or dashes, look-alikes fixed.
@@ -121,34 +98,21 @@ func NormaliseCode(s string) string {
 	return b.String()
 }
 
-// Register adds a Pi. owner is its network address, used only to stop one
-// address registering lots of Pis; it is never stored with anything else.
-func (r *Relay) Register(name, owner string, perOwner int) (code, secret string, err error) {
+// ensure finds the Pi with this ID, adding it if it isn't known yet.
+func (r *Relay) ensure(id string) (*Pi, error) {
+	id = NormaliseCode(id)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if p := r.pis[id]; p != nil {
+		return p, nil
+	}
 	r.sweepLocked()
-	if len(r.pis) >= MaxPis || r.perIP[owner] >= perOwner {
-		return "", "", ErrFull
+	if len(r.pis) >= MaxPis {
+		return nil, ErrFull
 	}
-	for i := 0; i < 20; i++ {
-		c, err := randomCode()
-		if err != nil {
-			return "", "", err
-		}
-		if _, taken := r.pis[c]; taken {
-			continue
-		}
-		var s [24]byte
-		if _, err := rand.Read(s[:]); err != nil {
-			return "", "", err
-		}
-		secret = base64.RawURLEncoding.EncodeToString(s[:])
-		now := r.now()
-		r.pis[c] = &Pi{Code: c, Name: CleanName(name), secret: secret, owner: owner, registered: now, lastSeen: now, cmds: make(chan []byte, queueSize)}
-		r.perIP[owner]++
-		return c[:3] + "-" + c[3:], secret, nil
-	}
-	return "", "", ErrFull
+	p := &Pi{ID: id, Name: "Raspberry Pi", lastSeen: r.now(), cmds: make(chan []byte, queueSize)}
+	r.pis[id] = p
+	return p, nil
 }
 
 // CleanName keeps a Pi's label to a few plain characters. It is shown on the
@@ -174,7 +138,7 @@ func (r *Relay) sweepLocked() {
 	now := r.now()
 	for code, p := range r.pis {
 		p.mu.Lock()
-		stale := (!p.piOnline && now.Sub(p.lastSeen) > OfflineGrace) || (p.piStream == 0 && now.Sub(p.registered) > RegisterTTL)
+		stale := !p.piOnline && now.Sub(p.lastSeen) > OfflineGrace
 		p.mu.Unlock()
 		if stale {
 			r.removeLocked(code, p, "The Pi disconnected.")
@@ -191,9 +155,6 @@ func (r *Relay) Sweep() {
 
 func (r *Relay) removeLocked(code string, p *Pi, reason string) {
 	delete(r.pis, code)
-	if r.perIP[p.owner]--; r.perIP[p.owner] <= 0 {
-		delete(r.perIP, p.owner)
-	}
 	p.mu.Lock()
 	p.closeBrowserLocked(reason)
 	p.mu.Unlock()
@@ -212,17 +173,6 @@ func (r *Relay) find(code string) *Pi {
 	return r.pis[NormaliseCode(code)]
 }
 
-func (r *Relay) authed(code, secret string) (*Pi, error) {
-	p := r.find(code)
-	if p == nil {
-		return nil, ErrNotFound
-	}
-	if subtle.ConstantTimeCompare([]byte(secret), []byte(p.secret)) != 1 {
-		return nil, ErrBadSecret
-	}
-	return p, nil
-}
-
 func (p *Pi) closeBrowserLocked(reason string) {
 	if p.browser != nil && !p.browser.closed {
 		p.browser.Reason = reason
@@ -234,8 +184,8 @@ func (p *Pi) closeBrowserLocked(reason string) {
 
 // PiConnected marks the Pi's stream as open. It returns the Pi's command
 // channel and a stream number; call PiGone with the number when the stream ends.
-func (r *Relay) PiConnected(code, secret string) (cmds <-chan []byte, stream int, err error) {
-	p, err := r.authed(code, secret)
+func (r *Relay) PiConnected(id string) (cmds <-chan []byte, stream int, err error) {
+	p, err := r.ensure(id)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -287,11 +237,11 @@ func (p *Pi) pushLocked(l *Listener, ev []byte) {
 }
 
 // FromPi passes an event from the Pi (a hello or a pin state) on to the browser.
-func (r *Relay) FromPi(code, secret string, raw []byte) error {
+func (r *Relay) FromPi(id string, raw []byte) error {
 	if len(raw) > maxEventBytes {
 		return ErrEventTooBig
 	}
-	p, err := r.authed(code, secret)
+	p, err := r.ensure(id)
 	if err != nil {
 		return err
 	}
@@ -311,6 +261,12 @@ func (r *Relay) FromPi(code, secret string, raw []byte) error {
 		p.lastState = out
 	case "hello":
 		p.hello = out
+		var h struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(ev.Data, &h) == nil {
+			p.Name = CleanName(h.Name)
+		}
 	}
 	p.pushLocked(p.browser, out)
 	return nil

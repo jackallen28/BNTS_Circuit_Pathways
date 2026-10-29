@@ -1,0 +1,167 @@
+{
+ "idea": [
+  {
+   "blurb": "Ask a yes-or-no question and the Pi answers.",
+   "code": "import random\n\nanswers = [\"Yes!\", \"No way.\", \"Ask again later.\", \"Definitely.\", \"I doubt it.\", \"Without a doubt!\"]\n\nwhile True:\n    question = input(\"Ask me a yes-or-no question (or type bye): \")\n    if question.lower() == \"bye\":\n        print(\"See you next time!\")\n        break\n    print(random.choice(answers))\n",
+   "hardware": false,
+   "id": "magic8",
+   "title": "Magic 8-Ball"
+  },
+  {
+   "blurb": "Keep asking until someone types the right password.",
+   "code": "password = \"pineapple\"\ntries = 0\n\nguess = input(\"Password: \")\nwhile guess != password:\n    tries = tries + 1\n    print(\"Nope! Try again.\")\n    guess = input(\"Password: \")\n\nprint(\"Access granted after\", tries + 1, \"tries!\")\n",
+   "hardware": false,
+   "id": "password",
+   "title": "Secret password"
+  },
+  {
+   "blurb": "Three LEDs flash in a random party pattern.",
+   "code": "from gpiozero import LED\nfrom time import sleep\nimport random\n\nlights = [LED(17), LED(27), LED(22)]\n\nwhile True:\n    light = random.choice(lights)\n    light.toggle()\n    sleep(0.2)\n",
+   "hardware": true,
+   "id": "disco",
+   "title": "Disco lights"
+  },
+  {
+   "blurb": "Wait for the light, then press as fast as you can.",
+   "code": "from gpiozero import LED, Button\nfrom time import sleep, monotonic\nimport random\n\nlight = LED(17)\nbutton = Button(23)\n\nprint(\"Get ready...\")\nsleep(random.uniform(2, 5))\nlight.on()\nstart = monotonic()\nbutton.wait_for_press()\nlight.off()\nprint(\"Your reaction time:\", round(monotonic() - start, 3), \"seconds\")\n",
+   "hardware": true,
+   "id": "reaction",
+   "title": "Quick-draw reaction game"
+  },
+  {
+   "blurb": "The buzzer beeps when something comes near the distance sensor.",
+   "code": "from gpiozero import DistanceSensor, Buzzer\nfrom time import sleep\n\nsensor = DistanceSensor(echo=26, trigger=4)\nbuzzer = Buzzer(18)\n\nwhile True:\n    cm = round(sensor.distance * 100)\n    print(cm, \"cm\")\n    if cm < 20:\n        buzzer.beep(0.05, 0.05, n=2, background=False)\n    sleep(0.3)\n",
+   "hardware": true,
+   "id": "tooclose",
+   "title": "Too close! alarm"
+  },
+  {
+   "blurb": "Press the button to take a photo.",
+   "code": "from gpiozero import Button\nfrom pipath_camera import Camera\n\nbutton = Button(23)\ncam = Camera()\ncount = 0\n\nwhile True:\n    print(\"Press the button for a selfie!\")\n    button.wait_for_press()\n    count = count + 1\n    photo = cam.take_photo(f\"selfie_{count}.jpg\")\n    print(\"Saved\", photo)\n    button.wait_for_release()\n",
+   "hardware": true,
+   "id": "selfie",
+   "title": "Selfie button"
+  }
+ ],
+ "part": [
+  {
+   "code": "{name} = LED({pin})\n{name}.on()\nsleep(1)\n{name}.off()\n",
+   "id": "led",
+   "imports": [
+    "from gpiozero import LED",
+    "from time import sleep"
+   ],
+   "kind": "led",
+   "tip": "Added an LED called `{name}` on **GPIO{pin}**. Wire it: GPIO{pin} → 330Ω resistor → the LED's long leg; short leg → GND. The pin map is in **My wiring**.",
+   "title": "LED"
+  },
+  {
+   "code": "{name} = Button({pin})\nprint(\"Press the button...\")\n{name}.wait_for_press()\nprint(\"Pressed!\")\n{name}.wait_for_release()\n",
+   "id": "button",
+   "imports": [
+    "from gpiozero import Button"
+   ],
+   "kind": "button",
+   "tip": "Added a button called `{name}` on **GPIO{pin}**. Wire it: one leg → GPIO{pin}, the leg across the gap → GND. No resistor needed: the Pi has one built in.",
+   "title": "Button"
+  },
+  {
+   "code": "{name} = Buzzer({pin})\n{name}.beep(0.1, 0.1, n=3, background=False)\n",
+   "id": "buzzer",
+   "imports": [
+    "from gpiozero import Buzzer"
+   ],
+   "kind": "buzzer",
+   "tip": "Added a buzzer called `{name}` on **GPIO{pin}**. Wire it: + (long leg) → GPIO{pin}, − → GND. Use an *active* buzzer (it beeps by itself).",
+   "title": "Buzzer"
+  },
+  {
+   "code": "{name} = DistanceSensor(echo=26, trigger=4)\nprint(round({name}.distance * 100), \"cm\")\n",
+   "id": "distance",
+   "imports": [
+    "from gpiozero import DistanceSensor"
+   ],
+   "kind": "distance",
+   "tip": "Added an ultrasonic distance sensor (HC-SR04) called `{name}`. Wire it: VCC → 5V (pin 2), GND → GND (pin 6), TRIG → GPIO4 (pin 7), ECHO → **1kΩ resistor** → GPIO26 (pin 37), plus a **2kΩ resistor** from GPIO26 to GND. The resistors keep the 5V echo safe.",
+   "title": "Distance sensor"
+  },
+  {
+   "code": "{name} = RGBLED({pins})\n{name}.color = (1, 0, 1)     # red + blue = purple\nsleep(1)\n{name}.off()\n",
+   "id": "rgbled",
+   "imports": [
+    "from gpiozero import RGBLED",
+    "from time import sleep"
+   ],
+   "kind": "rgbled",
+   "tip": "Added an RGB LED called `{name}` on **GPIO {pins}** (red, green, blue). Wire each colour leg through its own 330Ω resistor; the longest leg goes to GND (common cathode).",
+   "title": "RGB LED"
+  },
+  {
+   "code": "{name} = LEDBarGraph({pins})\n{name}.value = 0.5            # half the LEDs on\nsleep(1)\n{name}.off()\n",
+   "id": "bar",
+   "imports": [
+    "from gpiozero import LEDBarGraph",
+    "from time import sleep"
+   ],
+   "kind": "bar",
+   "tip": "Added a bar of six LEDs called `{name}` on **GPIO {pins}**. Each LED needs its own 330Ω resistor. `{name}.value = 1` lights them all, `0.5` half.",
+   "title": "6 LED bar"
+  },
+  {
+   "code": "{name} = Camera()\nphoto = {name}.take_photo(\"photo.jpg\")\nprint(\"Saved\", photo)\n",
+   "id": "camera",
+   "imports": [
+    "from pipath_camera import Camera"
+   ],
+   "kind": "camera",
+   "tip": "Added the camera. Click the camera panel's title on the board to choose **Simulated**, **USB** or **Ribbon**. Photos are saved in your folder (File > Open my folder).",
+   "title": "Camera"
+  },
+  {
+   "code": "print(\"Temperature:\", cpu_temp(), \"°C\")\nprint(\"CPU busy:\", cpu_load(), \"%\")\nprint(\"RAM used:\", ram_used(), \"%\")\n",
+   "id": "pinumbers",
+   "imports": [
+    "from pipath_computer import cpu_temp, cpu_load, ram_used"
+   ],
+   "kind": "software",
+   "tip": "These functions read the Pi's own numbers. Try showing one on an LED: `led.value = cpu_load() / 100` with a PWMLED.",
+   "title": "Pi's numbers"
+  },
+  {
+   "code": "answer = input(\"What's your favourite colour? \")\nprint(\"Nice!\", answer, \"is a great colour.\")\n",
+   "id": "ask",
+   "imports": [],
+   "kind": "software",
+   "tip": "`input()` waits for an answer in the Output box. It always gives back text: use `int(input(...))` for a number.",
+   "title": "Ask a question"
+  },
+  {
+   "code": "roll = random.randint(1, 6)\nprint(\"You rolled\", roll)\n",
+   "id": "random",
+   "imports": [
+    "import random"
+   ],
+   "kind": "software",
+   "tip": "`random.randint(1, 6)` picks a whole number from 1 to 6, like a dice.",
+   "title": "Random number"
+  },
+  {
+   "code": "while True:\n    print(\"Still going...\")\n    sleep(1)        # always wait a little, so the Pi can rest\n",
+   "id": "forever",
+   "imports": [
+    "from time import sleep"
+   ],
+   "kind": "software",
+   "tip": "A `while True` loop runs until you press **Stop**. Always put a `sleep()` inside so the Pi doesn't run flat out.",
+   "title": "Repeat forever"
+  },
+  {
+   "code": "def greet(name):\n    return \"Hello, \" + name + \"!\"\n\nprint(greet(\"Pi\"))\n",
+   "id": "function",
+   "imports": [],
+   "kind": "software",
+   "tip": "A function is a named piece of code you can use again. `return` sends a value back to whoever called it.",
+   "title": "Function"
+  }
+ ]
+}

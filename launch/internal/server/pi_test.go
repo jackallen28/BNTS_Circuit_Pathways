@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"circuitpathways/internal/pilink"
 )
 
 // sseReader reads "data:" lines from a streaming response.
@@ -79,20 +81,23 @@ func TestPiOverTheRelay(t *testing.T) {
 	defer cancel()
 	class, _, _ := s.Signer.NewClass(time.Now(), 2)
 
-	// the Pi registers and opens its command stream
-	resp := jsonPost(t, ts.URL+"/api/pi/register", map[string]string{"name": "Pi 4", "version": "0.1"}, nil)
-	var reg struct{ Code, Secret string }
-	json.NewDecoder(resp.Body).Decode(&reg)
-	if resp.StatusCode != 200 || reg.Code == "" {
-		t.Fatalf("register: %d %+v", resp.StatusCode, reg)
+	// a made-up key is turned away; a real one opens the Pi's command stream
+	if resp, _ := http.Get(ts.URL + "/api/pi/pi/events"); resp.StatusCode != 403 {
+		t.Fatalf("no key: %d", resp.StatusCode)
 	}
-	piAuth := map[string]string{piSecretHeader: reg.Secret}
-	pi := openSSE(t, ctx, ts.URL+"/api/pi/pi/events?code="+reg.Code, piAuth)
+	id, key, _ := s.PiKeys.New()
+	reg := struct{ Code string }{Code: pilink.DisplayID(id)}
+	piAuth := map[string]string{piKeyHeader: key}
+	bogus := map[string]string{piKeyHeader: "CPK1-K7M2QX9P-AAAAAAAAAA"}
+	if r := jsonPost(t, ts.URL+"/api/pi/pi/send", map[string]any{"event": map[string]any{"type": "hello", "data": map[string]string{}}}, bogus); r.StatusCode != 403 {
+		t.Fatalf("a made-up key: %d", r.StatusCode)
+	}
+	pi := openSSE(t, ctx, ts.URL+"/api/pi/pi/events", piAuth)
 	if pi.resp.StatusCode != 200 {
 		t.Fatalf("Pi stream: %d", pi.resp.StatusCode)
 	}
 	// the Pi says hello
-	if r := jsonPost(t, ts.URL+"/api/pi/pi/send", map[string]any{"code": reg.Code, "event": map[string]any{"type": "hello", "data": map[string]string{"model": "Pi 4"}}}, piAuth); r.StatusCode != 204 {
+	if r := jsonPost(t, ts.URL+"/api/pi/pi/send", map[string]any{"event": map[string]any{"type": "hello", "data": map[string]string{"model": "Pi 4", "name": "Pi 4"}}}, piAuth); r.StatusCode != 204 {
 		t.Fatalf("send: %d", r.StatusCode)
 	}
 
@@ -100,7 +105,7 @@ func TestPiOverTheRelay(t *testing.T) {
 	if r, _ := http.Get(ts.URL + "/api/pi/events?code=" + reg.Code); r.StatusCode != 401 {
 		t.Fatalf("no class code: %d", r.StatusCode)
 	}
-	if r, _ := http.NewRequest("GET", ts.URL+"/api/pi/events?code=ZZZ-ZZZ", nil); r != nil {
+	if r, _ := http.NewRequest("GET", ts.URL+"/api/pi/events?code=ZZZZ-ZZZZ", nil); r != nil {
 		r.Header.Set(accessHeader, class)
 		if resp, _ := http.DefaultClient.Do(r); resp.StatusCode != 404 {
 			t.Fatalf("wrong pairing code: %d", resp.StatusCode)
@@ -132,9 +137,9 @@ func TestPiOverTheRelay(t *testing.T) {
 	}
 
 	// Pi -> browser, and only with the Pi's own secret
-	state := map[string]any{"code": reg.Code, "event": map[string]any{"type": "state", "data": map[string]any{"pins": map[string]any{"17": map[string]any{"mode": "out", "value": 1}}}}}
-	if r := jsonPost(t, ts.URL+"/api/pi/pi/send", state, map[string]string{piSecretHeader: "not-the-secret"}); r.StatusCode != 403 {
-		t.Fatalf("wrong secret: %d", r.StatusCode)
+	state := map[string]any{"event": map[string]any{"type": "state", "data": map[string]any{"pins": map[string]any{"17": map[string]any{"mode": "out", "value": 1}}}}}
+	if r := jsonPost(t, ts.URL+"/api/pi/pi/send", state, bogus); r.StatusCode != 403 {
+		t.Fatalf("wrong key: %d", r.StatusCode)
 	}
 	jsonPost(t, ts.URL+"/api/pi/pi/send", state, piAuth)
 	if got := browser.next(t); !strings.Contains(got, `"state"`) || !strings.Contains(got, `"17"`) {
@@ -148,14 +153,22 @@ func TestPiOverTheRelay(t *testing.T) {
 	}
 }
 
-func TestPiRegistrationIsLimitedPerAddress(t *testing.T) {
+func TestRevokedPiKeyIsRefused(t *testing.T) {
 	s, _ := newTest(t)
-	var last int
-	for i := 0; i < 5; i++ {
-		last = post(s, "/api/pi/register", map[string]string{"name": "x"}, nil).Code
+	id, key, _ := s.PiKeys.New()
+	revoked, _ := pilink.NewKeys("test-pi-secret-0123456789", []string{id})
+	s.PiKeys = revoked
+	w := post(s, "/api/pi/pi/send", map[string]any{"event": map[string]any{"type": "hello", "data": map[string]string{}}}, map[string]string{piKeyHeader: key})
+	if w.Code != 403 {
+		t.Fatalf("a revoked key got %d", w.Code)
 	}
-	if last != http.StatusServiceUnavailable {
-		t.Fatalf("a fourth Pi from one address got %d, want 503", last)
+}
+
+func TestPiLinkIsOffWithoutKeys(t *testing.T) {
+	s, _ := newTest(t)
+	s.PiKeys = nil
+	if w := post(s, "/api/pi/pi/send", map[string]any{"event": map[string]any{}}, nil); w.Code != 503 {
+		t.Fatalf("got %d", w.Code)
 	}
 }
 

@@ -36,3 +36,4 @@
 .log { margin: 0; padding: 6px 10px 6px 28px; max-height: 160px; overflow-y: auto; background: #fff; border: 2px inset #fff; font: 13px Consolas, monospace; }
 .log li.bad { color: #a00; }
 @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+.setup { margin-top: 12px; } .setup summary { cursor: pointer; font-weight: 700; }

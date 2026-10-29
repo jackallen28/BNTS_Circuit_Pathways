@@ -1,0 +1,360 @@
+{
+ "file_name": "traffic_lights.py",
+ "id": "a1_traffic",
+ "intro": "## Build a set of traffic lights\n\nEvery traffic light at an intersection is run by a small computer following a **sequence**: a list of steps done in order, with exact timings.\n\nYou'll build it the way engineers do: get **one part** working, then the next, then put them together.\n- switch one LED on and off with code\n- make the **Australian** traffic light sequence: green, amber, red\n- use a **function** and a **loop** so the lights run forever\n- test the **pedestrian button** on its own\n- join the lights and the button into a real crossing, then add a beeper\n\n**No kit yet?** Choose **Simulator** next to the Run button and use the board on screen. When you've got parts, switch to **Real Pi** and see your lights for real.\n",
+ "outro": "## Your intersection is open!\n\nYou used `LED`, `Button` and `Buzzer`, timed a **sequence** with `sleep()`, grouped it in a **function**, and made it repeat with a **loop**. You also tested each part on its own before joining them up. Real engineers work exactly like that.\n\n**Extension ideas:**\n- gpiozero has a `TrafficLights` class: `lights = TrafficLights(17, 27, 22)`, then `lights.green.on()`. Rewrite your program with it.\n- Add a second set of lights for the cross street. They must **never** both be green!\n- Make the green light last longer at night: `from datetime import datetime` and check `datetime.now().hour`.\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The second flash lasts 2 seconds",
+     "type": "code_regex",
+     "value": "sleep\\(\\s*2(\\.0)?\\s*\\)"
+    },
+    {
+     "label": "Your program gets to the end",
+     "type": "output_contains",
+     "value": "Done"
+    },
+    {
+     "label": "I saw the red LED flash twice: short, then long",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\n\nred = LED(17)       # the red LED is wired to GPIO17\n\nred.on()\nsleep(1)            # wait 1 second\nred.off()\nsleep(1)\nred.on()\nsleep(2)\nred.off()\nprint(\"Done!\")\n",
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button."
+   },
+   "hints": [
+    "The blank is how many seconds to wait.",
+    "Replace `___` with `2`.",
+    "The line should read `sleep(2)`."
+   ],
+   "id": "step1",
+   "starter": "from gpiozero import LED\nfrom time import sleep\n\nred = LED(17)       # the red LED is wired to GPIO17\n\nred.on()\nsleep(1)            # wait 1 second\nred.off()\nsleep(1)\nred.on()\nsleep(___)          # make this flash last 2 seconds\nred.off()\nprint(\"Done!\")\n",
+   "starter_mode": "replace",
+   "success": "You just controlled a light with code. Every traffic light starts here!",
+   "support": "guided",
+   "text": "`LED(17)` makes an **object** that controls the LED on **GPIO17**. Objects have **methods** you call with a dot: `red.on()` and `red.off()`.\n\n`sleep(1)` pauses your program for 1 second, so there's time to see the light.\n\n**Your task:** fill in the blank so the second flash lasts **2 seconds**. Run it and watch the red LED.\n\n*Simulator:* the LED on the board lights up. *Real Pi:* your breadboard LED does!\n",
+   "title": "Flash one light"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The amber light comes on",
+     "type": "code_regex",
+     "value": "amber\\.on\\(\\)"
+    },
+    {
+     "label": "The red light comes on",
+     "type": "code_regex",
+     "value": "red\\.on\\(\\)"
+    },
+    {
+     "fail": "Check the order. Green first, then amber, then red.",
+     "label": "They come on in order: green, amber, red",
+     "type": "code_regex",
+     "value": "green\\.on\\(\\)[\\s\\S]*amber\\.on\\(\\)[\\s\\S]*red\\.on\\(\\)"
+    },
+    {
+     "label": "My lights went green, then amber, then red",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\n\nred = LED(17)\namber = LED(27)\ngreen = LED(22)\n\nprint(\"Green: go\")\ngreen.on()\nsleep(3)\ngreen.off()\n\nprint(\"Amber: slow down\")\namber.on()\nsleep(2)\namber.off()\n\nprint(\"Red: stop\")\nred.on()\nsleep(3)\nred.off()\n",
+   "error_hints": {},
+   "hints": [
+    "Copy the four green lines and change them for amber.",
+    "Amber: `print(\"Amber: slow down\")`, `amber.on()`, `sleep(2)`, `amber.off()`.",
+    "Then red: `print(\"Red: stop\")`, `red.on()`, `sleep(3)`, `red.off()`."
+   ],
+   "id": "step2",
+   "starter": "from gpiozero import LED\nfrom time import sleep\n\nred = LED(17)\namber = LED(27)\ngreen = LED(22)\n\nprint(\"Green: go\")\ngreen.on()\nsleep(3)\ngreen.off()\n\n# Next: amber for 2 seconds, then red for 3 seconds\n",
+   "starter_mode": "replace",
+   "success": "That's a real traffic light sequence, in the right order.",
+   "support": "scaffolded",
+   "text": "In Australia, traffic lights go **green → amber → red**, then back to green. (Some countries show red and amber together. We don't!)\n\nThe code already does the **green** part: on, wait, off.\n\n**Your task:** add the **amber** part (2 seconds), then the **red** part (3 seconds). Print a message for each one, like the green part does. Then press **Watch the goal** on the board to compare.\n",
+   "title": "Green, amber, red"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You wrote a function called cycle",
+     "type": "code_regex",
+     "value": "def\\s+cycle\\s*\\(\\s*\\)\\s*:"
+    },
+    {
+     "label": "A loop keeps it going",
+     "type": "code_uses",
+     "value": "node:While"
+    },
+    {
+     "fail": "Inside your loop (indented), call the function: `cycle()`.",
+     "label": "The loop calls cycle()",
+     "type": "code_regex",
+     "value": "^\\s+cycle\\(\\s*\\)"
+    },
+    {
+     "label": "The lights go round and round until I press Stop",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\n\nred = LED(17)\namber = LED(27)\ngreen = LED(22)\n\ndef cycle():\n    print(\"Green: go\")\n    green.on()\n    sleep(3)\n    green.off()\n    print(\"Amber: slow down\")\n    amber.on()\n    sleep(2)\n    amber.off()\n    print(\"Red: stop\")\n    red.on()\n    sleep(3)\n    red.off()\n\nwhile True:\n    cycle()\n",
+   "demo_seconds": 10,
+   "error_hints": {},
+   "hints": [
+    "Type `def cycle():` on a new line above your `print(\"Green: go\")` line.",
+    "Select every line from the green print down to `red.off()` and press **Tab** so they're indented under `def`.",
+    "At the very bottom, not indented: `while True:` and on the next line (indented) `cycle()`."
+   ],
+   "id": "step3",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Your lights run forever, just like the real thing. Next, the button.",
+   "support": "scaffolded",
+   "text": "Real traffic lights never stop. Let's put the sequence in a **function**, then call it again and again with a **loop**.\n\nA function is a named chunk of code. You make it with `def`, and everything **indented** under it belongs to it:\n\n```\ndef cycle():\n    green.on()\n    sleep(3)\n    green.off()\n    # ...amber and red go here too\n\nwhile True:\n    cycle()\n```\n\n`while True:` means *repeat forever*. That's OK here, because `sleep()` lets the Pi rest.\n\n**Your task:** put your green, amber and red code inside `def cycle():` (select the lines and press **Tab** to indent them all). Add the `while True:` loop at the bottom. Run it, watch two full cycles, then press **Stop**.\n",
+   "title": "Round and round"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The program waits for the button",
+     "type": "code_uses",
+     "value": "call:wait_for_press"
+    },
+    {
+     "fail": "Run it again and press the button 3 times (Simulator: click it on the board).",
+     "label": "You pressed the button 3 times",
+     "type": "output_contains",
+     "value": "Your button works"
+    }
+   ],
+   "demo": "from gpiozero import Button\n\nbutton = Button(23)     # the pedestrian button is wired to GPIO23\n\nfor i in range(3):\n    print(\"Press the button...\")\n    button.wait_for_press()\n    print(\"Pressed!\", i + 1)\n    button.wait_for_release()\n\nprint(\"Your button works!\")\n",
+   "demo_events": [
+    "1 tap 23",
+    "1.8 tap 23",
+    "2.6 tap 23"
+   ],
+   "error_hints": {},
+   "hints": [
+    "The method's name is in the instructions: it *waits for* a *press*.",
+    "Replace `___` with `wait_for_press`.",
+    "The line is `button.wait_for_press()`"
+   ],
+   "id": "step4",
+   "starter": "from gpiozero import Button\n\nbutton = Button(23)     # the pedestrian button is wired to GPIO23\n\nfor i in range(3):\n    print(\"Press the button...\")\n    button.___()        # wait here until the button is pressed\n    print(\"Pressed!\", i + 1)\n    button.wait_for_release()\n\nprint(\"Your button works!\")\n",
+   "starter_mode": "replace",
+   "success": "Your button works. Now you know both parts are good, so let's join them up.",
+   "support": "guided",
+   "text": "Before the button joins the lights, test it **on its own**. Engineers test each part by itself first. Then, if something goes wrong later, you know it isn't the button.\n\n`button.wait_for_press()` makes your program **stop and wait** right there until the button is pressed. `wait_for_release()` waits until you let go.\n\nDon't worry about your traffic light code: it's saved in your `backups` folder, and the next step joins the lights and the button together.\n\n**Your task:** fill in the blank so the program waits for a press. Run it and press the button **3 times**.\n\n*Simulator:* click the button on the board. *Real Pi:* press your real button. Nothing happens? Open **Wiring + Safety** and press **Check my wiring**.\n",
+   "title": "Test the button"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The lights wait for the button",
+     "type": "code_uses",
+     "value": "call:wait_for_press"
+    },
+    {
+     "fail": "Inside the loop, after the button is pressed, call `cycle()`.",
+     "label": "After the press, the loop runs cycle()",
+     "type": "code_regex",
+     "value": "^\\s+cycle\\(\\s*\\)"
+    },
+    {
+     "fail": "Run it, press the button, and wait for the red light. Does your program print `Walk!`?",
+     "label": "You pressed the button and saw Walk!",
+     "type": "output_contains",
+     "value": "Walk"
+    },
+    {
+     "label": "The lights only change after I press the button",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button\nfrom time import sleep\n\nred = LED(17)\namber = LED(27)\ngreen = LED(22)\nbutton = Button(23)\n\ndef cycle():\n    \"\"\"Amber, then red while people cross.\"\"\"\n    amber.on()\n    sleep(2)\n    amber.off()\n    red.on()\n    print(\"Walk!\")\n    sleep(4)\n    red.off()\n\nwhile True:\n    green.on()              # cars can go until someone presses the button\n    print(\"Press the button to cross\")\n    button.wait_for_press()\n    green.off()\n    cycle()\n",
+   "demo_events": [
+    "2 tap 23"
+   ],
+   "demo_seconds": 10,
+   "error_hints": {
+    "NameError": "Check the spelling of `cycle`. It must match the name after `def`."
+   },
+   "hints": [
+    "The first blank is the same method you used in the button test.",
+    "The second blank is the name of the function that does amber and red.",
+    "The lines are `button.wait_for_press()` and `cycle()`."
+   ],
+   "id": "step5",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import LED, Button\nfrom time import sleep\n\nred = LED(17)\namber = LED(27)\ngreen = LED(22)\nbutton = Button(23)\n\ndef cycle():\n    \"\"\"Amber, then red while people cross.\"\"\"\n    amber.on()\n    sleep(2)\n    amber.off()\n    red.on()\n    print(\"Walk!\")\n    sleep(4)\n    red.off()\n\nwhile True:\n    green.on()              # cars can go until someone presses the button\n    print(\"Press the button to cross\")\n    button.___()\n    green.off()\n    ___()\n",
+   "starter_mode": "replace",
+   "success": "Now the lights respond to people. Input + output + timing!",
+   "support": "scaffolded",
+   "text": "Now put the two parts together. At a pedestrian crossing, the lights stay **green for cars** until someone presses the button. Then they change so people can cross.\n\nHere are your lights and your button test, joined up:\n- `cycle()` is now just **amber, then red** (with `Walk!`)\n- **green** waits in the loop, until the button is pressed\n\n**Your task:** fill in the two blanks:\n1. wait for the button to be pressed\n2. then run the amber and red part: call the `cycle` function\n\nRun it and press the button a few times. Press **Stop** when you're done.\n",
+   "title": "The pedestrian crossing"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You use a Buzzer",
+     "type": "code_uses",
+     "value": "import:Buzzer"
+    },
+    {
+     "label": "The buzzer beeps while people cross",
+     "type": "code_uses",
+     "value": "call:beep"
+    },
+    {
+     "fail": "Add `buzzer.off()` after `sleep(4)` so the beeping stops.",
+     "label": "The beeping stops before the lights change",
+     "type": "code_regex",
+     "value": "buzzer\\.off\\(\\)"
+    },
+    {
+     "fail": "Run it and press the button before you press Stop.",
+     "label": "You tested it with the button",
+     "type": "output_contains",
+     "value": "Walk"
+    },
+    {
+     "label": "I heard (or saw) the buzzer beeping while it said Walk",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button, Buzzer\nfrom time import sleep\n\nred = LED(17)\namber = LED(27)\ngreen = LED(22)\nbutton = Button(23)\nbuzzer = Buzzer(18)\n\ndef cycle():\n    \"\"\"Amber, then red while people cross.\"\"\"\n    amber.on()\n    sleep(2)\n    amber.off()\n    red.on()\n    print(\"Walk!\")\n    buzzer.beep(0.1, 0.1)      # tick-tick-tick while people cross\n    sleep(4)\n    buzzer.off()\n    red.off()\n\nwhile True:\n    green.on()              # cars can go until someone presses the button\n    print(\"Press the button to cross\")\n    button.wait_for_press()\n    green.off()\n    cycle()\n",
+   "demo_events": [
+    "1.5 tap 23"
+   ],
+   "demo_seconds": 10,
+   "error_hints": {
+    "NameError": "Did you add `Buzzer` to the import line, and make `buzzer = Buzzer(18)`?"
+   },
+   "hints": [
+    "Add `buzzer = Buzzer(18)` under `button = Button(23)`.",
+    "Inside `cycle()`, after `print(\"Walk!\")`: `buzzer.beep(0.1, 0.1)`.",
+    "After `sleep(4)`, still inside `cycle()`: `buzzer.off()`."
+   ],
+   "id": "step6",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Your crossing talks to people who can't see it. That's thoughtful design.",
+   "support": "scaffolded",
+   "text": "Real crossings help people who can't see the lights. They make a fast **tick-tick** sound while it's safe to cross.\n\n`buzzer.beep(0.1, 0.1)` beeps over and over **in the background** (0.1 seconds on, 0.1 off), so your program carries on while it beeps. `buzzer.off()` stops it.\n\n**Your task:**\n1. Add `Buzzer` to your import line: `from gpiozero import LED, Button, Buzzer`\n2. Make a buzzer on GPIO18: `buzzer = Buzzer(18)`\n3. In `cycle()`, start beeping straight after `print(\"Walk!\")`\n4. Stop the beeping after the `sleep(4)`, before the red light goes off\n",
+   "title": "Add a beeper"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "A loop counts down",
+     "type": "code_uses",
+     "value": "node:For"
+    },
+    {
+     "fail": "Press the button and wait. Does your countdown print `Walk 5` down to `Walk 1`?",
+     "label": "The countdown gets to Walk 1",
+     "type": "output_regex",
+     "value": "Walk\\W*1\\b"
+    },
+    {
+     "fail": "After the countdown, flash the red light: `red.blink(0.2, 0.2, n=5, background=False)`.",
+     "label": "The red light flashes before green comes back",
+     "type": "code_regex",
+     "value": "blink\\(|(for\\s[\\s\\S]*){2}"
+    },
+    {
+     "label": "I saw the countdown with beeping, then the red light flashed",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button, Buzzer\nfrom time import sleep\n\nred = LED(17)\namber = LED(27)\ngreen = LED(22)\nbutton = Button(23)\nbuzzer = Buzzer(18)\n\ndef cycle():\n    \"\"\"Amber, then red with a countdown while people cross, then flashing red.\"\"\"\n    amber.on()\n    sleep(2)\n    amber.off()\n    red.on()\n    buzzer.beep(0.1, 0.1)          # tick-tick-tick while people cross\n    for n in range(5, 0, -1):      # 5, 4, 3, 2, 1\n        print(\"Walk\", n)\n        sleep(1)\n    buzzer.off()\n    red.blink(0.2, 0.2, n=5, background=False)   # flashing red: don't start crossing now\n    red.off()\n\nwhile True:\n    green.on()              # cars can go until someone presses the button\n    print(\"Press the button to cross\")\n    button.wait_for_press()\n    green.off()\n    cycle()\n",
+   "demo_events": [
+    "1.5 tap 23"
+   ],
+   "demo_seconds": 12,
+   "error_hints": {},
+   "hints": [
+    "Move `buzzer.beep(0.1, 0.1)` up to just after `red.on()`, then replace `print(\"Walk!\")` and `sleep(4)` with a loop: `for n in range(5, 0, -1):` then (indented) `print(\"Walk\", n)` and `sleep(1)`.",
+    "After `buzzer.off()`, flash the red light: `red.blink(0.2, 0.2, n=5, background=False)`."
+   ],
+   "id": "step7",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "A complete pedestrian crossing, built one part at a time. Brilliant work!",
+   "support": "brief",
+   "text": "Real crossings count down, so people know how long they have. Then the red figure **flashes** to say \"don't start crossing now\".\n\n**Goal:**\n1. While people cross, count down: print `Walk 5`, `Walk 4` ... `Walk 1`, one second apart, with the beeping on.\n2. Then stop the beeping and **flash** the red light 5 times before green comes back.\n\n**Tips:**\n- `for n in range(5, 0, -1):` counts 5, 4, 3, 2, 1\n- `red.blink(0.2, 0.2, n=5, background=False)` flashes 5 times, then carries on\n",
+   "title": "Challenge: the full crossing"
+  }
+ ],
+ "title": "Traffic Lights",
+ "wiring": [
+  {
+   "colour": "red",
+   "connect": "GPIO17 (pin 11) → 330Ω resistor → LED long leg (+). Short leg (−) → GND rail.",
+   "kind": "led",
+   "part": "Red LED",
+   "pin": 17
+  },
+  {
+   "colour": "amber",
+   "connect": "GPIO27 (pin 13) → 330Ω resistor → long leg. Short leg → GND rail.",
+   "kind": "led",
+   "part": "Amber LED",
+   "pin": 27
+  },
+  {
+   "colour": "green",
+   "connect": "GPIO22 (pin 15) → 330Ω resistor → long leg. Short leg → GND rail.",
+   "kind": "led",
+   "part": "Green LED",
+   "pin": 22
+  },
+  {
+   "connect": "One leg → GPIO23 (pin 16). The leg on the other side of the middle gap → GND rail. No resistor needed: gpiozero turns on the Pi's built-in pull-up.",
+   "kind": "button",
+   "part": "Pedestrian button",
+   "pin": 23
+  },
+  {
+   "connect": "An *active* buzzer: + (the longer leg) → GPIO18 (pin 12). − → GND rail.",
+   "kind": "buzzer",
+   "part": "Buzzer (step 6)",
+   "pin": 18
+  },
+  {
+   "connect": "Join the breadboard's blue (−) rail to a GND pin, like pin 9 or 14. Then every part can share it.",
+   "part": "Tip"
+  }
+ ]
+}

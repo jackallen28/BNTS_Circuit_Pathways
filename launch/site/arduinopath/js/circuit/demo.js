@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 
 async function main() {
-  const cat = await (await fetch("api/catalogue")).json();
+  const cat = await (await fetch("data/catalogue.json")).json();
   const boards = cat.boards;
   const select = $("board");
   for (const b of boards) select.append(new Option(b.name, b.id));
@@ -19,7 +19,7 @@ async function main() {
   // ?project=<id> draws a project's circuit instead of the sample.
   let circuit = demoCircuit, project = null;
   if (params.get("project")) {
-    project = await (await fetch(`api/projects/${encodeURIComponent(params.get("project"))}`)).json();
+    project = await (await fetch(`data/projects/${encodeURIComponent(params.get("project"))}.json`)).json();
     circuit = project.circuit;
     document.title = `${project.title}: circuit`;
   }

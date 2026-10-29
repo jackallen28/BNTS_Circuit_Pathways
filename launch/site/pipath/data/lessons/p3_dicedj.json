@@ -1,0 +1,363 @@
+{
+ "file_name": "dice_dj.py",
+ "files": [
+  "p3/party"
+ ],
+ "id": "p3_dicedj",
+ "intro": "## Roll the dice, start the party\n\nHardware can control the **computer**, not just lights. In this project, a button rolls a dice, the LEDs show the number, and the Pi **plays something** for that number: a sound, a song, a video or a picture.\n\nYou'll:\n- roll a dice with `randint()`\n- test the button and the LEDs, one at a time\n- join them into an LED dice\n- use `open_file()` to play a sound on the computer for each number\n- make your own playlist from a folder of files\n- add a **surprise** button that opens a website\n\nThere's a `party` folder in your work folder with six sounds already: `1.wav` beeps once, `6.wav` beeps six times. Plug in headphones or a speaker to hear them.\n",
+ "outro": "## You built a Dice DJ!\n\nYou used random numbers, lists, list positions (`roll - 1`), `glob` to find files, and a button that makes the **computer** do something. That's the same idea as a games controller, a smart doorbell or a TV remote.\n\n**How open_file() works:** it runs the Pi's `xdg-open` command, which opens a file with its normal app, just like double-clicking it:\n\n```\nimport subprocess\nsubprocess.Popen([\"xdg-open\", \"party/1.wav\"])\n```\n\n**Extension ideas:**\n- Record six sounds of your own (your voice, your pet, your band) and put them in the `party` folder\n- Hold the button down for a \"mega roll\": roll two dice and add them up\n- Count how many times each number comes up, and print the counts when you press the second button\n- Make a Spin-the-Bottle style game picker: the dice picks who goes next\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It rolls from 1 to 6",
+     "type": "code_regex",
+     "value": "randint\\(\\s*1\\s*,\\s*6\\s*\\)"
+    },
+    {
+     "label": "It rolls five times",
+     "type": "output_regex",
+     "value": "(You rolled [1-6][\\s\\S]*){5}"
+    }
+   ],
+   "demo": "from random import randint\n\nfor i in range(5):\n    roll = randint(1, 6)\n    print(\"You rolled\", roll)\n",
+   "error_hints": {},
+   "hints": [
+    "A normal dice goes from 1 up to what?",
+    "The biggest number on a dice is 6.",
+    "The line is `roll = randint(1, 6)`"
+   ],
+   "id": "step1",
+   "starter": "from random import randint\n\nfor i in range(5):\n    roll = randint(1, ___)\n    print(\"You rolled\", roll)\n",
+   "starter_mode": "replace",
+   "success": "Five random rolls. Next, a real button to roll with.",
+   "support": "guided",
+   "text": "`randint(1, 6)` picks a random whole number from 1 to 6, just like a dice.\n\n**Your task:** fill in the blank so the program rolls a normal six-sided dice five times. Run it a few times: you get different numbers each time.\n",
+   "title": "Roll a dice"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It waits for the button",
+     "type": "code_uses",
+     "value": "attr:wait_for_press"
+    },
+    {
+     "label": "You rolled three times",
+     "type": "output_regex",
+     "value": "(You rolled [1-6][\\s\\S]*){3}"
+    }
+   ],
+   "demo": "from gpiozero import Button\nfrom random import randint\n\nbutton = Button(23)\n\nfor i in range(3):\n    print(\"Press the button to roll...\")\n    button.wait_for_press()\n    print(\"You rolled\", randint(1, 6))\n    button.wait_for_release()      # let go before the next roll\n",
+   "demo_events": [
+    "1 tap 23",
+    "2 tap 23",
+    "3 tap 23"
+   ],
+   "error_hints": {
+    "BadPinFactory": "Not on a Raspberry Pi? Choose **Simulator** next to the Run button."
+   },
+   "hints": [
+    "The program should wait for a press.",
+    "It's `wait_for_press`.",
+    "The line is `button.wait_for_press()`"
+   ],
+   "id": "step2",
+   "starter": "from gpiozero import Button\nfrom random import randint\n\nbutton = Button(23)\n\nfor i in range(3):\n    print(\"Press the button to roll...\")\n    button.___()\n    print(\"You rolled\", randint(1, 6))\n    button.wait_for_release()      # let go before the next roll\n",
+   "starter_mode": "replace",
+   "success": "The button rolls the dice. Next, test the LEDs.",
+   "support": "guided",
+   "text": "Now the hardware, one part at a time. Wire up the **roll button** (see **Wiring + Safety**, and take the blue HAT off first).\n\n`button.wait_for_press()` stops the program until the button is pressed. `button.wait_for_release()` waits until you let go. Without it, holding the button down would roll again and again, super fast!\n\n**Your task:** fill in the blank, run it, and press the button three times.\n",
+   "title": "Test the button"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It lights n out of 6 LEDs",
+     "type": "code_regex",
+     "value": "value\\s*=\\s*n\\s*/\\s*6\\b"
+    },
+    {
+     "label": "The bar grew from 1 LED to all 6",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LEDBarGraph\nfrom time import sleep\n\ndice = LEDBarGraph(17, 27, 22, 5, 6, 13)\n\nfor n in range(1, 7):\n    dice.value = n / 6       # n out of 6 LEDs\n    print(\"Showing\", n)\n    sleep(0.6)\ndice.off()\n",
+   "error_hints": {},
+   "hints": [
+    "How many LEDs are there altogether?",
+    "There are 6.",
+    "The line is `dice.value = n / 6`"
+   ],
+   "id": "step3",
+   "starter": "from gpiozero import LEDBarGraph\nfrom time import sleep\n\ndice = LEDBarGraph(17, 27, 22, 5, 6, 13)\n\nfor n in range(1, 7):\n    dice.value = n / ___       # n out of 6 LEDs\n    print(\"Showing\", n)\n    sleep(0.6)\ndice.off()\n",
+   "starter_mode": "replace",
+   "success": "All six LEDs work. Now join the button to them.",
+   "support": "guided",
+   "text": "Build the six LEDs. An `LEDBarGraph` lights up a **bar** of LEDs: `dice.value = 0.5` lights half of them (3 out of 6), and `dice.value = 1` lights them all.\n\nTo show the number `n`, light `n` out of 6, which is `n / 6`.\n\n**Your task:** fill in the blank, then run it. The bar should grow from 1 LED to all 6.\n",
+   "title": "Test the LEDs"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The LEDs show the roll",
+     "type": "code_regex",
+     "value": "dice\\.value\\s*=\\s*roll\\s*/\\s*6\\b"
+    },
+    {
+     "label": "You rolled at least once",
+     "type": "output_contains",
+     "value": "You rolled"
+    },
+    {
+     "label": "The number of LEDs matched the roll",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import Button, LEDBarGraph\nfrom random import randint\n\nbutton = Button(23)\ndice = LEDBarGraph(17, 27, 22, 5, 6, 13)\n\nprint(\"Press the button to roll!\")\nwhile True:\n    button.wait_for_press()\n    roll = randint(1, 6)\n    dice.value = roll / 6\n    print(\"You rolled\", roll)\n    button.wait_for_release()      # one roll per press\n",
+   "demo_events": [
+    "1 tap 23",
+    "2.5 tap 23",
+    "4 tap 23"
+   ],
+   "demo_seconds": 5.5,
+   "error_hints": {},
+   "hints": [
+    "Last step it was `n / 6`. What's the number called now?",
+    "Use `roll` instead of `n`.",
+    "The line is `dice.value = roll / 6`"
+   ],
+   "id": "step4",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import Button, LEDBarGraph\nfrom random import randint\n\nbutton = Button(23)\ndice = LEDBarGraph(17, 27, 22, 5, 6, 13)\n\nprint(\"Press the button to roll!\")\nwhile True:\n    button.wait_for_press()\n    roll = randint(1, 6)\n    dice.value = ___\n    print(\"You rolled\", roll)\n    button.wait_for_release()      # one roll per press\n",
+   "starter_mode": "replace",
+   "success": "An electronic dice! Now let's make the computer join the party.",
+   "support": "scaffolded",
+   "text": "Join the two parts: each press rolls the dice and shows the number on the LEDs.\n\n**Your task:** fill in the blank so the LEDs show `roll`. (Look back at how the last step showed `n`.) Run it, roll a few times, then press **Stop**.\n",
+   "title": "An LED dice"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It opens a file on the computer",
+     "type": "code_uses",
+     "value": "call:open_file"
+    },
+    {
+     "label": "It picks the sound for the roll",
+     "type": "code_regex",
+     "value": "\\[\\s*roll\\s*-\\s*1\\s*\\]"
+    },
+    {
+     "label": "A sound played",
+     "type": "output_contains",
+     "value": "Opening"
+    }
+   ],
+   "demo": "from gpiozero import Button, LEDBarGraph\nfrom random import randint\nfrom pipath_computer import open_file\n\nbutton = Button(23)\ndice = LEDBarGraph(17, 27, 22, 5, 6, 13)\nsounds = [\"party/1.wav\", \"party/2.wav\", \"party/3.wav\",\n          \"party/4.wav\", \"party/5.wav\", \"party/6.wav\"]\n\nprint(\"Press the button to roll!\")\nwhile True:\n    button.wait_for_press()\n    roll = randint(1, 6)\n    dice.value = roll / 6\n    print(\"You rolled\", roll)\n    open_file(sounds[roll - 1])\n    button.wait_for_release()      # one roll per press\n",
+   "demo_events": [
+    "1 tap 23",
+    "3 tap 23"
+   ],
+   "demo_files": [
+    "p3/party"
+   ],
+   "demo_seconds": 4.5,
+   "error_hints": {
+    "FileNotFoundError": "Check the file names in your list. They should be like `\"party/1.wav\"`.",
+    "IndexError": "A list of 6 things has positions 0 to 5. Did you use `sounds[roll - 1]`?"
+   },
+   "hints": [
+    "Put the import at the very top, the list before `while True:`, and `open_file(...)` inside the loop (indented).",
+    "Inside the loop: `open_file(sounds[roll - 1])` after `print(\"You rolled\", roll)`.",
+    "Check you have all three: the import, the `sounds = [...]` list, and `open_file(sounds[roll - 1])`."
+   ],
+   "id": "step5",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "The dice plays a sound! The LEDs and the computer work together.",
+   "support": "scaffolded",
+   "text": "Time to make the **computer** do something. `open_file()` opens a file with the Pi's normal app, just like double-clicking it. There are six sounds in your `party` folder.\n\nAdd these to your program:\n\n1. At the top: `from pipath_computer import open_file`\n2. Before the loop, a **list** of the six sounds:\n```\nsounds = [\"party/1.wav\", \"party/2.wav\", \"party/3.wav\",\n          \"party/4.wav\", \"party/5.wav\", \"party/6.wav\"]\n```\n3. In the loop, after the print: `open_file(sounds[roll - 1])` (before `button.wait_for_release()`)\n\nWhy `roll - 1`? Lists count from **0**, so the first sound is `sounds[0]`. A roll of 1 needs `sounds[0]`, and a roll of 6 needs `sounds[5]`.\n\n**Your task:** add the three parts, run it and roll. Count the beeps!\n",
+   "title": "A sound for each number"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "It finds the files in the folder",
+     "type": "code_uses",
+     "value": "call:glob"
+    },
+    {
+     "label": "It picks one at random",
+     "type": "code_uses",
+     "value": "call:choice"
+    },
+    {
+     "label": "Something played",
+     "type": "output_contains",
+     "value": "Opening"
+    }
+   ],
+   "demo": "from gpiozero import Button, LEDBarGraph\nfrom random import randint, choice\nfrom pipath_computer import open_file\nimport glob\n\nbutton = Button(23)\ndice = LEDBarGraph(17, 27, 22, 5, 6, 13)\nfiles = glob.glob(\"party/*\")\nprint(\"Found\", len(files), \"files to play\")\n\nprint(\"Press the button to roll!\")\nwhile True:\n    button.wait_for_press()\n    roll = randint(1, 6)\n    dice.value = roll / 6\n    print(\"You rolled\", roll)\n    open_file(choice(files))\n    button.wait_for_release()      # one roll per press\n",
+   "demo_events": [
+    "1 tap 23",
+    "3 tap 23"
+   ],
+   "demo_files": [
+    "p3/party"
+   ],
+   "demo_seconds": 4.5,
+   "error_hints": {
+    "IndexError": "`choice()` can't pick from an empty list. Is there anything in the `party` folder? Check the spelling of `\"party/*\"`."
+   },
+   "hints": [
+    "Add `import glob` and `from random import choice` at the top.",
+    "Before the loop: `files = glob.glob(\"party/*\")`. In the loop: `open_file(choice(files))`.",
+    "Your `sounds` list isn't needed any more, but leaving it there won't hurt."
+   ],
+   "id": "step6",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Your own Dice DJ playlist!",
+   "support": "scaffolded",
+   "text": "Beeps are fun, but your own songs, videos or pictures are better! Copy some into the `party` folder: open the **File Manager** and go to **PiPath → students → (your name) → lessons → party**. (Short videos work best on a Pi.)\n\nNow the dice can pick **any** file in the folder:\n\n```\nimport glob\nfrom random import choice\n\nfiles = glob.glob(\"party/*\")      # a list of every file in the folder\n```\n\n`choice(files)` picks one at random.\n\n**Your task:** add `files = glob.glob(\"party/*\")` before the loop, and change the `open_file(...)` line so it opens `choice(files)` instead. Keep the LEDs showing the roll.\n",
+   "title": "Your own playlist"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "There's a button on GPIO24",
+     "type": "code_regex",
+     "value": "Button\\(\\s*24\\s*\\)"
+    },
+    {
+     "label": "It opens a website",
+     "type": "code_uses",
+     "value": "call:open_website"
+    },
+    {
+     "fail": "Press the surprise button (GPIO24) while your program runs.",
+     "label": "The surprise button opened a site",
+     "type": "output_contains",
+     "value": "https://"
+    }
+   ],
+   "demo": "from gpiozero import Button, LEDBarGraph\nfrom random import randint, choice\nfrom pipath_computer import open_file, open_website\nimport glob\n\nbutton = Button(23)\nsurprise_button = Button(24)\ndice = LEDBarGraph(17, 27, 22, 5, 6, 13)\nfiles = glob.glob(\"party/*\")\nsites = [\"https://www.youtube.com/results?search_query=dance+music\",\n         \"https://www.youtube.com/results?search_query=funny+cats\",\n         \"https://www.youtube.com/results?search_query=lego+stop+motion\",\n         \"https://www.youtube.com/results?search_query=australian+animals\"]\n\ndef surprise():\n    print(\"Surprise!\")\n    open_website(choice(sites))\n\nsurprise_button.when_pressed = surprise\n\nprint(\"Press the button to roll!\")\nwhile True:\n    button.wait_for_press()\n    roll = randint(1, 6)\n    dice.value = roll / 6\n    print(\"You rolled\", roll)\n    open_file(choice(files))\n    button.wait_for_release()      # one roll per press\n",
+   "demo_events": [
+    "1 tap 23",
+    "2.5 tap 24",
+    "4 tap 23"
+   ],
+   "demo_files": [
+    "p3/party"
+   ],
+   "demo_seconds": 5.5,
+   "error_hints": {},
+   "hints": [
+    "`surprise_button = Button(24)`, then `def surprise():` with `open_website(choice(sites))` inside.",
+    "Give the function to the button **before** the `while True:` loop: `surprise_button.when_pressed = surprise` (no brackets)."
+   ],
+   "id": "step7",
+   "run_mode": "until_stopped",
+   "starter_mode": "keep",
+   "success": "Two buttons, one computer, endless parties. You're a real Dice DJ!",
+   "support": "brief",
+   "text": "**Goal:** add a second button on **GPIO24**. When it's pressed, open a random **website** from a list, with `open_website(url)` from `pipath_computer`. Keep the roll button working.\n\nHere are some links to start with (they're YouTube searches, so the Pi needs the internet, and your school might block some sites):\n\n```\nsites = [\"https://www.youtube.com/results?search_query=dance+music\",\n         \"https://www.youtube.com/results?search_query=funny+cats\",\n         \"https://www.youtube.com/results?search_query=lego+stop+motion\",\n         \"https://www.youtube.com/results?search_query=australian+animals\"]\n```\n\nTip: `surprise_button.when_pressed = surprise` runs your `surprise` function in the background, even while the loop waits for the roll button.\n",
+   "title": "Challenge: the surprise button"
+  }
+ ],
+ "title": "Dice DJ",
+ "wiring": [
+  {
+   "connect": "GPIO17, GPIO27, GPIO22, GPIO5, GPIO6, GPIO13 → each through its own 330Ω resistor → LED long leg. All short legs → GND rail.",
+   "part": "6 LEDs (left to right)"
+  },
+  {
+   "colour": "green",
+   "connect": "GPIO17 (pin 11)",
+   "kind": "led",
+   "part": "LED 1",
+   "pin": 17
+  },
+  {
+   "colour": "green",
+   "connect": "GPIO27 (pin 13)",
+   "kind": "led",
+   "part": "LED 2",
+   "pin": 27
+  },
+  {
+   "colour": "yellow",
+   "connect": "GPIO22 (pin 15)",
+   "kind": "led",
+   "part": "LED 3",
+   "pin": 22
+  },
+  {
+   "colour": "yellow",
+   "connect": "GPIO5 (pin 29)",
+   "kind": "led",
+   "part": "LED 4",
+   "pin": 5
+  },
+  {
+   "colour": "red",
+   "connect": "GPIO6 (pin 31)",
+   "kind": "led",
+   "part": "LED 5",
+   "pin": 6
+  },
+  {
+   "colour": "red",
+   "connect": "GPIO13 (pin 33)",
+   "kind": "led",
+   "part": "LED 6",
+   "pin": 13
+  },
+  {
+   "connect": "One leg → GPIO23 (pin 16). The leg across the middle gap → GND rail.",
+   "kind": "button",
+   "part": "Roll button",
+   "pin": 23
+  },
+  {
+   "connect": "One leg → GPIO24 (pin 18). The leg across the middle gap → GND rail. (Only for the challenge.)",
+   "kind": "button",
+   "part": "Surprise button",
+   "pin": 24
+  },
+  {
+   "connect": "Plug headphones or a speaker into the Pi's headphone socket, or use a screen with speakers (HDMI). Keep the volume low in class!",
+   "part": "Speaker"
+  }
+ ]
+}
