@@ -150,3 +150,14 @@ details.tech { margin-top: 6px; } details.tech summary { cursor: pointer; font-w
 
 .console-in .btn { color: #000; }
 .console-in .btn[disabled] { color: var(--lo); }
+
+/* Run on my Raspberry Pi */
+.pi-panel { display: flex; flex-direction: column; min-height: 0; }
+.pi-body { padding: 8px 10px; overflow: auto; min-height: 0; }
+.pi-body p { margin: 0 0 8px; }
+.pi-line { font-weight: bold; }
+.pi-line.ok { color: #0a6d0a; }
+.pi-line.warn { color: #8a4b00; }
+.pi-line.wait, .pi-line.none { color: #444; }
+#pi-chip.pi-ok { border-color: #0a6d0a; }
+#pi-msg.bad { color: #a00000; }

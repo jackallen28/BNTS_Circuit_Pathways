@@ -1,8 +1,10 @@
 package pirelay
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -124,7 +126,7 @@ func TestBrowserAndPiTalk(t *testing.T) {
 			t.Errorf("%s: %v", bad, err)
 		}
 	}
-	if err := r.FromPi(code, make([]byte, 9000)); !errors.Is(err, ErrEventTooBig) {
+	if err := r.FromPi(code, make([]byte, maxEventBytes+1)); !errors.Is(err, ErrEventTooBig) {
 		t.Errorf("a huge event: %v", err)
 	}
 
@@ -173,5 +175,101 @@ func TestQuietPisAreForgotten(t *testing.T) {
 	}
 	if r.Count() != 1 {
 		t.Errorf("Count = %d", r.Count())
+	}
+}
+
+func TestProgramCommandsAreChecked(t *testing.T) {
+	run := func(mod func(*Command)) Command {
+		c := Command{Op: "run", RunID: 1, Name: "program.py", Code: "print('hi')\n"}
+		if mod != nil {
+			mod(&c)
+		}
+		return c
+	}
+	good := []Command{
+		run(nil),
+		run(func(c *Command) {
+			c.Files = map[string]string{"words.txt": "aGk=", "data/a.csv": "MQ=="}
+			c.Support = []string{"pipath_camera"}
+			c.CameraObject = "red ball"
+		}),
+		{Op: "stdin", RunID: 1, Text: "Mia"}, {Op: "stdin", RunID: 2}, {Op: "stop", RunID: 1}, {Op: "stop"},
+	}
+	for _, c := range good {
+		if err := c.Check(); err != nil {
+			t.Errorf("%+v refused: %v", c, err)
+		}
+	}
+	bad := []Command{
+		run(func(c *Command) { c.RunID = 0 }),
+		run(func(c *Command) { c.Name = "../x.py" }),
+		run(func(c *Command) { c.Name = "program.sh" }),
+		run(func(c *Command) { c.Code = "" }),
+		run(func(c *Command) { c.Code = strings.Repeat("x", MaxCodeBytes+1) }),
+		run(func(c *Command) { c.Code = "a\x00b" }),
+		run(func(c *Command) { c.Files = map[string]string{"../etc/passwd": "eA=="} }),
+		run(func(c *Command) { c.Files = map[string]string{"/etc/passwd": "eA=="} }),
+		run(func(c *Command) { c.Files = map[string]string{"a/b/c/d": "eA=="} }),
+		run(func(c *Command) { c.Files = map[string]string{"big": strings.Repeat("A", MaxFilesBytes+1)} }),
+		run(func(c *Command) { c.Support = []string{"os"} }),
+		run(func(c *Command) { c.CameraObject = "x; rm -rf /" }),
+		{Op: "stdin", Text: "no run id"}, {Op: "stdin", RunID: 1, Text: strings.Repeat("a", MaxStdinBytes+1)}, {Op: "stop", RunID: -1},
+	}
+	for i, c := range bad {
+		if err := c.Check(); !errors.Is(err, ErrBadCommand) {
+			t.Errorf("bad command %d should be refused, got %v", i, err)
+		}
+	}
+	many := run(func(c *Command) {
+		c.Files = map[string]string{}
+		for i := 0; i <= MaxFiles; i++ {
+			c.Files[fmt.Sprintf("f%d", i)] = "eA=="
+		}
+	})
+	if err := many.Check(); !errors.Is(err, ErrBadCommand) {
+		t.Errorf("too many files: %v", err)
+	}
+}
+
+func TestProgramReachesThePiAndOutputComesBack(t *testing.T) {
+	r := New(nil)
+	cmds, _, err := r.PiConnected("K7M2QX9P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, p, err := r.Watch("K7M2-QX9P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Unwatch(p, l)
+	<-l.C // connected
+	if err := r.ToPi("K7M2-QX9P", Command{Op: "run", RunID: 7, Name: "program.py", Code: "print(0)\n"}); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(<-cmds, &got); err != nil || got["op"] != "run" || got["rid"] != float64(7) || got["code"] != "print(0)\n" {
+		t.Errorf("the Pi should get the program: %v %v", got, err)
+	}
+	for _, ev := range []string{
+		`{"type":"run","data":{"rid":7,"state":"started"}}`,
+		`{"type":"out","data":{"rid":7,"stream":"out","text":"0\n","seq":1}}`,
+		`{"type":"exit","data":{"rid":7,"rc":0}}`,
+	} {
+		if err := r.FromPi("K7M2QX9P", []byte(ev)); err != nil {
+			t.Fatalf("%s: %v", ev, err)
+		}
+		if !strings.Contains(string(<-l.C), `"rid":7`) {
+			t.Errorf("the browser should get %s", ev)
+		}
+	}
+	if err := r.FromPi("K7M2QX9P", []byte(`{"type":"shell","data":{}}`)); !errors.Is(err, ErrBadCommand) {
+		t.Errorf("an unknown event type: %v", err)
+	}
+	// a lot of output is kept, not dropped
+	for i := 0; i < 300; i++ {
+		r.FromPi("K7M2QX9P", []byte(fmt.Sprintf(`{"type":"out","data":{"rid":7,"stream":"out","text":"x","seq":%d}}`, i)))
+	}
+	if len(l.C) != 300 {
+		t.Errorf("all 300 output events should be waiting, got %d", len(l.C))
 	}
 }

@@ -171,6 +171,13 @@ export class PyRunner extends EventTarget {
     await this._ask({ type: "call", fn, args });
   }
 
+  /** Puts files (the ones a program running on the Pi made) into Python's file system, so the lesson's file checks can look at them. */
+  async putFiles(dir, files) {
+    await this.ready;
+    await this._ask({ type: "putfiles", dir, files });
+    return dir;
+  }
+
   async readFile(path) {
     const r = await this._ask({ type: "readfile", path });
     return r.bytes;

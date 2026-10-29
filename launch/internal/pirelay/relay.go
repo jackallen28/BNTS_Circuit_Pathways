@@ -10,7 +10,8 @@
 // Each Pi has its own key (see package pilink). Its ID, such as K7M2-QX9P, is
 // what the student types into the website to link to that Pi. The relay keeps
 // everything in memory, only for as long as the Pi stays connected, and only
-// passes pin commands and pin states. It never stores them, and knows
+// passes pin commands and pin states, and (for a Pi that has agreed to it) the
+// student's program and what it prints. It never stores any of it, and knows
 // nothing about the student.
 package pirelay
 
@@ -29,8 +30,10 @@ const (
 	// OfflineGrace is how long a Pi may be disconnected before it is forgotten.
 	OfflineGrace = 90 * time.Second
 
-	maxEventBytes = 8 << 10
+	maxEventBytes = 16 << 10
 	queueSize     = 64
+	// A program can print a lot, and none of its output may be dropped.
+	browserQueue = 512
 )
 
 var (
@@ -236,6 +239,9 @@ func (p *Pi) pushLocked(l *Listener, ev []byte) {
 	}
 }
 
+// fromPiTypes are the events a Pi may send: its pins, and a program's progress and output.
+var fromPiTypes = map[string]bool{"hello": true, "state": true, "error": true, "pong": true, "run": true, "out": true, "exit": true}
+
 // FromPi passes an event from the Pi (a hello or a pin state) on to the browser.
 func (r *Relay) FromPi(id string, raw []byte) error {
 	if len(raw) > maxEventBytes {
@@ -249,7 +255,7 @@ func (r *Relay) FromPi(id string, raw []byte) error {
 		Type string          `json:"type"`
 		Data json.RawMessage `json:"data"`
 	}
-	if err := json.Unmarshal(raw, &ev); err != nil || (ev.Type != "hello" && ev.Type != "state" && ev.Type != "error" && ev.Type != "pong") || len(ev.Data) == 0 {
+	if err := json.Unmarshal(raw, &ev); err != nil || (!fromPiTypes[ev.Type]) || len(ev.Data) == 0 {
 		return ErrBadCommand
 	}
 	out := event(ev.Type, ev.Data)
@@ -282,7 +288,7 @@ func (r *Relay) Watch(code string) (*Listener, *Pi, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.closeBrowserLocked("Someone else connected to this Pi.")
-	l := &Listener{C: make(chan []byte, queueSize)}
+	l := &Listener{C: make(chan []byte, browserQueue)}
 	p.browser = l
 	p.pushLocked(l, event("connected", json.RawMessage(fmt.Sprintf(`{"name":%q,"pi_online":%t}`, p.Name, p.piOnline))))
 	if p.hello != nil {

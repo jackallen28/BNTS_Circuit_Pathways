@@ -10,6 +10,8 @@ import { createConsole } from "../widgets/console.js";
 import { createBoard } from "../widgets/board.js";
 import { messageBox, dialog } from "../widgets/window.js";
 import { getRunner } from "../runtime/shared.js";
+import { getPi, piReady, supportFor, piSummary, savedPiId } from "../runtime/pi.js";
+import { linkPiDialog } from "../dialogs/pi.js";
 import {
   LEVELS, LEVEL_INFO, hintRules, goalText, canSkip, starsFor, newLessonProgress, projectKey, normaliseLevel,
 } from "../progress.js";
@@ -43,6 +45,9 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   let runner = null;
   let running = false;
   let runKind = "run";
+  let where = settings().run_where === "pi" ? "pi" : "sim"; // sim: the Simulator in this browser. pi: the student's own Raspberry Pi.
+  let piRun = false; // a program is running on the Pi right now
+  const pi = getPi();
   let failedRuns = 0; // this step
   let runsThisStep = 0;
   let confirmed = new Set();
@@ -61,7 +66,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
 
   // ---------------------------------------------------------------- the pieces
   const editor = createEditor({ onChange: onEdit, onRun: () => run() });
-  const con = createConsole({ onInput: (text) => runner?.sendLine(text) });
+  const con = createConsole({ onInput: (text) => { if (piRun) { pi.stdin(text); con.setWaiting(false); } else runner?.sendLine(text); } });
   const board = needsBoard
     ? createBoard({ camera: isFree || Boolean(les?.requires_camera), stats: isFree || usesStats, onCommand: (ev) => {
       if (ev.t === "show") cameraObject = ev.object;
@@ -72,6 +77,12 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
 
   const levelSel = h("select", { class: "input", "aria-label": "Help level", style: { width: "auto" }, onchange: () => setLevel(levelSel.value) },
     LEVELS.map((l) => h("option", { value: l, text: LEVEL_INFO[l][0], selected: l === level })));
+  const whereSel = h("select", { class: "input", id: "where", "aria-label": "Where to run your program", style: { width: "auto" }, onchange: () => setWhere(whereSel.value) },
+    [["sim", "Simulator (in this browser)"], ["pi", "My Raspberry Pi"]].map(([v, t]) => h("option", { value: v, text: t, selected: v === where })));
+  const piChip = h("button", { class: "btn small", type: "button", id: "pi-chip", onclick: () => linkPi() });
+  const piPanel = h("section", { class: "win panel pi-panel", id: "pi-panel", "aria-label": "Your Raspberry Pi" },
+    h("div", { class: "titlebar" }, h("span", { class: "logo" }), h("span", { class: "title", text: "Your Raspberry Pi" })),
+    h("div", { class: "pi-body", id: "pi-body" }));
   const runBtn = h("button", { class: "btn go", type: "button", id: "run", onclick: () => run(), text: "▶ Run" });
   const goalBtn = h("button", { class: "btn", type: "button", id: "goal", onclick: () => watchGoal(), text: "Watch the goal" });
   const resetBtn = h("button", { class: "btn", type: "button", onclick: () => resetStep(), text: "Reset step" });
@@ -85,6 +96,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     h("b", { text: isFree ? (state.config.free_play_name ?? "Free Play") : les.title }),
     h("span", { class: "spacer" }),
     h("label", { class: "small" }, "Help: ", levelSel),
+    h("label", { class: "small" }, "Run on: ", whereSel), piChip,
     runBtn, goalBtn, isFree ? null : resetBtn,
     h("button", { class: "btn", type: "button", onclick: openSettings, text: "Settings" }),
     h("button", { class: "btn", type: "button", onclick: async () => { await leave(); logOut(); }, text: "Log out" }));
@@ -93,11 +105,78 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     h("div", { class: "titlebar" }, h("span", { class: "logo" }), h("span", { class: "title", id: "guide-title" })), stepsBar, guide);
   const editorPanel = h("section", { class: "win panel", "aria-label": "Code editor" },
     h("div", { class: "titlebar" }, h("span", { class: "title", text: fileName }), savedNote, status), editor.el);
-  const low = h("div", { class: ["low", !board && "no-board"] }, board?.el, con.el);
+  const low = h("div", { class: ["low", !board && "no-board"] }, board?.el, board ? piPanel : null, con.el);
   const ws = h("div", { class: ["ws", isFree && "free"] }, guidePanel, h("div", { class: "work" }, editorPanel, low));
   fill(root, h("div", { class: "win", style: { flex: "1", margin: "0", borderRadius: "0" } },
-    bar, ws, h("div", { class: "statusbar" }, h("span", { id: "status-level" }), h("span", { class: "spacer", style: { flex: "1" } }), h("span", { text: "Python runs in your browser. Nothing you write is sent anywhere." }))));
+    bar, ws, h("div", { class: "statusbar" }, h("span", { id: "status-level" }), h("span", { class: "spacer", style: { flex: "1" } }), h("span", { id: "status-where" }))));
   document.documentElement.style.setProperty("--code-size", `${settings().code_size ?? 15}px`);
+
+  // ---------------------------------------------------------------- where it runs
+  function layout() {
+    const onPi = where === "pi" && runKind !== "goal"; // Watch the goal always plays in the Simulator
+    if (board) { board.el.style.display = onPi ? "none" : ""; piPanel.style.display = onPi ? "" : "none"; }
+    root.querySelector("#status-where").textContent = where === "pi"
+      ? "Your program runs on your Raspberry Pi. It's sent there when you press Run, and the website doesn't keep it."
+      : "Python runs in your browser. Nothing you write is sent anywhere.";
+    const sum = piSummary(pi);
+    piChip.hidden = where !== "pi";
+    piChip.textContent = `${{ ok: "●", warn: "●", wait: "◌", none: "○" }[sum.tone]} ${sum.tone === "none" ? "Link to my Pi" : sum.text}`;
+    piChip.classList.toggle("pi-ok", sum.tone === "ok");
+    const piBody = root.querySelector("#pi-body"); // (activities with no board have no Pi panel)
+    if (piBody) fill(piBody,
+      h("p", { class: ["pi-line", sum.tone] , text: sum.text }),
+      pi.hello ? h("p", { class: "small muted", text: `${pi.hello.model}` }) : null,
+      h("p", { text: "When you press Run, your program is sent to your Pi and runs there for real. The LEDs, buttons and sensors you've wired to the Pi are the ones it uses. What it prints appears in the Output." }),
+      h("p", { class: "small", text: "Take the blue HAT off before you change any wires, and put it back on after." }),
+      h("p", {}, h("button", { class: "btn small", type: "button", id: "pi-link", text: sum.tone === "ok" ? "Change Pi" : "Link to my Pi", onclick: () => linkPi() })));
+  }
+  const onPiStatus = () => layout();
+  pi.addEventListener("status", onPiStatus);
+  pi.addEventListener("hello", onPiStatus);
+
+  async function setWhere(v) {
+    if (running) { whereSel.value = where; return; }
+    where = v;
+    state.me.settings = { ...settings(), run_where: v };
+    api.saveSettings(state.me.settings).catch(() => {});
+    layout();
+    if (v === "pi" && !piReady()) await ensurePi();
+  }
+
+  async function linkPi() {
+    const ok = await linkPiDialog();
+    layout();
+    return ok;
+  }
+
+  /** Is the Pi linked and willing? Tries the Pi remembered in this browser, then asks. */
+  async function ensurePi() {
+    if (piReady()) return true;
+    const saved = savedPiId();
+    if (saved && pi.state !== "connecting" && pi.state !== "pi-offline") {
+      status.textContent = "Linking to your Pi...";
+      try { await pi.connect(saved); } catch { /* the window below explains */ }
+      status.textContent = "";
+      layout();
+      if (piReady()) return true;
+    }
+    if (pi.state === "pi-offline") {
+      await messageBox({ instruction: "Your Pi is offline", text: ["Check that it is switched on and on the WiFi. It can take a minute after it starts.", "Then press Run again."] });
+      await pi.connect(pi.code).catch(() => {});
+      layout();
+      return piReady();
+    }
+    if (pi.state === "connected" && !pi.canRun) {
+      await messageBox({ instruction: "This Pi can't run programs", text: "It is linked, but it has been set to only switch pins. Ask your teacher to turn programs on for it (sudo pilink run on)." });
+      return false;
+    }
+    return linkPi();
+  }
+
+  function stopCurrent() {
+    if (piRun) pi.stop();
+    else runner?.stop();
+  }
 
   // ---------------------------------------------------------------- saving
   function onEdit(code) {
@@ -164,7 +243,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
       h("b", { text: "Wiring and safety" }),
       h("ul", {}, ["Take the blue HAT off before you change any wires, and put it back on after.", "Never turn the Pi off to change wires: you'd lose your progress.", "Always put a 330Ω resistor with an LED."].map((t) => h("li", { text: t }))),
       rows.length ? h("ul", {}, rows.map((r) => h("li", {}, h("b", { text: `${r.part ?? r.kind}: ` }), r.connect ?? ""))) : null,
-      h("p", { class: "small" }, "Using a real Pi? ", h("a", { href: "/pipath/remote/", text: "Link to a Pi" }), " to switch its pins from here (beta)."));
+      h("p", { class: "small" }, "Using a real Pi? Set ", h("b", { text: "Run on: My Raspberry Pi" }), " at the top of the page to run your program on it, or ", h("a", { href: "/pipath/remote/", text: "use Pi Link" }), " to switch its pins by hand."));
   }
 
   function renderStep() {
@@ -424,8 +503,10 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     runBtn.classList.toggle("stop", on && runKind === "run");
     runBtn.classList.toggle("go", !(on && runKind === "run"));
     goalBtn.disabled = on && runKind === "run";
-    status.textContent = on ? (runKind === "goal" ? "Watching the goal..." : "Running...") : "";
+    whereSel.disabled = on;
+    status.textContent = on ? (runKind === "goal" ? "Watching the goal..." : piRun ? "Running on your Pi..." : "Running...") : "";
     if (!on) con.setWaiting(false);
+    layout();
   }
 
   async function filesFor(extra = []) {
@@ -433,9 +514,10 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   }
 
   async function run() {
-    if (running) { runner?.stop(); return; }
+    if (running) { stopCurrent(); return; }
     if (isFree === false && stage !== "step") return;
     try { await ensureRunner(); } catch (e) { await messageBox({ instruction: "Python couldn't start", text: e.message }); return; }
+    if (where === "pi" && !(await ensurePi())) return;
     board?.ensureAudio();
     const code = editor.value;
     await saveCode();
@@ -459,17 +541,47 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     const lint = await runner.call("lint", code);
     for (const w of lint ?? []) con.write(`⚠ Coach tip: ${w}\n`, "tip");
     runKind = "run";
-    board?.resetForRun();
-    setRunning(true);
     let res;
-    try {
-      res = await runner.run({ code, filename: fileName, env: { PIPATH_CAMERA_OBJECT: cameraObject }, files: await filesFor() });
-    } finally {
-      setRunning(false);
-      board?.switchOff();
+    if (where === "pi") {
+      res = await runOnPi(code);
+    } else {
+      board?.resetForRun();
+      setRunning(true);
+      try {
+        res = await runner.run({ code, filename: fileName, env: { PIPATH_CAMERA_OBJECT: cameraObject }, files: await filesFor() });
+      } finally {
+        setRunning(false);
+        board?.switchOff();
+      }
     }
     if (disposed) return;
     await handleResult(res, code, s);
+  }
+
+  /** Sends the program to the student's Pi and shows what it prints. Gives back the same kind of result the Simulator does. */
+  async function runOnPi(code) {
+    piRun = true;
+    setRunning(true);
+    const onOut = (e) => {
+      con.write(e.detail.text, e.detail.stream === "err" ? "err" : "");
+      if (e.detail.stream === "out" && !e.detail.text.endsWith("\n")) con.setWaiting(true); // a question with no newline: waiting for an answer
+    };
+    pi.addEventListener("output", onOut);
+    const started = Date.now() / 1000;
+    let exit;
+    try {
+      exit = await pi.run({ code, name: fileName, files: await filesFor(), support: supportFor(code), cameraObject });
+    } finally {
+      pi.removeEventListener("output", onOut);
+      piRun = false;
+      setRunning(false);
+    }
+    let cwd = "";
+    if (!disposed && Object.keys(exit.files ?? {}).length) {
+      try { cwd = await runner.putFiles(`/student/pi_${Math.round(started)}`, exit.files); } catch { /* the file checks just won't see them */ }
+    }
+    const reason = exit.reason === "output" ? "runaway_output" : exit.reason === "stop" ? "stop" : exit.reason ?? null;
+    return { rc: exit.rc, stopped: Boolean(exit.stopped) && !String(reason).startsWith("runaway"), reason, stdout: exit.stdout, stderr: exit.stderr, cwd, started };
   }
 
   async function handleResult(res, code, s) {
@@ -585,7 +697,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   // ---------------------------------------------------------------- getting going
   async function leave() {
     clearInterval(tickTimer);
-    runner?.stop();
+    stopCurrent();
     await saveCode();
     saveProgress(true);
     await saveAdapt();
@@ -611,6 +723,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     if (!lp.steps_started.includes(stepIdx)) { stage = "intro"; }
   }
   renderGuide();
+  layout();
   ensureRunner().catch((e) => { status.textContent = ""; con.write(`Python couldn't start: ${e.message}\n`, "err"); });
 
   return () => {
@@ -619,6 +732,8 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     document.removeEventListener("visibilitychange", onHide);
     runner?.removeEventListener("output", onOutput);
     runner?.removeEventListener("board", onBoard);
-    runner?.stop();
+    pi.removeEventListener("status", onPiStatus);
+    pi.removeEventListener("hello", onPiStatus);
+    stopCurrent();
   };
 }

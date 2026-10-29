@@ -9,8 +9,8 @@ has been merged (or Render is pointed at this branch).
 |---|---|---|
 | Home page | `/` | The Circuit Pathways page. Students join a class with a class code; teachers sign in. |
 | ArduinoPath | `/arduinopath/` | The whole app in the browser: simulator, Wiring Wizard, Coach, Blocks. **Upload to a real board** from Chrome / Edge. |
-| PiPath | `/pipath/` | 24 of the 25 Python activities, with an on-screen Raspberry Pi. Python runs in the browser. |
-| Pi Link (beta) | `/pipath/remote/` | Control a real Raspberry Pi's pins from the browser. Each Pi has its own key. |
+| PiPath | `/pipath/` | 24 of the 25 Python activities. **Run on:** the on-screen Simulator (Python runs in the browser) **or My Raspberry Pi** (the program runs on a real Pi that the student links to by its ID). |
+| Pi Link | `/pipath/remote/` | Switch a real Raspberry Pi's pins on and off by hand from the browser. Same Pi IDs. |
 | Teacher page | `/teacher/` | Make class codes. Save and open class files with students' work. |
 
 Students' names and schools stay in their own browser and in the files they save. The server
@@ -72,17 +72,43 @@ For each Pi (Raspberry Pi OS, on the internet):
 
 1. Copy that Pi's `install-pi-XXXX-XXXX.sh` to it (USB stick is fine).
 2. In a Terminal on the Pi: `sudo bash install-pi-XXXX-XXXX.sh`.
-3. It prints the Pi's ID and starts Pi Link. **It starts by itself every time the Pi turns on.** (With a desktop,
+3. It prints the Pi's ID and starts Pi Link, with **students' programs switched on** (see "Running students' programs on a Pi" below). **It starts by itself every time the Pi turns on.** (With a desktop,
    a small window also shows the ID at start-up. The ID is also in `PI-LINK-ID.txt` on the SD card's boot folder.)
 4. Stick the ID on the Pi.
-5. In PiPath, open **Link to a Raspberry Pi (beta)** (or `/pipath/remote/`), type the ID, press **Link to my Pi**,
-   and switch a pin. Wire an LED on GPIO 17 with a 330 ohm resistor, press **Blink an LED**.
+5. In PiPath, open any activity (or Free Play), set **Run on: My Raspberry Pi**, type the ID and press **Link**. Press
+   **Run**: the program runs on the Pi and its output appears in the Output box. To try the pins, wire an LED on GPIO 17
+   with a 330 ohm resistor and run `from gpiozero import LED` / `LED(17).blink()`; or use the Pi Link page
+   (`/pipath/remote/`) and press **Blink an LED**.
 
 Handy commands on a Pi: `pilink show` (the ID), `pilink status`, `pilink log`, `sudo pilink restart`,
-`sudo pilink server https://new-address`, `sudo pilink uninstall`.
+`sudo pilink run on|off`, `sudo pilink server https://new-address`, `sudo pilink uninstall`.
 
 More keys: `PI_KEY_SECRET=... go run ./cmd/launch -pi-keys 20 -pi-out private/pi2 -server https://your-address`.
 A lost or stolen Pi: add its ID to `REVOKED_PI_IDS` in Render (comma-separated), and its key stops working.
+
+**If you updated the site after installing a Pi,** write fresh installers for the same keys and run them on the Pis
+(running the installer again just updates the Pi; keys and IDs don't change):
+`go run ./cmd/launch -pi-refresh private/pi/pi-keys.csv -pi-out private/pi -server https://your-address`.
+
+### Running students' programs on a Pi (what it means, and the limits)
+
+When a student chooses **Run on: My Raspberry Pi**, their Python program travels browser → this site (held in memory
+for that one message, never stored or logged) → the Pi, which runs it and sends back what it prints. What the Pi does:
+
+- Runs **one program at a time**, in its own temporary folder (deleted afterwards), as the unprivileged user `cprun`
+  (no password, no login, no sudo; it can use the GPIO pins, camera and I²C/SPI). It can't read the Pi's key file, and
+  the Pi Link service can only write to its own folder.
+- Limits: 10 minutes, 2 GB memory, 10 MB per file, 64 processes, 200 000 characters of output. A program that goes
+  over, or whose browser page goes quiet for 25 seconds, or whose Pi loses the site for 10 seconds, is stopped. Stop
+  sends Ctrl+C, then a firmer stop, then a kill. Pins the program used are released when it ends.
+- While a program runs it owns the pins, so the pin buttons on the Pi Link page are paused.
+- A teacher can switch it off for a Pi: `sudo pilink run off` (pins still work), or install with `CP_RUN=no`.
+
+**What this does not do:** the program is real Python on a real computer on your school network. The `cprun` user can
+make network connections like any user on that Pi (and so could try to reach other devices). Treat Pis that run
+students' programs like any lab computer: put them on the student or guest network, not the staff network. A class
+code **and** a Pi's ID are both needed to reach a Pi, and Pi IDs are not secret on the Pi's label, so keep the Pi's
+key (in `/etc/circuitpathways-pi.conf`, root only) private and use `REVOKED_PI_IDS` if a Pi goes missing.
 
 ## 5. Known limits in v1.0 (honest list)
 
@@ -92,11 +118,13 @@ A lost or stolen Pi: add its ID to `REVOKED_PI_IDS` in Render (comma-separated),
 - **Real compiles** are checked in CI (`launch.yml`), not before the first deploy, because the build machine used to write this has no access to the
   Arduino download site.
 - **PiPath:** the Turtle Art activity needs a drawing window, so it is listed but not opened in the browser.
-  "Real Pi" mode in PiPath's workspace is the separate Pi Link page for now; it doesn't yet run a student's
-  program on a real Pi.
+  On **Run on: My Raspberry Pi** the Output, typing answers (`input()`), Stop, the Coach and the lesson checks all
+  work, but the on-screen board is replaced by a Pi status panel (the real LEDs and buttons are the board), and
+  "Watch the goal" still plays in the Simulator. **Not yet tried on a real Pi** (tested here against the real Pi app
+  with pretend pins). A momentary wifi blip can lose a few lines of output (the page says so).
 - **Browsers:** Chrome or Edge on a laptop for everything. Safari / Firefox run the simulators but can't upload to boards.
 - **Class codes can't be switched off early** (they expire). Use short codes for short programs.
-- **Pi Link** delay is the round trip to the site (tens to a couple of hundred milliseconds): fine for LEDs, buttons and
+- **Pi Link and Run on my Pi** delay is the round trip to the site (tens to a couple of hundred milliseconds): fine for LEDs, buttons and
   PWM, not for timing-critical parts.
 - Render logs visitors' IP addresses, as any host does. Say so in your privacy notice.
 
@@ -105,7 +133,9 @@ A lost or stolen Pi: add its ID to `REVOKED_PI_IDS` in Render (comma-separated),
 > Circuit Pathways asks students for a first name and a school name. These stay in the student's own browser and in the
 > files the student chooses to save. They are not sent to or kept on our server. When a student uploads code to a
 > board, the code is sent to our server to be compiled and is not stored. Our hosting provider records visitors'
-> addresses in its normal logs. There are no accounts, cookies, advertising or analytics, and no generative AI.
+> addresses in its normal logs. If a student chooses to run a program on their own Raspberry Pi, the program is sent
+> through our server to that Pi and what it prints comes back the same way; it is held in memory for that moment only
+> and is not stored. There are no accounts, cookies, advertising or analytics, and no generative AI.
 
 ## 7. Changing things later
 

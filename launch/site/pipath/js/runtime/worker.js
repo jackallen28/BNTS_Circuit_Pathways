@@ -109,6 +109,14 @@ onmessage = async (e) => {
       const bridge = py.pyimport("cpsim.bridge");
       const value = bridge[m.fn](...m.args);
       reply({ type: "result", id: m.id, value: typeof value === "string" ? value : undefined });
+    } else if (m.type === "putfiles") {
+      py.FS.mkdirTree(m.dir);
+      for (const [name, f] of Object.entries(m.files ?? {})) {
+        const dest = `${m.dir}/${name}`;
+        py.FS.mkdirTree(dest.slice(0, dest.lastIndexOf("/")));
+        py.FS.writeFile(dest, f.text ?? "");
+      }
+      reply({ type: "result", id: m.id });
     } else if (m.type === "readfile") {
       const bytes = py.FS.readFile(m.path);
       reply({ type: "file", id: m.id, bytes }, [bytes.buffer]);

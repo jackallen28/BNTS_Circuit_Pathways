@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,46 @@ import (
 // devPiKeySecret is the Pi key secret in -dev mode only: real sites set PI_KEY_SECRET.
 const devPiKeySecret = "dev-pi-key-secret-do-not-use-in-production"
 
+// piAppSource is the Pi app that goes inside every installer.
+func piAppSource() ([]byte, error) {
+	return fs.ReadFile(launch.Site(), "pipath/remote/circuitpathways_pi.py")
+}
+
+// refreshPiInstallers writes new installers (with the current Pi app inside) for Pis that already
+// have keys, from the pi-keys.csv that makePiKeys wrote. The keys and IDs do not change, so running
+// the new installer on a Pi updates it.
+func refreshPiInstallers(csvPath, dir, server string) error {
+	raw, err := os.ReadFile(csvPath)
+	if err != nil {
+		return err
+	}
+	src, err := piAppSource()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	rows := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	n := 0
+	for _, row := range rows[1:] { // the first row is the column names
+		f := strings.Split(strings.TrimSpace(row), ",")
+		if len(f) < 4 {
+			continue
+		}
+		script, err := pilink.Installer(server, f[2], src)
+		if err != nil {
+			return fmt.Errorf("%s: %w", f[1], err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, f[3]), []byte(script), 0o700); err != nil {
+			return err
+		}
+		n++
+	}
+	fmt.Printf("Wrote %d new installers in %s (same keys and IDs as before)\n", n, dir)
+	return nil
+}
+
 // makePiKeys makes n Raspberry Pi keys and, for each Pi, an installer to run
 // on it, plus a list of the IDs and keys for the teacher.
 func makePiKeys(n int, dir, server string) error {
@@ -25,19 +66,9 @@ func makePiKeys(n int, dir, server string) error {
 	if err != nil {
 		return err
 	}
-	app, err := launch.Site().Open("pipath/remote/circuitpathways_pi.py")
+	src, err := piAppSource()
 	if err != nil {
 		return err
-	}
-	defer app.Close()
-	src := make([]byte, 0, 64<<10)
-	buf := make([]byte, 32<<10)
-	for {
-		m, err := app.Read(buf)
-		src = append(src, buf[:m]...)
-		if err != nil {
-			break
-		}
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -63,7 +94,7 @@ func makePiKeys(n int, dir, server string) error {
 		fmt.Fprintf(&csv, "Pi %d,%s,%s,%s\n", i, pilink.DisplayID(id), key, file)
 		fmt.Printf("Pi %d   ID %s   key %s\n", i, pilink.DisplayID(id), key)
 	}
-	list.WriteString("\n## Setting up a Pi\n\n1. Copy that Pi's installer file to the Pi (USB stick, or download it there).\n2. On the Pi, open a Terminal and run:  `sudo bash install-pi-XXXX-XXXX.sh`\n3. It installs Pi Link and starts it every time the Pi turns on. Stick the Pi's ID on the Pi.\n4. Students open PiPath > Pi Link and type the ID.\n\nTo link a Pi to a different site later: `sudo pilink server https://your-site`.\n")
+	list.WriteString("\n## Setting up a Pi\n\n1. Copy that Pi's installer file to the Pi (USB stick, or download it there).\n2. On the Pi, open a Terminal and run:  `sudo bash install-pi-XXXX-XXXX.sh`\n3. It installs Pi Link and starts it every time the Pi turns on. Stick the Pi's ID on the Pi.\n4. Students open PiPath, choose Run on: My Raspberry Pi, and type the ID. (Pi Link, the pin-switching page, uses the same ID.)\n5. To stop a Pi running students' programs: `sudo pilink run off` (pins still work).\n\nTo link a Pi to a different site later: `sudo pilink server https://your-site`.\n")
 	if err := os.WriteFile(filepath.Join(dir, "PI-KEYS.md"), []byte(list.String()), 0o600); err != nil {
 		return err
 	}

@@ -182,3 +182,70 @@ func TestPiEndpointsNeedOurHeader(t *testing.T) {
 		t.Fatalf("got %d", w.Code)
 	}
 }
+
+func TestProgramsAndOutputOverTheRelay(t *testing.T) {
+	s, _ := newTest(t)
+	ts := httptest.NewServer(s)
+	defer ts.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	class, _, _ := s.Signer.NewClass(time.Now(), 2)
+	classAuth := map[string]string{accessHeader: class}
+	id, key, _ := s.PiKeys.New()
+	code := pilink.DisplayID(id)
+	piAuth := map[string]string{piKeyHeader: key}
+
+	pi := openSSE(t, ctx, ts.URL+"/api/pi/pi/events", piAuth)
+	jsonPost(t, ts.URL+"/api/pi/pi/send", map[string]any{"event": map[string]any{"type": "hello", "data": map[string]any{"name": "Pi", "can_run": true}}}, piAuth)
+	browser := openSSE(t, ctx, ts.URL+"/api/pi/events?code="+code, classAuth)
+	browser.next(t) // connected
+	browser.next(t) // hello
+
+	// a program goes to the Pi exactly as sent
+	run := map[string]any{"op": "run", "rid": 3, "name": "program.py", "code": "name = input()\nprint('Hi', name)\n", "files": map[string]string{"words.txt": "aGk="}, "support": []string{"pipath_computer"}}
+	if r := jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": run}, nil); r.StatusCode != 401 {
+		t.Fatalf("a program without a class code: %d", r.StatusCode)
+	}
+	if r := jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": run}, classAuth); r.StatusCode != 204 {
+		t.Fatalf("run: %d", r.StatusCode)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(pi.next(t)), &got); err != nil || got["op"] != "run" || got["rid"] != float64(3) || got["name"] != "program.py" ||
+		got["code"] != "name = input()\nprint('Hi', name)\n" || got["files"].(map[string]any)["words.txt"] != "aGk=" || got["support"].([]any)[0] != "pipath_computer" {
+		t.Fatalf("the Pi got %v (%v)", got, err)
+	}
+	jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": map[string]any{"op": "stdin", "rid": 3, "text": "Mia"}}, classAuth)
+	if got := pi.next(t); got != `{"op":"stdin","rid":3,"text":"Mia"}` {
+		t.Fatalf("stdin: %s", got)
+	}
+	jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": map[string]any{"op": "stop", "rid": 3}}, classAuth)
+	if got := pi.next(t); got != `{"op":"stop","rid":3}` {
+		t.Fatalf("stop: %s", got)
+	}
+
+	// the program's output and exit come back to the browser
+	for _, ev := range []map[string]any{
+		{"type": "run", "data": map[string]any{"rid": 3, "state": "started"}},
+		{"type": "out", "data": map[string]any{"rid": 3, "stream": "out", "text": "Hi Mia\n"}},
+		{"type": "exit", "data": map[string]any{"rid": 3, "rc": 0, "stopped": false, "files": map[string]any{}}},
+	} {
+		if r := jsonPost(t, ts.URL+"/api/pi/pi/send", map[string]any{"event": ev}, piAuth); r.StatusCode != 204 {
+			t.Fatalf("send %v: %d", ev["type"], r.StatusCode)
+		}
+		if got := browser.next(t); !strings.Contains(got, `"type":"`+ev["type"].(string)+`"`) || !strings.Contains(got, `"rid":3`) {
+			t.Fatalf("the browser got %s", got)
+		}
+	}
+
+	// things a program may not contain or ask for never reach the Pi
+	for name, cmd := range map[string]map[string]any{
+		"a path out of the folder": {"op": "run", "rid": 4, "name": "program.py", "code": "x", "files": map[string]string{"../../etc/cron.d/x": "eA=="}},
+		"a shell script":           {"op": "run", "rid": 4, "name": "program.sh", "code": "rm -rf /"},
+		"an unknown helper":        {"op": "run", "rid": 4, "name": "program.py", "code": "x", "support": []string{"subprocess"}},
+		"too much code":            {"op": "run", "rid": 4, "name": "program.py", "code": strings.Repeat("x", 41<<10)},
+	} {
+		if r := jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": cmd}, classAuth); r.StatusCode != 400 {
+			t.Errorf("%s: %d", name, r.StatusCode)
+		}
+	}
+}

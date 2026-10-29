@@ -36,10 +36,18 @@ func main() {
 	warm := flag.Bool("warm", false, "after -setup, compile once for every board so the first student isn't slow")
 	dev := flag.Bool("dev", false, "development: random secrets, a teacher code of 'teacher-code-dev', no board tools needed")
 	piKeys := flag.Int("pi-keys", 0, "make this many Raspberry Pi keys (and an installer for each Pi) with PI_KEY_SECRET, then stop")
+	piRefresh := flag.String("pi-refresh", "", "path to a pi-keys.csv: write new installers for those Pis (same keys), then stop")
 	piOut := flag.String("pi-out", "pi-keys", "the folder -pi-keys writes into")
 	piServer := flag.String("server", env("SITE_URL", pilink.PlaceholderServer), "the website address written into each Pi's installer (-pi-keys)")
 	flag.Parse()
 
+	if *piRefresh != "" {
+		if err := refreshPiInstallers(*piRefresh, *piOut, *piServer); err != nil {
+			fmt.Fprintln(os.Stderr, "Sorry:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *piKeys > 0 {
 		if err := makePiKeys(*piKeys, *piOut, *piServer); err != nil {
 			fmt.Fprintln(os.Stderr, "Sorry:", err)

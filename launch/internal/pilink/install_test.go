@@ -83,6 +83,11 @@ func TestInstallerRunsAndMakesWorkingFiles(t *testing.T) {
 	if !strings.Contains(string(conf), "KEY="+key) || !strings.Contains(string(conf), "SERVER=https://school.example.org") {
 		t.Errorf("config:\n%s", conf)
 	}
+	for _, want := range []string{"RUN=yes", "RUN_USER=cprun"} {
+		if !strings.Contains(string(conf), want) {
+			t.Errorf("config should say %s:\n%s", want, conf)
+		}
+	}
 	if info, _ := os.Stat(filepath.Join(root, "etc/circuitpathways-pi.conf")); info.Mode().Perm() != 0o600 {
 		t.Errorf("the key file should be private, got %v", info.Mode().Perm())
 	}

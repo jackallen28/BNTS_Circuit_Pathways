@@ -1,6 +1,9 @@
 """Tests for the Pi Link. Run: python3 -m unittest discover pi-bridge   (no Pi needed)"""
+import base64
 import io
 import json
+import shutil
+import tempfile
 import threading
 import time
 import unittest
@@ -234,3 +237,240 @@ class KeyAndConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunnerTests(unittest.TestCase):
+    """The student's program, run for real (with this computer's Python)."""
+
+    def setUp(self):
+        self.events = []
+        self.bridge = bridge()
+        self.runner = pi.Runner(self.bridge, lambda ev, reliable=False: self.events.append(ev),
+                                base_dir=tempfile.mkdtemp(), max_seconds=6, idle_seconds=60)
+
+    def tearDown(self):
+        self.runner.shutdown()
+        shutil.rmtree(self.runner.base_dir, ignore_errors=True)
+
+    def run_program(self, code, wait=15, rid=1, **extra):
+        self.runner.start({"op": "run", "rid": rid, "name": "program.py", "code": code, **extra})
+        end = time.time() + wait
+        while time.time() < end and not any(e["type"] == "exit" for e in self.events):
+            time.sleep(0.05)
+        return self.exit_event()
+
+    def exit_event(self):
+        ex = [e for e in self.events if e["type"] == "exit"]
+        return ex[-1]["data"] if ex else None
+
+    def printed(self, stream="out"):
+        return "".join(e["data"]["text"] for e in self.events if e["type"] == "out" and e["data"]["stream"] == stream)
+
+    def test_a_program_runs_and_its_output_comes_back(self):
+        ex = self.run_program("print('Hello', 6 * 7)\n")
+        self.assertEqual((ex["rc"], ex["stopped"]), (0, False))
+        self.assertEqual(self.printed(), "Hello 42\n")
+        self.assertEqual([e["data"]["state"] for e in self.events if e["type"] == "run"], ["started"])
+
+    def test_a_crash_has_a_traceback_that_names_the_students_file(self):
+        ex = self.run_program("x = 1\nprint(undefined_name)\n")
+        self.assertNotEqual(ex["rc"], 0)
+        err = self.printed("err")
+        self.assertIn('File "program.py", line 2', err)
+        self.assertIn("NameError", err)
+        self.assertNotIn(self.runner.base_dir, err)
+
+    def test_input_gets_the_students_typed_lines(self):
+        self.runner.start({"op": "run", "rid": 3, "name": "program.py", "code": "name = input('Name? ')\nprint('Hi', name)\n"})
+        for _ in range(100):
+            if any(e["type"] == "run" and e["data"]["state"] == "started" for e in self.events):
+                break
+            time.sleep(0.05)
+        self.runner.stdin({"op": "stdin", "rid": 3, "text": "Mia"})
+        for _ in range(200):
+            if self.exit_event():
+                break
+            time.sleep(0.05)
+        self.assertIn("Hi Mia", self.printed())
+        self.assertEqual(self.exit_event()["rc"], 0)
+
+    def test_stop_ends_a_forever_loop_quietly(self):
+        self.runner.start({"op": "run", "rid": 4, "name": "program.py", "code": "import time\nwhile True:\n    time.sleep(0.1)\n"})
+        for _ in range(100):
+            if any(e["type"] == "run" and e["data"]["state"] == "started" for e in self.events):
+                break
+            time.sleep(0.05)
+        self.runner.stop({"op": "stop", "rid": 4})
+        for _ in range(200):
+            if self.exit_event():
+                break
+            time.sleep(0.05)
+        ex = self.exit_event()
+        self.assertEqual((ex["stopped"], ex["reason"], ex["rc"]), (True, "stop", 130))
+        self.assertEqual(self.printed("err"), "", "Ctrl+C's traceback shouldn't be shown when the student pressed Stop")
+
+    def test_a_program_that_ignores_ctrl_c_is_still_stopped(self):
+        code = "import signal, time\nsignal.signal(signal.SIGINT, signal.SIG_IGN)\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\nprint('ready', flush=True)\nwhile True:\n    time.sleep(0.1)\n"
+        self.runner.start({"op": "run", "rid": 5, "name": "program.py", "code": code})
+        for _ in range(100):
+            if "ready" in self.printed():
+                break
+            time.sleep(0.05)
+        self.runner.stop({"op": "stop", "rid": 5})
+        for _ in range(200):
+            if self.exit_event():
+                break
+            time.sleep(0.05)
+        self.assertTrue(self.exit_event()["stopped"])
+
+    def test_a_program_that_runs_too_long_is_stopped(self):
+        ex = self.run_program("import time\nwhile True:\n    time.sleep(0.1)\n", wait=20)
+        self.assertEqual(ex["reason"], "timeout")
+        self.assertIn("stopped your program", self.printed())
+
+    def test_a_page_that_stops_answering_stops_the_program(self):
+        self.runner.idle_seconds = 0.5
+        ex = self.run_program("import time\nwhile True:\n    time.sleep(0.1)\n")
+        self.assertEqual(ex["reason"], "idle")
+
+    def test_a_program_that_prints_forever_is_cut_off(self):
+        ex = self.run_program("while True:\n    print('spam' * 50)\n")
+        self.assertEqual(ex["reason"], "output")
+        self.assertLessEqual(len(self.printed()), pi.RUN_OUTPUT_LIMIT + 4096)
+
+    def test_big_output_arrives_in_pieces_the_page_can_take(self):
+        ex = self.run_program("print('x' * 7000)\n")
+        self.assertEqual(ex["rc"], 0)
+        self.assertEqual(len(self.printed()), 7001)
+        self.assertTrue(all(len(e["data"]["text"]) <= pi.OUT_CHUNK for e in self.events if e["type"] == "out"))
+
+    def test_data_files_and_helper_modules_are_there_and_new_files_are_reported(self):
+        self.runner.fetch = lambda path: b"VALUE = 'from the helper'\n"
+        code = "import pipath_computer\nprint(open('words/list.txt').read().strip(), pipath_computer.VALUE)\nopen('score.txt', 'w').write('7 points')\n"
+        ex = self.run_program(code, files={"words/list.txt": base64.b64encode(b"cat").decode()}, support=["pipath_computer"])
+        self.assertEqual(self.printed(), "cat from the helper\n")
+        self.assertEqual(ex["files"]["score.txt"], {"size": 8, "text": "7 points"})
+        self.assertNotIn("words/list.txt", ex["files"], "files the page sent aren't news")
+        self.assertFalse(os.listdir(self.runner.base_dir), "the temporary folder is deleted")
+
+    def test_the_program_gets_a_clean_environment(self):
+        os.environ["CP_TEST_SECRET"] = "hunter2"
+        try:
+            self.run_program("import os\nprint(sorted(os.environ))\nprint(os.environ.get('PIPATH_CAMERA_OBJECT'))\n", camera_object="red ball")
+        finally:
+            del os.environ["CP_TEST_SECRET"]
+        self.assertNotIn("CP_TEST_SECRET", self.printed())
+        self.assertIn("red ball", self.printed())
+
+    def test_it_will_not_run_when_switched_off_or_given_bad_things(self):
+        self.runner.enabled = False
+        with self.assertRaises(pi.BadCommand):
+            self.runner.start({"op": "run", "rid": 1, "name": "program.py", "code": "print(1)"})
+        self.runner.enabled = True
+        base = {"op": "run", "rid": 1, "name": "program.py", "code": "print(1)"}
+        for bad in [{"rid": 0}, {"rid": True}, {"name": "../x.py"}, {"name": "x.sh"}, {"name": "a b.py"}, {"code": ""}, {"code": "x" * (pi.MAX_CODE + 1)},
+                    {"files": {"../x": "eA=="}}, {"files": {"/etc/passwd": "eA=="}}, {"files": {"a": 5}}, {"support": ["os"]}, {"camera_object": "a;b"}]:
+            with self.assertRaises(pi.BadCommand, msg=str(bad)):
+                self.runner.start({**base, **bad})
+        self.assertFalse(self.runner.active)
+
+    def test_one_program_at_a_time(self):
+        self.runner.start({"op": "run", "rid": 1, "name": "program.py", "code": "import time\ntime.sleep(5)\n"})
+        with self.assertRaises(pi.BadCommand):
+            self.runner.start({"op": "run", "rid": 2, "name": "program.py", "code": "print(2)"})
+        self.runner.stop({"op": "stop", "rid": 1})
+
+    def test_the_program_owns_the_pins_while_it_runs(self):
+        self.bridge.handle({"op": "mode", "pin": 17, "mode": "out"})
+        self.runner.start({"op": "run", "rid": 1, "name": "program.py", "code": "import time\ntime.sleep(5)\n"})
+        for _ in range(100):
+            if self.bridge.program_running:
+                break
+            time.sleep(0.05)
+        self.assertEqual(self.bridge.snapshot(), {}, "the Pi let go of its pins")
+        with self.assertRaises(pi.BadCommand):
+            self.bridge.handle({"op": "mode", "pin": 18, "mode": "out"})
+        self.assertIn("pong", self.bridge.handle({"op": "ping"})["type"])
+        self.runner.stop({"op": "stop", "rid": 1})
+        for _ in range(200):
+            if not self.bridge.program_running:
+                break
+            time.sleep(0.05)
+        self.bridge.handle({"op": "mode", "pin": 18, "mode": "out"})
+
+    def test_losing_the_website_stops_the_program(self):
+        self.runner.start({"op": "run", "rid": 1, "name": "program.py", "code": "import time\ntime.sleep(30)\n"})
+        for _ in range(100):
+            if self.runner.proc:
+                break
+            time.sleep(0.05)
+        self.runner.stop_all("offline")
+        for _ in range(200):
+            if self.exit_event():
+                break
+            time.sleep(0.05)
+        self.assertEqual(self.exit_event()["reason"], "offline")
+
+
+class LinkRunTests(unittest.TestCase):
+    def test_commands_for_programs_go_to_the_runner_and_errors_name_the_run(self):
+        events = []
+        b = bridge()
+        link = pi.Link(b, pi.Server("http://x", "CPK1-K7M2QX9P-AB12CD34EF"))
+        link.runner = pi.Runner(b, lambda ev, reliable=False: events.append(ev), enabled=False)
+        with self.assertRaises(pi.BadCommand):
+            link.dispatch({"op": "run", "rid": 9, "name": "program.py", "code": "print(1)"})
+        self.assertEqual(link.dispatch({"op": "stop", "rid": 9}), None)
+        self.assertEqual(link.dispatch({"op": "ping"})["type"], "pong")
+        self.assertFalse(b.hello_event(can_run=False)["data"]["can_run"])
+        self.assertTrue(b.hello_event(can_run=True)["data"]["can_run"])
+
+    def test_chatty_output_is_sent_in_fewer_messages(self):
+        out = lambda text, stream="out", rid=1: {"type": "out", "data": {"rid": rid, "stream": stream, "text": text}}
+        first, rest = out("a"), [out("b"), out("c"), out("d", "err"), out("e", rid=2), {"type": "state", "data": {}}, out("f")]
+        batch = pi.Link._batch(first, rest)
+        self.assertEqual([e["data"].get("text") for e in batch], ["abc", "d", "e", None, "f"])
+        big = [out("x" * pi.OUT_CHUNK), out("y")]
+        self.assertTrue(all(len(e["data"]["text"]) <= pi.OUT_CHUNK for e in pi.Link._batch(out("z"), big)), "a message never grows past the chunk size")
+
+
+class WhoRunsTheProgramTests(unittest.TestCase):
+    def test_root_never_runs_a_students_program_as_root(self):
+        self.assertEqual(pi.decide_run(True, None, euid=0, user_exists=lambda n: True)[0], False)
+        self.assertEqual(pi.decide_run(True, "ghost", euid=0, user_exists=lambda n: False)[0], False)
+        self.assertEqual(pi.decide_run(True, "cprun", euid=0, user_exists=lambda n: True), (True, ""))
+        self.assertEqual(pi.decide_run(True, None, euid=1000), (True, ""))
+        self.assertEqual(pi.decide_run(False, "cprun", euid=0, user_exists=lambda n: True), (False, ""))
+
+    @unittest.skipUnless(hasattr(os, "geteuid") and os.geteuid() == 0, "needs root to switch user")
+    def test_the_program_runs_as_the_unprivileged_user_and_cannot_read_the_key(self):
+        import pwd
+        try:
+            pwd.getpwnam("nobody")
+        except KeyError:
+            self.skipTest("no 'nobody' user")
+        secret = tempfile.NamedTemporaryFile("w", delete=False, suffix=".conf")
+        secret.write("KEY=CPK1-SECRET\n")
+        secret.close()
+        os.chmod(secret.name, 0o600)
+        events = []
+        base = tempfile.mkdtemp()
+        os.chmod(base, 0o755)
+        r = pi.Runner(bridge(), lambda ev, reliable=False: events.append(ev), base_dir=base, run_user="nobody")
+        code = ("import os\nprint('uid', os.getuid() != 0)\n"
+                "try:\n    open(%r).read()\n    print('READ THE KEY')\nexcept PermissionError:\n    print('no access')\n"
+                "open('mine.txt', 'w').write('ok')\n") % secret.name
+        try:
+            r.start({"op": "run", "rid": 1, "name": "program.py", "code": code})
+            for _ in range(200):
+                if any(e["type"] == "exit" for e in events):
+                    break
+                time.sleep(0.05)
+            text = "".join(e["data"]["text"] for e in events if e["type"] == "out")
+            self.assertIn("uid True", text)
+            self.assertIn("no access", text)
+            self.assertNotIn("READ THE KEY", text)
+            self.assertIn("mine.txt", [e for e in events if e["type"] == "exit"][0]["data"]["files"])
+        finally:
+            os.unlink(secret.name)
+            shutil.rmtree(base, ignore_errors=True)

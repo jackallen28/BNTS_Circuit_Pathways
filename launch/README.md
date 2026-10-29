@@ -14,15 +14,16 @@ what is deployed. The earlier app and its docs are in `../development/`.
 - **PiPath** (`site/pipath/`): Python in the browser (Pyodide) with an on-screen Raspberry Pi: 24 of the 25
   activities, PiPath's own Coach, hints, adaptive nudges and code review (its Python engine runs unchanged).
   `content-pipath/` holds the lessons as TOML; `tools/build_pipath_data.py` makes the JSON the site loads.
-- **Pi Link** (`site/pipath/remote/`, `pi-bridge/`): control a real Raspberry Pi's pins from the browser. Each Pi has
-  its own signed key and an installer that starts Pi Link at boot.
+- **Run on my Raspberry Pi** and **Pi Link** (`site/pipath/remote/`, `pi-bridge/`): a student links to their own Pi by its
+  ID, then PiPath's Run button runs the program on the real Pi (output, `input()`, Stop, Coach and checks all work), or
+  the Pi Link page switches pins by hand. Each Pi has its own signed key and an installer that starts at boot.
 
 **To launch: read [LAUNCH.md](LAUNCH.md).**
 
 ## What the server does and doesn't do
 
 It serves the pages, checks class codes and teacher sign-ins, **compiles** Arduino code, and
-**relays Pi Link** messages. It has **no database and writes nothing to disk** except the
+**relays Pi Link** messages (pin commands, and for "Run on my Pi", the program and its output, held in memory for that moment). It has **no database and writes nothing to disk** except the
 compiler's temporary folder, deleted after each compile. It never receives a student's name or
 school: those stay in the browser and the student's save file. Compiled code is held for one
 request and never logged. Logs hold the method, path, status code and time, and nothing else.
