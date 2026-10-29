@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -180,6 +181,14 @@ func cspFor(path string) string {
 	return cspBase + "; style-src 'self' 'unsafe-inline'"
 }
 
+// shortCommit is the first characters of the commit Render built (so a teacher can see which version is live).
+func shortCommit(c string) string {
+	if len(c) > 7 {
+		return c[:7]
+	}
+	return c
+}
+
 // betaHidden are the parts of the site the TEST version doesn't have: classes, teachers and Raspberry Pi linking.
 func betaHidden(path string) bool {
 	switch path {
@@ -244,7 +253,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil, "beta": s.Beta,
+		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil, "beta": s.Beta, "commit": shortCommit(os.Getenv("RENDER_GIT_COMMIT")),
 	})
 }
 
