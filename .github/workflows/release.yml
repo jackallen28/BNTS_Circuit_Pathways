@@ -14,7 +14,7 @@ on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
     branches: [BNTS_CircuitPath, master, main]
-    paths: [VERSION, .github/workflows/release.yml]
+    paths: [development/VERSION, .github/workflows/release.yml]
   release:
     types: [published]
   workflow_dispatch:
@@ -44,7 +44,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="$GITHUB_REF_NAME"
           else
-            TAG="v$(tr -d ' \r\n' < VERSION)"
+            TAG="v$(tr -d ' \r\n' < development/VERSION)"
           fi
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::'$TAG' isn't a version like v1.2.3 (VERSION should hold just 1.2.3)."
@@ -66,6 +66,7 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: development
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -73,7 +74,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: development/go.mod
 
       - name: Test
         run: go test ./...
@@ -83,7 +84,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Install the board tools
         run: |
@@ -95,7 +96,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Build (with the board tools built in)
         run: |
@@ -113,7 +114,7 @@ jobs:
 
       - name: Unpack the built-in tools and compile for every board
         env:
-          CIRCUITPATH_BOARDS: ${{ github.workspace }}/dist/CircuitPath.exe
+          CIRCUITPATH_BOARDS: ${{ github.workspace }}/development/dist/CircuitPath.exe
         run: go test -v -timeout 120m -run TestRealBundle ./internal/arduino
 
       - name: Start CircuitPath.exe and use it
@@ -125,7 +126,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dist/*.exe
+          path: development/dist/*.exe
           retention-days: 3
 
   macos:
@@ -135,12 +136,15 @@ jobs:
     timeout-minutes: 150
     env:
       VERSION: ${{ needs.version.outputs.version }}
+    defaults:
+      run:
+        working-directory: development
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: development/go.mod
 
       - name: Test
         run: go test ./...
@@ -150,7 +154,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Install the board tools
         run: |
@@ -162,7 +166,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Build (with the board tools built in)
         run: |
@@ -176,7 +180,7 @@ jobs:
 
       - name: Unpack the built-in tools and compile for every board
         env:
-          CIRCUITPATH_BOARDS: ${{ github.workspace }}/dist/CircuitPath.app/Contents/Resources/boards.zip
+          CIRCUITPATH_BOARDS: ${{ github.workspace }}/development/dist/CircuitPath.app/Contents/Resources/boards.zip
         run: go test -v -timeout 120m -run TestRealBundle ./internal/arduino
 
       - name: Start CircuitPath.app and use it
@@ -190,7 +194,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/CircuitPath-macOS.zip
+          path: development/dist/CircuitPath-macOS.zip
           retention-days: 3
 
   publish:

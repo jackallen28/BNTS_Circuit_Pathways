@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    paths-ignore: ["website/**"]     # the showcase website doesn't need the app's tests
+    paths-ignore: ["development/website/**", "launch/**"]     # the showcase website doesn't need the app's tests
   pull_request:
-    paths-ignore: ["website/**"]
+    paths-ignore: ["development/website/**", "launch/**"]
 
 permissions:
   contents: read
@@ -17,12 +17,15 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: development
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: development/go.mod
 
       - name: Go formatting
         run: test -z "$(gofmt -l . | tee /dev/stderr)"
@@ -53,7 +56,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: test-results/screenshots
+          path: development/test-results/screenshots
           if-no-files-found: ignore
 
   windows:
@@ -66,12 +69,13 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: development
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: development/go.mod
 
       - name: Go tests on Windows
         run: go test ./...
@@ -81,7 +85,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Install the board tools
         run: |
@@ -93,7 +97,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Build CircuitPath.exe with the board tools built in
         run: |
@@ -105,7 +109,7 @@ jobs:
 
       - name: Unpack the built-in tools and compile for every board
         env:
-          CIRCUITPATH_BOARDS: ${{ github.workspace }}/dist/CircuitPath.exe
+          CIRCUITPATH_BOARDS: ${{ github.workspace }}/development/dist/CircuitPath.exe
         run: go test -v -timeout 90m -run TestRealBundle ./internal/arduino
 
       - name: Start CircuitPath.exe and use it
@@ -117,7 +121,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: CircuitPath-exe
-          path: dist/CircuitPath.exe
+          path: development/dist/CircuitPath.exe
           retention-days: 7
 
   macos:
@@ -126,12 +130,15 @@ jobs:
     # sign it (ad hoc), compile for every board, start it and use it.
     runs-on: macos-latest
     timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: development
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: development/go.mod
 
       - name: Go tests on macOS
         run: go test ./...
@@ -141,7 +148,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Install the board tools
         run: |
@@ -153,7 +160,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Build CircuitPath.app with the board tools built in
         run: |
@@ -166,7 +173,7 @@ jobs:
 
       - name: Unpack the built-in tools and compile for every board
         env:
-          CIRCUITPATH_BOARDS: ${{ github.workspace }}/dist/CircuitPath.app/Contents/Resources/boards.zip
+          CIRCUITPATH_BOARDS: ${{ github.workspace }}/development/dist/CircuitPath.app/Contents/Resources/boards.zip
         run: go test -v -timeout 90m -run TestRealBundle ./internal/arduino
 
       - name: Start CircuitPath.app and use it
@@ -180,7 +187,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: CircuitPath-macOS
-          path: dist/CircuitPath-macOS.zip
+          path: development/dist/CircuitPath-macOS.zip
           retention-days: 7
 
   boards:
@@ -189,19 +196,22 @@ jobs:
     # then the tools are packed and unpacked like the apps do, and compile again.
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: development
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: development/go.mod
 
       - name: Restore the board tools
         id: tools-cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Install the Arduino tools and compile for every board
         run: |
@@ -213,7 +223,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/arduino/requirements.json') }}
+          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
 
       - name: Pack the tools like the apps, unpack them and compile again
         run: |
