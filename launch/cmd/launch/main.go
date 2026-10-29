@@ -67,13 +67,14 @@ func main() {
 
 	secret := os.Getenv("CLASS_SECRET")
 	teachers := os.Getenv("TEACHER_CODES")
-	if *dev {
+	if *dev || *beta {
+		// (the TEST version has no classes or teachers, so it needs no secrets at all)
 		if secret == "" {
 			b := make([]byte, 16)
 			rand.Read(b)
 			secret = hex.EncodeToString(b)
 		}
-		if teachers == "" {
+		if teachers == "" && *dev {
 			teachers = "teacher-code-dev"
 		}
 	}
@@ -118,7 +119,7 @@ func main() {
 	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log, Beta: *beta}
 	if tools, err := arduino.InstalledTools(*toolsDir, log); err == nil {
 		cfg.Compiler = tools
-	} else if *dev {
+	} else if *dev || *beta {
 		log.Warn("no board tools: compiling for real boards is off", "err", err)
 	} else {
 		log.Error("no board tools: uploading to boards won't work", "err", err)
