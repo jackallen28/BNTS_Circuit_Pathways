@@ -63,6 +63,20 @@ PI_KEY_SECRET=<the same value> go run ./cmd/launch -pi-keys 5 -pi-out private/pi
 - **Upload says the compiler is switched off**: the image has no compilers (the build step `launch -setup -warm` failed). Check the Render build log.
 - Logs show the method, path, status and time of each API call, and nothing else.
 
+## Free hosting (no payment)
+
+`render.yaml` is the **free** version: Render's free plan and `Dockerfile.free` (no Arduino compilers). Everything works
+except **Upload to a real board** (the site says "Compiling is switched off"; the ArduinoPath simulator, PiPath, class
+codes, the teacher page and Run on my Pi all work). Limits of a free Render service:
+
+- It **sleeps after 15 minutes** with no visitors and takes about a minute to wake: open the site a few minutes before a class.
+- Pis reconnect by themselves after a sleep (the relay keeps nothing). 750 free hours a month; 512 MB memory.
+- If Render still asks for a card on **New > Blueprint**, use **New > Web Service** instead (pick the repo and branch,
+  Runtime **Docker**, Root Directory `launch`, Dockerfile Path `./Dockerfile.free`, Instance Type **Free**) and add the
+  environment variables `CLASS_SECRET`, `TEACHER_CODES`, `PI_KEY_SECRET` by hand (values in `private/RENDER-ENV.txt`).
+- When you want uploading to real boards, switch to `render.paid.yaml` (Standard plan, about US$25 a month, the ESP32
+  compiler needs 1.5 GB), or run the full `Dockerfile` on a computer you already have.
+
 ## 4. Set up the Raspberry Pis
 
 The 5 test Pis are in `launch/private/pi/` (git-ignored). `PI-KEYS.md` lists each Pi's **ID**; there is one

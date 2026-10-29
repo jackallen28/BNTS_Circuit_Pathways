@@ -1,13 +1,15 @@
-# Render Blueprint: Circuit Pathways. In Render: New > Blueprint, pick this
-# repository and branch. Then set TEACHER_CODES (the one secret you choose).
+# Render Blueprint: Circuit Pathways, FREE version. No payment needed (if Render still asks for a card
+# for a Blueprint, create a plain Web Service instead: see launch/LAUNCH.md "Free hosting").
+# It has everything except "Upload to a real board" (that needs the Arduino compilers, which need a
+# paid plan: use render.paid.yaml for that). A free service sleeps after 15 minutes without visitors and
+# takes about a minute to wake up, so open the site a few minutes before a class.
 services:
   - type: web
     name: circuit-pathways
     runtime: docker
     rootDir: launch
-    dockerfilePath: ./Dockerfile
-    # The ESP32 compiler needs about 1.5 GB of memory: use at least the Standard plan.
-    plan: standard
+    dockerfilePath: ./Dockerfile.free
+    plan: free
     healthCheckPath: /healthz
     autoDeployTrigger: commit
     envVars:
@@ -18,8 +20,7 @@ services:
       # One or more teacher codes, separated by commas, each at least 8 characters.
       - key: TEACHER_CODES
         sync: false
-      # Signs the keys of your Raspberry Pis (Pi Link). Keep the same value for as long as Pis
-      # in the field use their keys. Made by you once (see launch/LAUNCH.md).
+      # Signs the keys of your Raspberry Pis. Keep the same value for as long as Pis use their keys.
       - key: PI_KEY_SECRET
         sync: false
       # Optional: IDs of Pi keys to switch off (lost or stolen Pis), separated by commas.
