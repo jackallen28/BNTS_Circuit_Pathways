@@ -35,7 +35,20 @@
       count++;
       return fetch(url, { credentials: "omit", cache: "no-store" }).then(function (r) {
         var type = r.headers.get("content-type") || "";
-        if (!r.ok || !/javascript/i.test(type)) { lines.push(url + " -> " + r.status + " " + type); return null; }
+        if (!r.ok || !/javascript/i.test(type)) {
+          // who said no? the headers and the first words of the page tell us
+          var who = ["server", "via", "cf-ray", "x-render-routing", "content-length"].map(function (n) { var v = r.headers.get(n); return v ? n + "=" + v : ""; }).filter(Boolean).join(" ");
+          return r.text().then(function (t) {
+            lines.push(url + " -> " + r.status + " " + type + " " + who + " body: " + t.replace(/\s+/g, " ").slice(0, 200));
+            // is it only this time? try again after a moment, and once with a different ending on the address
+            return new Promise(function (done) { setTimeout(done, 1500); }).then(function () {
+              return Promise.all([fetch(url, { credentials: "omit", cache: "no-store" }), fetch(url + "?again=1", { credentials: "omit", cache: "no-store" })]);
+            }).then(function (rs) {
+              lines.push("  again: " + rs[0].status + ", with ?again=1: " + rs[1].status);
+              return null;
+            }, function () { lines.push("  again: could not be fetched"); return null; });
+          });
+        }
         return r.text();
       }).then(function (text) {
         if (text) {
