@@ -11,6 +11,7 @@ test("the home page says TEST and has no class or teacher boxes", async ({ page 
   await expect(page.locator("#test-tag")).toBeVisible();
   await expect(page.locator("#test-tag")).toHaveAttribute("aria-label", /Nothing is saved/);
   await expect(page.locator("#test-ribbon")).toHaveCount(0);
+  await expect(page.locator("h1 .beta-badge")).toHaveText("BETA");
   await expect(page.getByRole("link", { name: /Open PiPath/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Open ArduinoPath/ })).toBeVisible();
   for (const gone of ["#session", "#join-form", "#teacher-form", ".scroll-hint"]) await expect(page.locator(gone)).toBeHidden();

@@ -23,3 +23,13 @@ body.has-test-tag #app { height: calc(100vh - 22px); }
 @media (max-width: 900px) { body.has-test-tag #app { height: auto; min-height: calc(100vh - 22px); } }
 @keyframes test-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { #test-tag .track { animation: none; } }
+
+/* "BETA" in a box beside the title on the home page (only the TEST version shows it) */
+.beta-badge {
+  display: inline-block; margin-left: .4em; padding: .12em .45em .08em; vertical-align: super;
+  font-size: .24em; font-weight: 800; letter-spacing: .18em; line-height: 1.2;
+  color: #ffd23f; background: rgba(255, 210, 63, .12);
+  border: .12em solid #ffd23f; border-radius: .22em;
+  box-shadow: 0 0 14px rgba(255, 200, 40, .45), inset 0 0 10px rgba(255, 200, 40, .25);
+  -webkit-text-fill-color: #ffd23f; text-shadow: 0 0 8px rgba(255, 200, 40, .7);
+}

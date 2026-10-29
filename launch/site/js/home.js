@@ -92,6 +92,7 @@ showState();
 if (beta) {
   // The TEST version: the same home page, but no class codes or teacher sign-in.
   showTestTag();
+  document.getElementById("beta-badge").hidden = false;
   $("#session").hidden = true;
   $(".scroll-hint").hidden = true;
 } else if (!$("#need-class").hidden) {
