@@ -1,6 +1,7 @@
 // ArduinoPath's web app: starts up, then shows the right screen for the
 // address (#/projects, #/project/<id>, #/freeplay, #/wipe...).
 
+import { showTestTag } from "../../shared/beta.js";
 import { api, onLoggedOut, storageIsTemporary } from "./api.js";
 import { getAccess } from "/shared/access.js";
 import { h, clear, loadSprites } from "./dom.js";
@@ -104,6 +105,7 @@ onLoggedOut(() => {
 });
 
 async function start() {
+  showTestTag();
   await loadSprites(["img/icons.svg"]);
   if (!getAccess()) {
     // ArduinoPath is for classes: it needs a class code (or a teacher sign-in) from the home page.

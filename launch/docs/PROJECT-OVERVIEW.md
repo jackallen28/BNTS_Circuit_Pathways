@@ -197,6 +197,15 @@ Docker build (CI covers them), real board upload, and a real Pi.
 compiler needs ~1.5 GB). Env: `CLASS_SECRET` (generated), `TEACHER_CODES`, `PI_KEY_SECRET`, `REVOKED_PI_IDS`
 (secrets set in Render, never in git). The first build downloads the Arduino toolchain. See `launch/LAUNCH.md`.
 
+## 8b. The TEST version (BETA=1)
+
+`BETA=1` (or `-beta`) turns the same build into a shareable test for colleagues: the home page shows a TEST label and no
+class/teacher boxes; `site/shared/beta.js` asks `/api/info`, and when it is the test version `getAccess()` returns an
+open "beta" access, `openStore()` returns the in-memory store, Save/Open my work, Download .ino, Wipe and the PiPath
+"Run on" choice are hidden, and a TEST tag is shown. The server returns 404 for `/teacher`, `/api/teacher|class|pi/`
+and the Pi Link page, sends `X-Robots-Tag: noindex`, and accepts the open access only for `/api/compile`. Blueprint:
+`render.test.yaml`. Tests: `tests/e2e/test-version.spec.js` (the config starts a second server on port 8544).
+
 ## 9. `development/` (the earlier, parked version)
 
 The first CircuitPath was a **local app** (`CircuitPath.exe` / `.app`, Go + SQLite, served on localhost, Edge app

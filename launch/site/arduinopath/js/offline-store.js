@@ -1,3 +1,4 @@
+import { beta } from "../../shared/beta.js";
 // A tiny key-value store in IndexedDB for code that couldn't reach the
 // server yet. Falls back to memory if IndexedDB isn't available.
 
@@ -35,7 +36,7 @@ function tx(mode, fn) {
   }));
 }
 
-export const offlineStore = typeof indexedDB === "undefined" ? memoryStore() : {
+export const offlineStore = beta || typeof indexedDB === "undefined" ? memoryStore() : {
   get: (k) => tx("readonly", (s) => s.get(k)),
   set: (k, v) => tx("readwrite", (s) => s.put(v, k)),
   del: (k) => tx("readwrite", (s) => s.delete(k)),

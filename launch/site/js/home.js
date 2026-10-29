@@ -2,6 +2,7 @@
 // class forms (students join with a class code, teachers sign in).
 
 import { getAccess, setAccess, clearAccess, postJSON } from "/shared/access.js";
+import { beta, showTestTag } from "/shared/beta.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -88,4 +89,11 @@ $("#leave").addEventListener("click", () => {
 });
 
 showState();
-if (!$("#need-class").hidden) $("#session").scrollIntoView();
+if (beta) {
+  // The TEST version: the same home page, but no class codes or teacher sign-in.
+  showTestTag();
+  $("#session").hidden = true;
+  $(".scroll-hint").hidden = true;
+} else if (!$("#need-class").hidden) {
+  $("#session").scrollIntoView();
+}

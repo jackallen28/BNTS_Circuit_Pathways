@@ -1,4 +1,5 @@
 // The welcome screen: pick your name, or make a profile (first names and school, nothing else).
+import { beta } from "../../../shared/beta.js";
 import { h, fill, joinNames, download } from "../dom.js";
 import { api } from "../api.js";
 import { dialog, messageBox } from "../widgets/window.js";
@@ -9,7 +10,7 @@ export function loginScreen(root, { onLoggedIn, onCreated }) {
     h("div", { class: "brand" }, h("img", { src: "../img/bnts-mark.svg", alt: "" }), h("div", {}, h("h1", { text: "PiPath" }), h("small", { text: "Banyule Nillumbik Tech School" }))),
     stage,
     h("div", { class: "desk-foot" },
-      h("button", { class: "link", type: "button", onclick: wipeDialog, text: "Wipe this browser" }),
+      beta ? null : h("button", { class: "link", type: "button", onclick: wipeDialog, text: "Wipe this browser" }),
       h("a", { class: "link", href: "/", style: { color: "#fff" }, text: "Circuit Pathways home" }))));
 
   const frame = (title, ...body) => fill(stage,

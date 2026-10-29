@@ -3,6 +3,7 @@
 // is loaded from the website, and only /api/compile talks to the server,
 // to turn a sketch into a program for the board. The server keeps nothing.
 
+import { beta } from "../../shared/beta.js";
 import { createLocalApi, tabSession, LocalError } from "/shared/local/localapi.js";
 import { openStore } from "/shared/local/store.js";
 import { getAccess, postJSON } from "/shared/access.js";
@@ -49,6 +50,7 @@ const local = () => (localPromise ??= storePromise.then((store) => createLocalAp
 
 /** True if this browser won't keep the student's work between visits (a private window, say). */
 export async function storageIsTemporary() {
+  if (beta) return false; // the TEST version saves nothing, and says so
   return !(await storePromise).persistent;
 }
 

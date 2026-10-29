@@ -77,6 +77,22 @@ codes, the teacher page and Run on my Pi all work). Limits of a free Render serv
 - When you want uploading to real boards, switch to `render.paid.yaml` (Standard plan, about US$25 a month, the ESP32
   compiler needs 1.5 GB), or run the full `Dockerfile` on a computer you already have.
 
+## A TEST version to share with colleagues
+
+The same site run with `BETA=1`: the **same home page** (PiPath and ArduinoPath) with a **TEST** label, but **no class
+codes, no teacher sign-in, no Raspberry Pi linking and nothing saved**. Colleagues open the link, make a pretend profile
+and try everything a student sees. Closing or reloading the tab clears it (there are no save files, no "Save my work" or
+"Download .ino", no autosave to the browser). Search engines are asked to stay away (`noindex`).
+
+On Render: **New > Blueprint**, pick this repo and branch, and set **Blueprint file path** to `render.test.yaml` (a second
+free service named `circuit-pathways-test`, with its own address; it can run beside the real site). Or by hand:
+**New > Web Service**, Runtime Docker, Root Directory `launch`, Dockerfile Path `./Dockerfile.free`, Free, and the
+environment variables `BETA` = `1` and `CLASS_SECRET` = any long random text.
+
+Upload to a real board is off on the free plan, so colleagues can try everything except real hardware. To let them
+upload too, deploy the full `Dockerfile` on a paid instance with `BETA=1`. The test link is open to anyone who has it, so
+only share it with people you trust. Try it locally: `go run ./cmd/launch -dev -beta`.
+
 ## 4. Set up the Raspberry Pis
 
 The 5 test Pis are in `launch/private/pi/` (git-ignored). `PI-KEYS.md` lists each Pi's **ID**; there is one

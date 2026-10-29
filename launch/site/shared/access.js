@@ -2,10 +2,13 @@
 // The class code (or teacher token) is kept in this browser only, until it
 // expires. The server checks it again whenever it is asked to compile.
 
+import { beta } from "./beta.js";
+
 const KEY = "circuitpathways.access";
 
 /** @returns {{kind: "class"|"teacher", value: string, expires_at: number}|null} */
 export function getAccess(now = Date.now()) {
+  if (beta) return { kind: "beta", value: "beta", expires_at: now + 12 * 3600 * 1000 }; // the TEST version needs no class code
   try {
     const a = JSON.parse(localStorage.getItem(KEY) || "null");
     if (a && typeof a.value === "string" && a.expires_at > now && (a.kind === "class" || a.kind === "teacher")) return a;

@@ -1,6 +1,7 @@
 // PiPath's storage and data. A student's profile, code and progress are kept in this browser
 // (the same code ArduinoPath uses); the lessons come from the website as JSON.
 
+import { beta } from "../../shared/beta.js";
 import { createLocalApi, tabSession, LocalError } from "/shared/local/localapi.js";
 import { openStore } from "/shared/local/store.js";
 import { ValidationError } from "/shared/local/validate.js";
@@ -68,6 +69,7 @@ const localPromise = storePromise.then((store) => createLocalApi({
 }));
 
 export async function storageIsTemporary() {
+  if (beta) return false; // the TEST version saves nothing, and says so
   return !(await storePromise).persistent;
 }
 

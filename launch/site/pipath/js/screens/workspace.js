@@ -10,6 +10,7 @@ import { createConsole } from "../widgets/console.js";
 import { createBoard } from "../widgets/board.js";
 import { messageBox, dialog } from "../widgets/window.js";
 import { getRunner } from "../runtime/shared.js";
+import { beta } from "../../../shared/beta.js";
 import { getPi, piReady, supportFor, piSummary, savedPiId } from "../runtime/pi.js";
 import { linkPiDialog } from "../dialogs/pi.js";
 import {
@@ -45,7 +46,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   let runner = null;
   let running = false;
   let runKind = "run";
-  let where = settings().run_where === "pi" ? "pi" : "sim"; // sim: the Simulator in this browser. pi: the student's own Raspberry Pi.
+  let where = !beta && settings().run_where === "pi" ? "pi" : "sim"; // sim: the Simulator in this browser. pi: the student's own Raspberry Pi.
   let piRun = false; // a program is running on the Pi right now
   const pi = getPi();
   let failedRuns = 0; // this step
@@ -96,7 +97,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     h("b", { text: isFree ? (state.config.free_play_name ?? "Free Play") : les.title }),
     h("span", { class: "spacer" }),
     h("label", { class: "small" }, "Help: ", levelSel),
-    h("label", { class: "small" }, "Run on: ", whereSel), piChip,
+    beta ? null : h("label", { class: "small" }, "Run on: ", whereSel), beta ? null : piChip,
     runBtn, goalBtn, isFree ? null : resetBtn,
     h("button", { class: "btn", type: "button", onclick: openSettings, text: "Settings" }),
     h("button", { class: "btn", type: "button", onclick: async () => { await leave(); logOut(); }, text: "Log out" }));
@@ -181,7 +182,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   // ---------------------------------------------------------------- saving
   function onEdit(code) {
     clearTimeout(codeTimer);
-    savedNote.textContent = "Saving...";
+    savedNote.textContent = beta ? "" : "Saving...";
     codeTimer = setTimeout(saveCode, 900);
     if (runner) runner.do("adapt_edit", secs()).catch(() => {});
     scheduleDraft();
@@ -191,7 +192,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     clearTimeout(codeTimer);
     try {
       await api.saveCode(key, editor.value);
-      savedNote.textContent = "Saved ✓";
+      savedNote.textContent = beta ? "" : "Saved ✓";
     } catch (e) {
       savedNote.textContent = "Couldn't save";
     }

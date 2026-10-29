@@ -2,6 +2,7 @@
 import { h, fill } from "./dom.js";
 import { state } from "./state.js";
 import { api, catalog, config, storageIsTemporary } from "./api.js";
+import { showTestTag } from "../../shared/beta.js";
 import { getAccess } from "/shared/access.js";
 import { loginScreen } from "./screens/login.js";
 import { setupScreen } from "./screens/setup.js";
@@ -78,6 +79,7 @@ async function route() {
 }
 
 async function start() {
+  showTestTag();
   if (!getAccess()) { location.replace("/?need=class"); return; }
   try {
     [state.catalog, state.config] = await Promise.all([catalog(), config()]);

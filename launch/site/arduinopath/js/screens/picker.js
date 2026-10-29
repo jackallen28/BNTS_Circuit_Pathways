@@ -2,6 +2,7 @@
 // from day one. Tiers are only a guide: a colour badge, a filter and
 // "Good to try first" tips.
 
+import { beta } from "../../../shared/beta.js";
 import { api } from "../api.js";
 import { h, icon, clear, fill, joinNames } from "../dom.js";
 import { appWindow, tool, separator, spacer } from "../widgets/window.js";
@@ -25,9 +26,9 @@ export function pickerScreen(root, { openSettings, logOut, openProject }) {
     toolbar: [
       tool("settings", "Settings", () => openSettings({ onSaved: render })),
       separator(),
-      tool("save", "Save my work", saveMyWork),
-      tool("open", "Open my work", () => openSettings({ tab: "work", onSaved: render })),
-      separator(),
+      beta ? null : tool("save", "Save my work", saveMyWork),
+      beta ? null : tool("open", "Open my work", () => openSettings({ tab: "work", onSaved: render })),
+      beta ? null : separator(),
       tool("about", "About", () => openSettings({ tab: "about" })),
       spacer(),
       h("span", { class: "toolbar-user" }, icon("user"), h("span", { text: joinNames(state.me.student.names) })),

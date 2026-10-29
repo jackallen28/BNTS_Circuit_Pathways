@@ -34,7 +34,7 @@ func (s *Server) handleCompile(w http.ResponseWriter, r *http.Request) {
 	if s.limited(w, r, s.limits.compile) {
 		return
 	}
-	if !s.Signer.CheckAccess(r.Header.Get(accessHeader), s.Now()) {
+	if v := r.Header.Get(accessHeader); !s.Signer.CheckAccess(v, s.Now()) && !(s.Beta && v == "beta") {
 		writeError(w, http.StatusUnauthorized, "no_class", "Join a class with your class code to upload to a board.")
 		return
 	}

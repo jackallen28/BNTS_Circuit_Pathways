@@ -291,3 +291,48 @@ func TestRealSiteServesPythonForTheBrowser(t *testing.T) {
 		return nil
 	})
 }
+
+func TestTestVersionNeedsNoClassCodeAndHidesTeachersAndPis(t *testing.T) {
+	s, _ := newTest(t)
+	s.Beta = true
+	get := func(path string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		return w
+	}
+	// it says so, and asks search engines to stay away
+	info := get("/api/info")
+	if !strings.Contains(info.Body.String(), `"beta":true`) {
+		t.Errorf("info should say this is the test version: %s", info.Body)
+	}
+	if got := info.Header().Get("X-Robots-Tag"); !strings.Contains(got, "noindex") {
+		t.Errorf("X-Robots-Tag = %q", got)
+	}
+	// classes, teachers and Pi linking aren't there
+	for _, p := range []string{"/teacher/", "/teacher", "/api/pi/events", "/api/pi/pi/events", "/pipath/remote/", "/pipath/remote/circuitpathways_pi.py"} {
+		if w := get(p); w.Code != 404 {
+			t.Errorf("%s should not exist in the test version, got %d", p, w.Code)
+		}
+	}
+	for _, p := range []string{"/api/teacher/signin", "/api/class/join"} {
+		if w := post(s, p, map[string]string{"code": "x"}, nil); w.Code != 404 {
+			t.Errorf("%s should not exist in the test version, got %d", p, w.Code)
+		}
+	}
+	// the apps' compile call accepts the test version's open access, but nothing else that isn't a class code
+	body := map[string]any{"board": "uno", "files": map[string]string{"sketch.ino": "void setup(){} void loop(){}"}}
+	if w := post(s, "/api/compile", body, map[string]string{accessHeader: "beta"}); w.Code == 401 {
+		t.Errorf("the test version's access should be accepted: %d %s", w.Code, w.Body)
+	}
+	if w := post(s, "/api/compile", body, map[string]string{accessHeader: "nonsense"}); w.Code != 401 {
+		t.Errorf("a made-up access value should be refused: %d", w.Code)
+	}
+	// and a normal site does not accept "beta" as access
+	s.Beta = false
+	if w := post(s, "/api/compile", body, map[string]string{accessHeader: "beta"}); w.Code != 401 {
+		t.Errorf("a normal site must not accept the test access: %d", w.Code)
+	}
+	if w := get("/api/info"); strings.Contains(w.Body.String(), `"beta":true`) || w.Header().Get("X-Robots-Tag") != "" {
+		t.Errorf("a normal site isn't the test version: %s", w.Body)
+	}
+}

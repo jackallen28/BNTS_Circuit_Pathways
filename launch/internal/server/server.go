@@ -46,6 +46,9 @@ type Config struct {
 	Relay *pirelay.Relay
 	// PiKeys checks Raspberry Pi keys (nil: Pi Link is off).
 	PiKeys *pilink.Keys
+	// Beta is the TEST version: no class codes or teacher pages, the apps are open to anyone with
+	// the link, and the page says nothing is saved. Pi Link is off.
+	Beta bool
 }
 
 // Server is the http.Handler.
@@ -120,6 +123,13 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		start := time.Now()
 		h := w.Header()
 		h.Set("Content-Security-Policy", cspFor(r.URL.Path))
+		if s.Beta {
+			h.Set("X-Robots-Tag", "noindex, nofollow") // a link to share, not a page for search engines
+			if betaHidden(r.URL.Path) {
+				http.NotFound(w, r)
+				return
+			}
+		}
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "SAMEORIGIN")
 		h.Set("Referrer-Policy", "no-referrer")
@@ -168,6 +178,20 @@ func cspFor(path string) string {
 		return cspBase + "; style-src 'self'"
 	}
 	return cspBase + "; style-src 'self' 'unsafe-inline'"
+}
+
+// betaHidden are the parts of the site the TEST version doesn't have: classes, teachers and Raspberry Pi linking.
+func betaHidden(path string) bool {
+	switch path {
+	case "/pipath/remote", "/pipath/remote/", "/pipath/remote/index.html", "/pipath/remote/circuitpathways_pi.py", "/pipath/remote/install.sh":
+		return true // (pi-remote.js stays: PiPath's page loads it, and it does nothing without a Pi)
+	}
+	for _, p := range []string{"/teacher", "/api/teacher/", "/api/class/", "/api/pi/"} {
+		if path == p || strings.HasPrefix(path, strings.TrimSuffix(p, "/")+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func hostOnly(h string) string {
@@ -220,7 +244,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil,
+		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil, "beta": s.Beta,
 	})
 }
 

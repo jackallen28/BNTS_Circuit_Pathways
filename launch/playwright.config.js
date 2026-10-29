@@ -3,6 +3,7 @@
 import { defineConfig } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT) || 8543;
+const BETA_PORT = Number(process.env.E2E_BETA_PORT) || 8544; // the TEST version, for tests/e2e/test-version.spec.js
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -18,10 +19,18 @@ export default defineConfig({
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
-  webServer: {
-    command: `go run ./cmd/launch -dev -addr :${PORT}`,
-    url: `http://localhost:${PORT}/healthz`,
-    reuseExistingServer: false,
-    timeout: 180_000,
-  },
+  webServer: [
+    {
+      command: `go run ./cmd/launch -dev -addr :${PORT}`,
+      url: `http://localhost:${PORT}/healthz`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+    },
+    {
+      command: `go run ./cmd/launch -dev -beta -addr :${BETA_PORT}`,
+      url: `http://localhost:${BETA_PORT}/healthz`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+    },
+  ],
 });

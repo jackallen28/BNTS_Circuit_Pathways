@@ -34,6 +34,7 @@ func main() {
 	toolsDir := flag.String("tools", env("TOOLS_DIR", "/opt/circuitpathways"), "folder with the Arduino tools installed by -setup")
 	setup := flag.Bool("setup", false, "install arduino-cli, the board cores and libraries into -tools, then stop (done when the image is built)")
 	warm := flag.Bool("warm", false, "after -setup, compile once for every board so the first student isn't slow")
+	beta := flag.Bool("beta", os.Getenv("BETA") == "1" || strings.EqualFold(os.Getenv("BETA"), "true"), "the TEST version: no class codes or teacher pages, nothing saved (also: BETA=1)")
 	dev := flag.Bool("dev", false, "development: random secrets, a teacher code of 'teacher-code-dev', no board tools needed")
 	piKeys := flag.Int("pi-keys", 0, "make this many Raspberry Pi keys (and an installer for each Pi) with PI_KEY_SECRET, then stop")
 	piRefresh := flag.String("pi-refresh", "", "path to a pi-keys.csv: write new installers for those Pis (same keys), then stop")
@@ -82,6 +83,14 @@ func main() {
 		os.Exit(1)
 	}
 	piSecret := os.Getenv("PI_KEY_SECRET")
+	if *beta {
+		piSecret = "" // the TEST version has no Pi linking
+		if teachers == "" {
+			b := make([]byte, 16)
+			rand.Read(b)
+			teachers = hex.EncodeToString(b) // nobody can sign in as a teacher: the pages are switched off
+		}
+	}
 	if *dev && piSecret == "" {
 		piSecret = devPiKeySecret
 	}
@@ -91,7 +100,7 @@ func main() {
 			log.Error("set PI_KEY_SECRET to a long random text (at least 16 characters)", "err", err)
 			os.Exit(1)
 		}
-	} else {
+	} else if !*beta {
 		log.Warn("PI_KEY_SECRET isn't set: Pi Link is switched off")
 	}
 	tc := classes.ParseTeacherCodes(teachers)
@@ -106,7 +115,7 @@ func main() {
 		}
 		os.Exit(1)
 	}
-	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log}
+	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log, Beta: *beta}
 	if tools, err := arduino.InstalledTools(*toolsDir, log); err == nil {
 		cfg.Compiler = tools
 	} else if *dev {
