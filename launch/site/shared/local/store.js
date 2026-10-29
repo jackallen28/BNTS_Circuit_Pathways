@@ -64,11 +64,11 @@ function idbStore(db) {
 }
 
 /** Opens the browser's store, or a temporary one if the browser won't keep data. */
-export async function openStore() {
+export async function openStore(dbName = DB_NAME) {
   try {
     if (typeof indexedDB === "undefined") return memoryStore();
     const db = await new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, 1);
+      const req = indexedDB.open(dbName, 1);
       req.onupgradeneeded = () => {
         const d = req.result;
         d.createObjectStore("students", { keyPath: "id", autoIncrement: true });

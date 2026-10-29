@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>PiPath runtime (developer page)</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../../img/bnts-mark.svg">
+<link rel="stylesheet" href="../css/pipath.css">
+</head>
+<body class="devpage">
+<h1>PiPath runtime test</h1>
+<p id="state">Starting Python...</p>
+<textarea id="code" rows="10" cols="80" spellcheck="false">from time import sleep
+print("Hello from Python in the browser!")
+name = input("Your name? ")
+print(f"Hi {name}")
+sleep(0.2)</textarea>
+<p><button id="run" disabled>Run</button> <button id="stop">Stop</button></p>
+<pre id="out" aria-label="Output"></pre>
+<pre id="board" aria-label="Board messages"></pre>
+<script type="module" src="runtime.js"></script>
+</body>
+</html>

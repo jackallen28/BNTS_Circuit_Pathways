@@ -47,3 +47,57 @@ def evaluate(checks_json: str, code: str, output: str, crashed: bool, runs: int,
                                 confirmed=None if confirmed is None else set(confirmed),
                                 folder=Path(folder) if folder else None, since=since or None)
     return json.dumps([asdict(r) for r in res])
+
+
+# ---------------------------------------------------------------- the code review and the adaptive coach
+
+def review_code(code: str) -> str:
+    return json.dumps([asdict(t) for t in review.review(code)])
+
+
+_adapter: adapt.Adapter | None = None
+
+
+def _offer(o):
+    return json.dumps(asdict(o) if o else None)
+
+
+def adapt_new(level: str, saved_json: str, enabled: bool, context: str) -> None:
+    global _adapter
+    _adapter = adapt.Adapter(level, json.loads(saved_json) if saved_json else None, enabled, context)
+
+
+def adapt_start(now: float, done: bool) -> None:
+    _adapter.start_step(now, done)
+
+
+def adapt_edit(now: float) -> None:
+    _adapter.on_edit(now)
+
+
+def adapt_hint() -> None:
+    _adapter.on_hint()
+
+
+def adapt_after_run(now: float, passed: bool, error_id: str, failing: str) -> str:
+    return _offer(_adapter.after_run(now, passed, error_id or None, failing or None))
+
+
+def adapt_tick(now: float) -> str:
+    return _offer(_adapter.tick(now))
+
+
+def adapt_hints_early(now: float) -> str:
+    return json.dumps(bool(_adapter.hints_early(now)))
+
+
+def adapt_step_done(now: float) -> str:
+    return _offer(_adapter.step_done(now))
+
+
+def adapt_state() -> str:
+    return json.dumps(_adapter.state())
+
+
+def adapt_set_level(level: str) -> None:
+    _adapter.level = level if level in levels.LEVELS else levels.LEVELS[0]

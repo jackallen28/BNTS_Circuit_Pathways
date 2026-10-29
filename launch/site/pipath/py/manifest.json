@@ -1,0 +1,17 @@
+{
+ "files": [
+  "cpsim/__init__.py",
+  "cpsim/bridge.py",
+  "cpsim/core.py",
+  "cpsim/gpiozero_sim.py",
+  "cpsim/runner.py",
+  "pipath/__init__.py",
+  "pipath/adapt.py",
+  "pipath/content.py",
+  "pipath/hints.py",
+  "pipath/levels.py",
+  "pipath/review.py",
+  "pipath_camera.py",
+  "pipath_computer.py"
+ ]
+}

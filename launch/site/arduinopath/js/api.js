@@ -3,8 +3,8 @@
 // is loaded from the website, and only /api/compile talks to the server,
 // to turn a sketch into a program for the board. The server keeps nothing.
 
-import { createLocalApi, tabSession, LocalError } from "./local/localapi.js";
-import { openStore } from "./local/store.js";
+import { createLocalApi, tabSession, LocalError } from "/shared/local/localapi.js";
+import { openStore } from "/shared/local/store.js";
 import { getAccess, postJSON } from "/shared/access.js";
 
 export class ApiError extends Error {

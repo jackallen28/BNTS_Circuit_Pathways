@@ -48,8 +48,24 @@ def build():
     return {k: json.dumps(v, indent=1, ensure_ascii=False, sort_keys=True) + "\n" for k, v in out.items()}
 
 
+def demo_manifest():
+    """The files lessons copy next to the student's program (site/pipath/data/demo_files)."""
+    base = OUT / "demo_files"
+    files = sorted(str(p.relative_to(base)) for p in base.rglob("*") if p.is_file() and p.name != "manifest.json")
+    return json.dumps({"files": files}, indent=1) + "\n"
+
+
+def py_manifest():
+    """The Python files the browser loads into Pyodide (site/pipath/py)."""
+    base = ROOT / "site" / "pipath" / "py"
+    files = sorted(str(p.relative_to(base)) for p in base.rglob("*.py") if "__pycache__" not in p.parts)
+    return json.dumps({"files": files}, indent=1) + "\n"
+
+
 def main():
     files = build()
+    files["../py/manifest.json"] = py_manifest()
+    files["demo_files/manifest.json"] = demo_manifest()
     if "--check" in sys.argv:
         stale = [k for k, v in files.items() if not (OUT / k).exists() or (OUT / k).read_text() != v]
         if stale:

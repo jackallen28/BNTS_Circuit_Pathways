@@ -4,9 +4,9 @@
 // computer, read and written only in this browser.
 
 import { getAccess, clearAccess, postJSON } from "/shared/access.js";
-import { writeZip, readZip } from "/arduinopath/js/local/zip.js";
-import { readSaveFile } from "/arduinopath/js/local/savefile.js";
-import { joinNames } from "/arduinopath/js/local/validate.js";
+import { writeZip, readZip } from "/shared/local/zip.js";
+import { readSaveFile } from "/shared/local/savefile.js";
+import { joinNames } from "/shared/local/validate.js";
 
 const $ = (s) => document.querySelector(s);
 

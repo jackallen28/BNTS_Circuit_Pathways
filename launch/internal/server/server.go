@@ -125,6 +125,11 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
+		if strings.HasPrefix(r.URL.Path, "/pipath/") {
+			// Python in the browser runs a student's program in a worker that waits for button
+			// presses in shared memory, which the browser only allows on an isolated page.
+			h.Set("Cross-Origin-Embedder-Policy", "require-corp")
+		}
 		// Web Serial (uploading to a board) only on our own pages; nothing else is needed.
 		h.Set("Permissions-Policy", "serial=(self), camera=(), microphone=(), geolocation=(), interest-cohort=()")
 		h.Set("Strict-Transport-Security", "max-age=31536000")

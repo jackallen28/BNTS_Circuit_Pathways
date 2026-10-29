@@ -109,6 +109,8 @@ def run_student(code: str, filename: str, cwd: str, env: dict | None = None, see
     finally:
         try:
             core.close_all()
+        except KeyboardInterrupt:     # a Stop that arrived twice
+            pass
         finally:
             sys.stdout.flush()
             sys.stderr.flush()

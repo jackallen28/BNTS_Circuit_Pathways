@@ -2,11 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
-import { writeZip, readZip, crc32 } from "../../../site/arduinopath/js/local/zip.js";
-import { writeSaveFile, readSaveFile, planImport, saveFileName } from "../../../site/arduinopath/js/local/savefile.js";
-import { createLocalApi, LocalError } from "../../../site/arduinopath/js/local/localapi.js";
-import { memoryStore } from "../../../site/arduinopath/js/local/store.js";
-import { cleanName, cleanNames, cleanSchool, nameKey } from "../../../site/arduinopath/js/local/validate.js";
+import { writeZip, readZip, crc32 } from "../../../site/shared/local/zip.js";
+import { writeSaveFile, readSaveFile, planImport, saveFileName } from "../../../site/shared/local/savefile.js";
+import { createLocalApi, LocalError } from "../../../site/shared/local/localapi.js";
+import { memoryStore } from "../../../site/shared/local/store.js";
+import { cleanName, cleanNames, cleanSchool, nameKey } from "../../../site/shared/local/validate.js";
 
 const dec = new TextDecoder();
 

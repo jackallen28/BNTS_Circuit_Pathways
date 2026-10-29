@@ -7,7 +7,7 @@ import {
   ValidationError, cleanNames, cleanSchool, nameKey, joinNames, validProjectId, validSketch, validProgress,
   defaultSettings, checkSettings, storedSettings,
 } from "./validate.js";
-import { writeSaveFile, readSaveFile, planImport, saveFileName, SaveFileError } from "./savefile.js";
+import { writeSaveFile, readSaveFile, planImport, saveFileName, SaveFileError, FORMAT, OLD_FORMAT } from "./savefile.js";
 import { writeZip } from "./zip.js";
 
 export class LocalError extends Error {
@@ -28,7 +28,11 @@ const SESSION_KEY = "circuitpathways.ap.student";
  * @param {{get(): number|null, set(id: number|null): void}} deps.session  which profile is open in this tab
  * @param {() => number} [deps.now]
  */
-export function createLocalApi({ store, catalogue, session, now = Date.now, version = "web" }) {
+export function createLocalApi({
+  store, catalogue, session, now = Date.now, version = "web",
+  app = { name: "ArduinoPath", format: FORMAT, ext: "circuit", school: SCHOOL, oldFormats: [OLD_FORMAT] },
+  settings: policy = { defaults: defaultSettings, check: checkSettings, stored: storedSettings },
+}) {
   const need = async () => {
     const id = session.get();
     const st = id != null ? await store.getStudent(id) : null;
@@ -39,7 +43,7 @@ export function createLocalApi({ store, catalogue, session, now = Date.now, vers
     return st;
   };
 
-  const meOf = async (st) => ({ student: st, settings: storedSettings(st.settings, await catalogue()) });
+  const meOf = async (st) => ({ student: st, settings: policy.stored(st.settings, await catalogue()) });
 
   const wrapValidation = (fn) => {
     try {
@@ -56,12 +60,13 @@ export function createLocalApi({ store, catalogue, session, now = Date.now, vers
       sketches: await store.listSketches(st.id),
       progress: await store.listProgress(st.id),
       appVersion: version,
+      format: app.format,
     }, now());
-    return { bytes, name: saveFileName(st.names, new Date(now())) };
+    return { bytes, name: saveFileName(st.names, new Date(now()), app.name, app.ext) };
   }
 
   const api = {
-    info: async () => ({ app: "ArduinoPath", version, school: SCHOOL, data_dir: "this browser" }),
+    info: async () => ({ app: app.name, version, school: app.school, data_dir: "this browser" }),
     ping: async () => null,
 
     students: async () => (await store.listStudents())
@@ -76,7 +81,7 @@ export function createLocalApi({ store, catalogue, session, now = Date.now, vers
         throw new LocalError(409, "exists", `There's already a profile for ${joinNames(clean)} from ${sch} in this browser. Is it you? Go back and pick your name.`);
       }
       const t = now();
-      const rec = { names: clean, name_key: key, school: sch, settings: defaultSettings(await catalogue()), created_at: t, last_seen: t };
+      const rec = { names: clean, name_key: key, school: sch, settings: policy.defaults(await catalogue()), created_at: t, last_seen: t };
       rec.id = await store.addStudent(rec);
       session.set(rec.id);
       return meOf(rec);
@@ -103,7 +108,7 @@ export function createLocalApi({ store, catalogue, session, now = Date.now, vers
     async saveSettings(settings) {
       const st = await need();
       const cat = await catalogue();
-      wrapValidation(() => checkSettings(settings, cat));
+      wrapValidation(() => policy.check(settings, cat));
       st.settings = settings;
       await store.putStudent(st);
       return settings;
@@ -155,9 +160,9 @@ export function createLocalApi({ store, catalogue, session, now = Date.now, vers
         const { bytes, name } = await saveFile(st);
         const n = (used.get(name.toLowerCase()) ?? 0) + 1;
         used.set(name.toLowerCase(), n);
-        files.push({ name: n > 1 ? name.replace(/\.circuit$/, `_${n}.circuit`) : name, data: bytes });
+        files.push({ name: n > 1 ? name.replace(new RegExp(`\\.${app.ext}$`), `_${n}.${app.ext}`) : name, data: bytes });
       }
-      return { bytes: writeZip(files, now()), name: `Everyone_ArduinoPath_${new Date(now()).toISOString().slice(0, 10)}.zip` };
+      return { bytes: writeZip(files, now()), name: `Everyone_${app.name}_${new Date(now()).toISOString().slice(0, 10)}.zip` };
     },
 
     async previewImport(file) {
@@ -197,7 +202,7 @@ export function createLocalApi({ store, catalogue, session, now = Date.now, vers
   async function readFile(file) {
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      return await readSaveFile(bytes, now());
+      return await readSaveFile(bytes, now(), { formats: [app.format, ...(app.oldFormats ?? [])], what: app.name });
     } catch (err) {
       if (err instanceof SaveFileError) throw new LocalError(400, err.code, err.message);
       throw err;
@@ -208,18 +213,18 @@ export function createLocalApi({ store, catalogue, session, now = Date.now, vers
 }
 
 /** The profile open in this tab: it survives a reload but not closing the tab. */
-export function tabSession() {
+export function tabSession(key = SESSION_KEY) {
   return {
     get() {
       try {
-        const v = sessionStorage.getItem(SESSION_KEY);
+        const v = sessionStorage.getItem(key);
         return v ? Number(v) : null;
       } catch { return null; }
     },
     set(id) {
       try {
-        if (id == null) sessionStorage.removeItem(SESSION_KEY);
-        else sessionStorage.setItem(SESSION_KEY, String(id));
+        if (id == null) sessionStorage.removeItem(key);
+        else sessionStorage.setItem(key, String(id));
       } catch { /* storage blocked: stays logged in until reload */ }
     },
   };

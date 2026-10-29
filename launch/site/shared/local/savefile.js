@@ -11,7 +11,7 @@
 import { writeZip, readZip, ZipError } from "./zip.js";
 import { validProjectId, validProgress, validSketch } from "./validate.js";
 
-export const FORMAT = "arduinopath-save";
+export const FORMAT = "arduinopath-save"; // ArduinoPath's; PiPath passes its own ("pipath-save")
 export const OLD_FORMAT = "circuit" + "path-save";
 export const VERSION = 1;
 export const MAX_FILE_BYTES = 8 << 20;
@@ -26,9 +26,9 @@ export class SaveFileError extends Error {
 const dec = new TextDecoder();
 
 /** @returns {Uint8Array} */
-export function writeSaveFile({ profile, sketches, progress, appVersion = "web" }, now = Date.now()) {
+export function writeSaveFile({ profile, sketches, progress, appVersion = "web", format = FORMAT }, now = Date.now()) {
   const files = [
-    { name: "manifest.json", data: JSON.stringify({ format: FORMAT, version: VERSION, exported_at: now, app_version: appVersion }, null, 2) + "\n" },
+    { name: "manifest.json", data: JSON.stringify({ format, version: VERSION, exported_at: now, app_version: appVersion }, null, 2) + "\n" },
     { name: "profile.json", data: JSON.stringify({ names: profile.names, school: profile.school, settings: profile.settings }, null, 2) + "\n" },
     { name: "progress.json", data: JSON.stringify(progress ?? [], null, 2) + "\n" },
     { name: "sketches.json", data: JSON.stringify((sketches ?? []).map((s) => ({ project_id: s.project_id, updated_at: s.updated_at })), null, 2) + "\n" },
@@ -37,11 +37,12 @@ export function writeSaveFile({ profile, sketches, progress, appVersion = "web" 
   return writeZip(files, now);
 }
 
-const notSave = () => new SaveFileError("not_save_file", "This file can't be opened. Pick a .circuit file saved by ArduinoPath.");
+const notSaveFile = (what = "ArduinoPath") => new SaveFileError("not_save_file", `This file can't be opened. Pick a save file made by ${what}.`);
 
 /** Reads and checks a save file. */
-export async function readSaveFile(bytes, now = Date.now()) {
-  if (bytes.length > MAX_FILE_BYTES) throw new SaveFileError("too_big", "That file is too big to be an ArduinoPath save file.");
+export async function readSaveFile(bytes, now = Date.now(), { formats = [FORMAT, OLD_FORMAT], what = "ArduinoPath" } = {}) {
+  const notSave = () => notSaveFile(what);
+  if (bytes.length > MAX_FILE_BYTES) throw new SaveFileError("too_big", `That file is too big to be a ${what} save file.`);
   let entries;
   try {
     entries = await readZip(bytes);
@@ -59,8 +60,8 @@ export async function readSaveFile(bytes, now = Date.now()) {
     }
   };
   const manifest = json("manifest.json");
-  if (!manifest || (manifest.format !== FORMAT && manifest.format !== OLD_FORMAT)) throw notSave();
-  if (manifest.version > VERSION) throw new SaveFileError("newer_version", "This file was saved by a newer ArduinoPath. Ask your teacher to update this one.");
+  if (!manifest || !formats.includes(manifest.format)) throw notSave();
+  if (manifest.version > VERSION) throw new SaveFileError("newer_version", `This file was saved by a newer ${what}. Ask your teacher to update this one.`);
   if (!(manifest.version >= 1)) throw notSave();
   const profile = json("profile.json") ?? {};
   const progress = json("progress.json") ?? [];
@@ -109,8 +110,8 @@ export function planImport(file, sketches, progress) {
   });
 }
 
-export function saveFileName(names, now = new Date()) {
+export function saveFileName(names, now = new Date(), app = "ArduinoPath", ext = "circuit") {
   const date = now.toISOString().slice(0, 10);
   const ascii = names.join("-").replace(/[^A-Za-z0-9-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "") || "My";
-  return `${ascii}_ArduinoPath_${date}.circuit`;
+  return `${ascii}_${app}_${date}.${ext}`;
 }

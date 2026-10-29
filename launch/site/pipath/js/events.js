@@ -17,7 +17,7 @@ export function expandEvents(events) {
     const until = untilAt >= 0 ? parseFloat(w[untilAt + 1]) : t;
     const times = [];
     if (!every) times.push(t);
-    else for (let i = 0; i <= Math.floor((until - t) / every + 1e-9); i++) times.push(t + i * every);
+    else for (let i = 0; i <= Math.floor((until - t) / every); i++) times.push(t + i * every);
     for (const x of times) {
       if (action === "tap") {
         out.push({ at: x, cmd: `press ${pin}` }, { at: x + 0.2, cmd: `release ${pin}` });
@@ -26,7 +26,7 @@ export function expandEvents(events) {
       }
     }
   }
-  return out.sort((a, b) => a.at - b.at);
+  return out.sort((a, b) => a.at - b.at || (a.cmd < b.cmd ? -1 : a.cmd > b.cmd ? 1 : 0)); // ties by text, like Python sorts the pairs
 }
 
 /** "press 23" -> {t: "press", pin: 23}; "distance 26 15" -> {t: "distance", pin: 26, cm: 15}; and so on. Null if not understood. */
