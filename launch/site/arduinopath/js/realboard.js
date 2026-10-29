@@ -1,55 +1,97 @@
-// Real boards: compiling and uploading through ArduinoPath.exe / .app (which
-// has the Arduino tools built in), finding the board's port, and the Serial
-// Monitor connection.
+// Real boards, from the browser: the server compiles the code, then this
+// page uploads it over USB with Web Serial (Edge or Chrome), and the Serial
+// Monitor reads the board's port.
 
 import { api } from "./api.js";
+import * as ws from "./webserial.js";
+import { flashAvr } from "./flash/stk500v1.js";
+import { flashEsp } from "./flash/esp.js";
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+export const supported = ws.supported;
+export const NO_SERIAL_MESSAGE = ws.NO_SERIAL_MESSAGE;
 
-/** Which family a board belongs to (for its tools). */
+/** Which family a board belongs to. */
 export function familyOf(board) {
   return board?.family ?? "avr";
 }
 
-/**
- * Runs a compile or upload job and waits for it, calling onUpdate with each
- * new state ({ state, progress, output, result, error }).
- */
-async function runJob(start, onUpdate = () => {}) {
-  const { id } = await start();
-  let last = "";
-  for (;;) {
-    const job = await api.job(id);
-    const key = `${job.state}:${job.progress}:${job.output?.length}`;
-    if (key !== last) {
-      last = key;
-      onUpdate(job);
-    }
-    if (job.state === "done" || job.state === "failed") return job;
-    await sleep(job.state === "uploading" ? 250 : 400);
+/** The boards this site has already been allowed to use (see requestPort). */
+export const listPorts = ws.listPorts;
+
+/** Asks the student to pick their board in the browser's own box. Returns its id, or null if they cancelled. */
+export const requestPort = ws.requestPort;
+
+const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+/** How this board is uploaded: its own settings, or its chosen variant's. */
+export function uploadSettings(board, variant) {
+  const v = variant && (board.variants ?? []).find((x) => x.id === variant);
+  return v?.upload ?? board.upload ?? {};
+}
+
+/** The server's answer in the shape the workspace shows: { state, kind, result, output, error }. */
+function compileJob(res, kind) {
+  const result = { ok: res.ok, output: res.output, errors: res.errors ?? [], size: res.size };
+  return { state: res.ok ? "done" : "failed", kind, result, output: res.output, error: "" };
+}
+
+/** Compiles code for the student's board with the real compiler: the judge. */
+export async function compile(code, board, variant, onUpdate = () => {}) {
+  onUpdate({ state: "compiling", output: "" });
+  const res = await api.compile(code, board.id, variant);
+  const job = compileJob(res, "compile");
+  onUpdate(job);
+  return job;
+}
+
+/** Compiles the code, then uploads it to the board on port (an id from listPorts / requestPort). */
+export async function upload(code, board, variant, port, onUpdate = () => {}) {
+  onUpdate({ state: "compiling", output: "" });
+  const res = await api.compile(code, board.id, variant);
+  if (!res.ok) {
+    const job = compileJob(res, "upload");
+    onUpdate(job);
+    return job;
   }
-}
-
-/** Compiles code for the student's board: the real compiler, the judge. */
-export function compile(code, board, variant, onUpdate) {
-  return runJob(() => api.compile(code, board.id, variant || ""), onUpdate);
-}
-
-/** Compiles and uploads code to the board on port. */
-export function upload(code, board, variant, port, onUpdate) {
-  return runJob(() => api.upload(code, board.id, variant || "", port), onUpdate);
+  const settings = uploadSettings(board, variant);
+  let log = "";
+  const update = (extra = {}) => onUpdate({ state: "uploading", kind: "upload", output: log, progress: 0, ...extra });
+  const onLog = (s) => { log += s; update({ progress: lastPct }); };
+  let lastPct = 0;
+  const onProgress = (pct) => { lastPct = pct; update({ progress: pct }); };
+  try {
+    if (!ws.supported) throw new Error(ws.NO_SERIAL_MESSAGE);
+    update();
+    if (settings.protocol === "stk500v1") {
+      const hex = res.artifacts?.find((a) => a.name.endsWith(".hex"));
+      if (!hex) throw new Error("The compiler didn't make a program for the board.");
+      await flashAvr(port, new TextDecoder().decode(b64(hex.data)), { baud: settings.baud || 115200, onProgress, onLog });
+    } else if (settings.protocol === "esptool") {
+      if (!res.artifacts?.length) throw new Error("The compiler didn't make a program for the board.");
+      await flashEsp(port, res.artifacts.map((a) => ({ data: b64(a.data), offset: a.offset })), { baud: settings.baud, onProgress, onLog });
+    } else {
+      throw new Error("Uploading to this board from the website isn't ready yet. You can still check your code and use the simulator.");
+    }
+  } catch (err) {
+    const message = ws.friendlyError(err);
+    const job = { ...compileJob(res, "upload"), state: "failed", output: log, error: message };
+    onUpdate(job);
+    return job;
+  }
+  const job = { ...compileJob(res, "upload"), progress: 100 };
+  onUpdate(job);
+  return job;
 }
 
 /**
- * Is this a USB port (a board), not one built into the computer (a Pi's
- * /dev/ttyAMA0, a PC's COM1, a Mac's Bluetooth port)? Built-in ports have
- * no USB ids.
+ * Is this a USB port (a board)? Browsers only ever list ports the student
+ * chose, so these are all boards.
  */
 export function isUsb(p) {
   return Boolean(p?.vid);
 }
 
-/** USB ports first, then the computer's built-in ones. */
+/** USB ports first. */
 export function sortPorts(ports) {
   return [...ports].sort((a, b) => Number(isUsb(b)) - Number(isUsb(a)));
 }
@@ -71,7 +113,7 @@ const PORT_KEY = "arduinopath.port";
 /** The port the student used last (shared by the workspace and the Wiring Wizard). */
 export function rememberedPort() {
   try {
-    return localStorage.getItem(PORT_KEY);
+    return sessionStorage.getItem(PORT_KEY);
   } catch {
     return null;
   }
@@ -79,11 +121,11 @@ export function rememberedPort() {
 
 export function rememberPort(port) {
   try {
-    localStorage.setItem(PORT_KEY, port);
-  } catch { /* private window */ }
+    sessionStorage.setItem(PORT_KEY, port);
+  } catch { /* storage blocked */ }
 }
 
-/** A friendly name for a port: "COM3 (CH340: most clone boards)". */
+/** A friendly name for a port: "CH340: most clone boards". */
 export function portLabel(p) {
   const chips = {
     CH340: "CH340: most clone boards",
@@ -93,8 +135,8 @@ export function portLabel(p) {
     "ESP32 USB": "ESP32 USB",
   };
   const what = p.board || chips[p.chip];
-  if (!isUsb(p)) return `${p.port} (built into this computer: not your board)`;
-  return what ? `${p.port} (${what})` : p.port;
+  const name = p.vid ? `USB board ${p.vid}:${p.pid}` : "Serial port";
+  return what ? `${name} (${what})` : name;
 }
 
 /**
@@ -106,46 +148,42 @@ export function portLabel(p) {
  * disappear and come back), so it tries again for a few seconds
  * (retryMs) before giving up.
  */
-export function openSerial(port, baud, { onData, onOpen = () => {}, onClose = () => {}, retryMs = 0 } = {}) {
+export function openSerial(portId, baud, { onData, onOpen = () => {}, onClose = () => {}, retryMs = 0 } = {}) {
   const giveUpAt = Date.now() + retryMs;
-  let es = null;
+  let pump = null;
   let closed = false;
-  let opened = false;
-  let timer = 0;
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
   const finish = (reason) => {
     if (closed) return;
     closed = true;
-    clearTimeout(timer);
-    if (es) es.close();
+    pump?.close();
     onClose(reason);
   };
-  function connect() {
-    es = new EventSource(`/api/serial?port=${encodeURIComponent(port)}&baud=${baud}`);
-    es.addEventListener("open", () => {
-      opened = true;
-      onOpen();
-    });
-    es.addEventListener("data", (e) => onData(JSON.parse(e.data)));
-    es.addEventListener("closed", (e) => finish(JSON.parse(e.data) || "The Serial Monitor closed."));
-    es.onerror = () => {
-      // The server refuses busy or missing ports before the stream starts.
-      if (es.readyState !== EventSource.CLOSED && es.readyState !== EventSource.CONNECTING) return;
-      es.close();
-      if (!opened && !closed && Date.now() < giveUpAt) {
-        timer = setTimeout(connect, 700);
+  (async () => {
+    for (;;) {
+      if (closed) return;
+      try {
+        pump = new ws.Pump(ws.getPort(portId));
+        await pump.open(baud);
+        break;
+      } catch (err) {
+        pump = null;
+        if (Date.now() < giveUpAt) { await ws.sleep(700); continue; }
+        finish(ws.friendlyError(err));
         return;
       }
-      finish(opened
-        ? "Your board was unplugged, or the connection stopped. Plug it back in, then press Upload again."
-        : "ArduinoPath couldn't open the port. Is another program (like the Arduino IDE) using it?");
-    };
-  }
-  connect();
+    }
+    if (closed) { pump.close(); return; }
+    pump.onBytes = (bytes) => onData(decoder.decode(bytes, { stream: true }));
+    pump.onEnd = (reason) => finish(reason || "Your board was unplugged, or the connection stopped. Plug it back in, then press Upload again.");
+    onOpen();
+  })();
   return {
-    write: (text) => api.serialWrite(port, text),
-    close: () => {
-      if (!closed) api.serialClose(port).catch(() => {});
-      finish("");
+    write: async (text) => {
+      if (!pump) throw new Error("The Serial Monitor isn't connected yet.");
+      await pump.write(encoder.encode(text));
     },
+    close: () => finish(""),
   };
 }

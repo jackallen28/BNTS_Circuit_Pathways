@@ -647,18 +647,47 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
   let ports = [];
   async function refreshPorts() {
     try {
-      ports = await api.ports();
+      ports = await realboard.listPorts();
     } catch {
       ports = [];
     }
     ports = realboard.sortPorts(ports);
     const guess = realboard.guessPort(ports, board(), portSelect.value || realboard.rememberedPort());
     portSelect.replaceChildren(
-      h("option", { value: "", text: ports.length ? "Pick your board's port" : "Plug in your board..." }),
-      ports.map((p) => h("option", { value: p.port, text: realboard.portLabel(p), selected: p.port === guess || null })));
+      h("option", { value: "", text: ports.length ? "Pick your board" : "No board chosen yet" }),
+      ports.map((p) => h("option", { value: p.port, text: realboard.portLabel(p), selected: p.port === guess || null })),
+      h("option", { value: CONNECT, text: "Choose a board..." }));
+  }
+  const CONNECT = "__connect__";
+  /** Opens the browser's own box for picking the board's USB port. */
+  async function connectBoard() {
+    if (!realboard.supported) {
+      await messageBox({ kind: "info", instruction: "Use Chrome or Edge to upload", text: realboard.NO_SERIAL_MESSAGE });
+      return null;
+    }
+    let id;
+    try {
+      id = await realboard.requestPort();
+    } catch (err) {
+      await messageBox({ kind: "error", instruction: "The board couldn't be chosen.", text: err.message });
+      return null;
+    }
+    await refreshPorts();
+    if (id) {
+      portSelect.value = id;
+      realboard.rememberPort(id);
+    }
+    return id;
   }
   portSelect.addEventListener("focus", refreshPorts);
-  portSelect.addEventListener("change", () => realboard.rememberPort(portSelect.value));
+  portSelect.addEventListener("change", async () => {
+    if (portSelect.value === CONNECT) {
+      portSelect.value = "";
+      await connectBoard();
+      return;
+    }
+    realboard.rememberPort(portSelect.value);
+  });
 
   function setBusy(on) {
     [uploadBtn, checkBtn].forEach((b) => { b.disabled = on; });
@@ -669,7 +698,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     const b = board();
     const con = ensureRunPanel().console;
     con.showOutput();
-    con.setOutput(`Checking your code for ${b.name}...\n(The first time, the tools for your board are unpacked. This can take a minute.)\n`);
+    con.setOutput(`Checking your code for ${b.name}...\n(The compiler is on the Circuit Pathways website. The first check of the day can take a minute.)\n`);
     setBusy(true);
     try {
       const job = await realboard.compile(code(), b, state.me.settings.board_variant, (j) => con.setOutput(jobText(j)));
@@ -685,16 +714,17 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     if (!editor || blanksClue()) return;
     const b = board();
     await refreshPorts();
-    const port = portSelect.value || realboard.guessPort(ports, b, realboard.rememberedPort());
+    let port = portSelect.value && portSelect.value !== CONNECT ? portSelect.value : realboard.guessPort(ports, b, realboard.rememberedPort());
     if (!port) {
-      await messageBox({
-        kind: "info",
-        instruction: ports.some(realboard.isUsb) ? "Which port is your board on?" : "Plug in your board",
-        text: ports.some(realboard.isUsb)
-          ? "Pick your board's port from the list next to Upload, then press Upload again."
-          : ["ArduinoPath can't see a board yet.", "Plug it in with a USB cable that can send data (some only charge), then press Upload again."],
-      });
-      return;
+      if (realboard.supported) {
+        await messageBox({
+          kind: "info",
+          instruction: "Choose your board",
+          text: ["Plug your board in with a USB cable that can send data (some only charge).", "Press OK, then pick your board in the box your browser shows."],
+        });
+      }
+      port = await connectBoard();
+      if (!port) return;
     }
     stopRun();
     closeBoardSerial();

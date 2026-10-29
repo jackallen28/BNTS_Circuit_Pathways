@@ -1,6 +1,6 @@
 // The welcome screen, in the style of Vista's welcome screen: pick your name,
 // or make a profile (first names and school). ArduinoPath runs on this
-// laptop, so there's no password. "Wipe this laptop" opens the WIPE page.
+// laptop, so there's no password. "Wipe this browser" opens the WIPE page.
 
 import { api } from "../api.js";
 import { h, icon, joinNames, clear, fill } from "../dom.js";
@@ -18,7 +18,7 @@ export function loginScreen(root, { onLoggedIn, openWipe }) {
     stage,
     h("footer", { class: "logon-footer" },
       h("button", { class: "logon-link", type: "button", onclick: showAbout }, icon("about"), " About ArduinoPath"),
-      h("button", { class: "logon-link", type: "button", onclick: openWipe }, icon("warn"), " Wipe this laptop")),
+      h("button", { class: "logon-link", type: "button", onclick: openWipe }, icon("warn"), " Wipe this browser")),
     h("img", { class: "bnts-pixels", src: "img/bnts-pixels.svg", alt: "" }));
   clear(root).append(screen);
 

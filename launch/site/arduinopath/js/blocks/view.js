@@ -28,10 +28,10 @@ export function loadBlockly() {
   if (!loading) {
     loading = (async () => {
       if (!document.querySelector("link[data-blockly]")) {
-        document.head.append(h("link", { rel: "stylesheet", href: "/vendor/blockly/blockly.css", "data-blockly": "" }));
+        document.head.append(h("link", { rel: "stylesheet", href: "vendor/blockly/blockly.css", "data-blockly": "" }));
       }
-      await script("/vendor/blockly/blockly.min.js");
-      await script("/vendor/blockly/en.js");
+      await script("vendor/blockly/blockly.min.js");
+      await script("vendor/blockly/en.js");
       const Blockly = globalThis.Blockly;
       // The renderer's CSS is in blockly.css already: don't add a <style> (the CSP refuses it).
       Blockly.blockRendering.ConstantProvider.prototype.injectCSS_ = () => {};
@@ -95,7 +95,7 @@ export async function blocksView({ project = null, board = null, onChange = () =
       renderer: "zelos",
       theme,
       css: false, // the CSS is ui/vendor/blockly/blockly.css (ArduinoPath's CSP allows no inline styles)
-      media: "/vendor/blockly/media/",
+      media: "vendor/blockly/media/",
       sounds: false,
       trashcan: true,
       zoom: { controls: true, wheel: false, startScale: 0.8, maxScale: 2, minScale: 0.4 },

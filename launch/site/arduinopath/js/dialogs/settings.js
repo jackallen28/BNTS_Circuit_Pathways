@@ -1,7 +1,7 @@
 // Settings: how much help, which board, nudges; Save my work / Open my
 // work; Curriculum; About. Students can open it from every screen.
 
-import { api, request } from "../api.js";
+import { api } from "../api.js";
 import { h, icon, joinNames, download } from "../dom.js";
 import { openDialog, messageBox } from "../widgets/window.js";
 import { aboutContent } from "./about.js";
@@ -153,12 +153,8 @@ export function openSettings({ tab = "me", onSaved = () => {}, projectId = null 
 /** Save my work: downloads <Name>_ArduinoPath_<date>.circuit. */
 export async function saveMyWork() {
   try {
-    const res = await request("GET", api.exportUrl, undefined, { raw: true });
-    const cd = res.headers.get("Content-Disposition") || "";
-    const utf = /filename\*=UTF-8''([^;]+)/.exec(cd);
-    const ascii = /filename="([^"]+)"/.exec(cd);
-    const name = utf ? decodeURIComponent(utf[1]) : ascii ? ascii[1] : "My_ArduinoPath.circuit";
-    download(await res.blob(), name);
+    const { bytes, name } = await api.exportMyWork();
+    download(new Blob([bytes], { type: "application/zip" }), name);
   } catch (err) {
     if (err.code !== "logged_out") messageBox({ kind: "error", instruction: "Your work couldn't be saved to a file.", text: err.message });
   }

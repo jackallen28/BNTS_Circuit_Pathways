@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teacher page - Circuit Pathways</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../img/bnts-mark.svg">
+<link rel="stylesheet" href="../css/site.css">
+<link rel="stylesheet" href="../css/launch.css">
+<link rel="stylesheet" href="teacher.css">
+</head>
+<body data-view="teacher">
+<a class="skip" href="#main">Skip to the content</a>
+<div class="sky" aria-hidden="true"></div>
+
+<header class="tbar">
+  <a class="brand" href="../"><img src="../img/bnts-mark.svg" alt=""><span>Circuit Pathways</span></a>
+  <span class="tbar-title">Teacher page</span>
+  <button type="button" class="btn btn-plain" id="signout">Sign out</button>
+</header>
+
+<main id="main" class="tmain">
+  <section class="tcard" aria-labelledby="h-code">
+    <h2 id="h-code">1. Make a class code</h2>
+    <p>Give this code to your students. They type it on the Circuit Pathways home page, then use their own first name and school. Nothing about your class is kept on our server: the code works because of how it is made.</p>
+    <div class="trow">
+      <label>How long should it work?
+        <select id="days">
+          <option value="1">Today</option>
+          <option value="7">1 week</option>
+          <option value="28">4 weeks</option>
+          <option value="70" selected>1 term (10 weeks)</option>
+          <option value="180">Half a year</option>
+          <option value="365">1 year</option>
+        </select>
+      </label>
+      <button type="button" class="btn" id="make">Make a class code ▸</button>
+    </div>
+    <div class="code-box" id="code-box" hidden>
+      <div class="code" id="code" aria-live="polite"></div>
+      <div class="code-note" id="code-note"></div>
+      <button type="button" class="btn btn-plain" id="copy">Copy the code</button>
+    </div>
+    <p class="note" id="make-note" role="status"></p>
+    <p class="small">A class code can't be switched off early, so pick a length that suits the program. Make a new one any time.</p>
+  </section>
+
+  <section class="tcard" aria-labelledby="h-file">
+    <h2 id="h-file">2. Class file and student work</h2>
+    <p>A class file (<b>.circuitclass</b>) is saved on your computer, never on our server. It holds the class details and any student work you add, so you can open the class again later.</p>
+    <div class="trow">
+      <label>Class name <input id="label" maxlength="60" placeholder="e.g. Year 8 Robotics, Term 4"></label>
+      <button type="button" class="btn" id="save-class">Save class file ▸</button>
+      <label class="btn btn-plain filebtn">Open class file <input type="file" id="open-class" accept=".circuitclass,.zip" hidden></label>
+    </div>
+    <h3>Student work</h3>
+    <p>Students save their own work with <b>Settings &gt; Save my work</b> and give you the <b>.circuit</b> files. Add them here to see who has done what.</p>
+    <div class="trow">
+      <label class="btn filebtn">Add student files <input type="file" id="add-files" accept=".circuit,.zip" multiple hidden></label>
+      <button type="button" class="btn btn-plain" id="save-all" disabled>Download all student work (.zip)</button>
+    </div>
+    <p class="note" id="file-note" role="status"></p>
+    <div class="twrap"><table class="ttable" id="students" hidden>
+      <thead><tr><th>First name(s)</th><th>School</th><th>Projects</th><th>Last saved</th><th><span class="sr">Remove</span></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="small privacy">Student names and schools are only ever read here, in your browser, from files you choose. They are not sent anywhere.</p>
+  </section>
+
+  <section class="tcard" aria-labelledby="h-go">
+    <h2 id="h-go">3. Try it yourself</h2>
+    <p>Your teacher sign-in works in both apps without a class code.</p>
+    <div class="session-actions"><a class="btn" href="../arduinopath/">Open ArduinoPath ▸</a><a class="btn" href="../pipath/">Open PiPath ▸</a></div>
+  </section>
+</main>
+<script type="module" src="teacher.js"></script>
+</body>
+</html>

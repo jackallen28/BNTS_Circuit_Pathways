@@ -16,3 +16,15 @@
 .session .note { min-height: 1.4em; font-size: 14px; }
 .session .privacy { margin-top: 18px; }
 @media (max-width: 720px) { .session-grid { grid-template-columns: 1fr; } }
+.session-msg { margin: 0 auto 18px; max-width: 560px; padding: 12px 16px; border-radius: 12px; background: rgba(255,213,74,.16); border: 1px solid rgba(255,213,74,.5); }
+.session-in { margin: 0 auto 22px; max-width: 720px; padding: 18px 20px; border-radius: 18px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.07); }
+.session-in p { margin: 0 0 12px; font-size: 18px; }
+.session-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.session .btn, .btn { display: inline-block; text-decoration: none; }
+.btn-plain { background: none !important; border: 1px solid rgba(255,255,255,.4) !important; }
+.note.bad { color: #ffb4a8; }
+.note.good { color: #9ff0c0; }
+[hidden] { display: none !important; }
+.soon { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; position: relative; z-index: 1; }
+.soon .w95 { max-width: 640px; }
+.soon .w95-body p { margin: 0 0 12px; }

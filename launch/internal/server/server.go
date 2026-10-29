@@ -103,7 +103,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		h := w.Header()
-		h.Set("Content-Security-Policy", csp)
+		h.Set("Content-Security-Policy", cspFor(r.URL.Path))
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "SAMEORIGIN")
 		h.Set("Referrer-Policy", "no-referrer")
@@ -135,10 +135,19 @@ func (s *Server) guard(next http.Handler) http.Handler {
 	})
 }
 
-// csp is strict: everything from our own address, nothing from anywhere else.
-const csp = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; " +
-	"worker-src 'self' blob:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"
+// The apps run under a strict policy: everything from our own address, no
+// inline styles or scripts, nothing from anywhere else. Only the home page
+// and teacher page need inline styles (the spinning logo is drawn with them).
+const cspBase = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' data: blob:; media-src 'self' blob:; " +
+	"font-src 'self'; connect-src 'self'; worker-src 'self' blob:; frame-src 'self'; frame-ancestors 'self'; " +
+	"object-src 'none'; base-uri 'none'; form-action 'self'"
+
+func cspFor(path string) string {
+	if strings.HasPrefix(path, "/arduinopath/") || strings.HasPrefix(path, "/pipath/") {
+		return cspBase + "; style-src 'self'"
+	}
+	return cspBase + "; style-src 'self' 'unsafe-inline'"
+}
 
 func hostOnly(h string) string {
 	if i := strings.LastIndex(h, ":"); i > 0 && !strings.Contains(h[i:], "]") {

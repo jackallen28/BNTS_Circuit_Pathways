@@ -53,11 +53,21 @@
   <div class="session reveal" id="session">
     <p class="eyebrow">Classes</p>
     <h2>Join a class, or start one</h2>
-    <div class="session-grid">
+    <p class="session-msg" id="need-class" role="status" hidden>Please join a class first. Type the class code your teacher gave you below.</p>
+    <div class="session-in" id="session-in" hidden>
+      <p id="session-in-text"></p>
+      <div class="session-actions">
+        <a class="btn" href="arduinopath/">Open ArduinoPath ▸</a>
+        <a class="btn" href="pipath/">Open PiPath ▸</a>
+        <a class="btn btn-alt" id="teacher-link" href="teacher/" hidden>Teacher page ▸</a>
+        <button type="button" class="btn btn-plain" id="leave">Leave this class</button>
+      </div>
+    </div>
+    <div class="session-grid" id="session-forms">
       <form class="card" id="join-form" autocomplete="off">
         <h3>Students: join with a code</h3>
         <p>Your teacher gives you a class code. Then it's just your first name and your school.</p>
-        <label>Class code <input name="code" inputmode="latin" autocapitalize="characters" maxlength="12" placeholder="ABCD-2345" required></label>
+        <label>Class code <input name="code" autocapitalize="characters" spellcheck="false" maxlength="14" placeholder="ABCDE-FGHJK" required></label>
         <button type="submit" class="btn">Join class ▸</button>
         <p class="note" role="status" aria-live="polite"></p>
       </form>
@@ -106,6 +116,6 @@
   <img src="img/bnts-mark.svg" alt="">
   <p class="small">Part and board pictures come from the Fritzing parts library (CC BY-SA 3.0).</p>
 </footer>
-<script src="js/home.js"></script>
+<script type="module" src="js/home.js"></script>
 </body>
 </html>

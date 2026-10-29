@@ -18,7 +18,7 @@ import { fillWiringText } from "./circuit/wiring-text.js";
 import { createRunPanel } from "./widgets/runpanel.js";
 import { testSketch, TEST_BAUD } from "./wiring-test.js";
 import { TestRows, FIXES, wizardPages } from "./wizard-rows.js";
-import { upload, openSerial, guessPort, portLabel, sortPorts, rememberedPort, rememberPort } from "./realboard.js";
+import { upload, openSerial, guessPort, portLabel, sortPorts, rememberedPort, rememberPort, listPorts, requestPort, supported as serialSupported, NO_SERIAL_MESSAGE } from "./realboard.js";
 import { explain } from "./coach.js";
 import { state } from "./state.js";
 
@@ -188,11 +188,11 @@ export function openWiringWizard({ project, board, pins, onDone = () => {}, onCl
     const test = h("button", { class: "btn default", type: "button" }, "Test");
     const portSel = h("select", { class: "input", "aria-label": "USB port" });
     const portRow = h("label", { class: "wiz-port", hidden: mode !== "real" }, "Port: ", portSel,
-      h("button", { class: "btn small", type: "button", onclick: () => findPorts() }, "Look again"));
+      h("button", { class: "btn small", type: "button", onclick: () => chooseBoard() }, "Choose my board"));
     const modeRadio = (value, label) => h("label", {}, h("input", { type: "radio", name: "wiz-mode", value, checked: mode === value,
       onchange: () => { stopTest(); mode = value; renderTest(); } }), ` ${label}`);
     const side = mode === "sim" ? rp.el : h("div", { class: "wiz-real" },
-      h("p", { text: `Plug your ${board.short || board.name} into the laptop with its USB cable, choose its port, then press Test. ` +
+      h("p", { text: `Plug your ${board.short || board.name} into the computer with its USB cable, press Choose my board and pick it in the box your browser shows, then press Test. ` +
         "ArduinoPath puts a test program on the board and listens to it." }), portRow);
     if (mode === "sim") rp.ready.then(() => { if (!rows) buildRows(); drawRows(); });
     page.replaceChildren(
@@ -207,12 +207,22 @@ export function openWiringWizard({ project, board, pins, onDone = () => {}, onCl
 
     async function findPorts() {
       try {
-        const ports = await api.ports();
-        const list = sortPorts(Array.isArray(ports) ? ports : ports?.ports || []);
+        const list = sortPorts(await listPorts());
         portSel.replaceChildren(...list.map((p) => new Option(portLabel(p), p.port)));
         const g = guessPort(list, board, rememberedPort());
         if (g) portSel.value = g;
-        status.textContent = list.length ? "" : "No board found. Plug it in, then press Look again.";
+        status.textContent = !serialSupported ? NO_SERIAL_MESSAGE : list.length ? "" : "No board chosen yet. Plug it in, then press Choose my board.";
+      } catch (e) {
+        status.textContent = e.message;
+      }
+    }
+
+    /** Opens the browser's own box for picking the board's USB port. */
+    async function chooseBoard() {
+      try {
+        const id = await requestPort();
+        await findPorts();
+        if (id) portSel.value = id;
       } catch (e) {
         status.textContent = e.message;
       }
@@ -271,8 +281,17 @@ export function openWiringWizard({ project, board, pins, onDone = () => {}, onCl
         testRunning = false;
         return;
       }
-      const port = portSel.value;
-      if (!port) { status.textContent = "Choose your board's USB port first."; testRunning = false; drawRows(); return; }
+      let port = portSel.value;
+      if (!port && serialSupported) {
+        try {
+          port = await requestPort(); // the Test button press lets the browser show its box
+          await findPorts();
+          if (port) portSel.value = port;
+        } catch (e) {
+          status.textContent = e.message;
+        }
+      }
+      if (!port) { status.textContent = serialSupported ? "Choose your board first." : NO_SERIAL_MESSAGE; testRunning = false; drawRows(); return; }
       rememberPort(port);
       status.className = "wiz-status";
       status.textContent = "Getting the test program ready…";

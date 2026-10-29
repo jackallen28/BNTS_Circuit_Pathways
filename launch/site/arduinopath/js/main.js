@@ -1,7 +1,8 @@
 // ArduinoPath's web app: starts up, then shows the right screen for the
 // address (#/projects, #/project/<id>, #/freeplay, #/wipe...).
 
-import { api, onLoggedOut } from "./api.js";
+import { api, onLoggedOut, storageIsTemporary } from "./api.js";
+import { getAccess } from "/shared/access.js";
 import { h, clear, loadSprites } from "./dom.js";
 import { state } from "./state.js";
 import { messageBox } from "./widgets/window.js";
@@ -104,6 +105,11 @@ onLoggedOut(() => {
 
 async function start() {
   await loadSprites(["img/icons.svg"]);
+  if (!getAccess()) {
+    // ArduinoPath is for classes: it needs a class code (or a teacher sign-in) from the home page.
+    location.replace("/?need=class");
+    return;
+  }
   try {
     [state.info, state.catalogue] = await Promise.all([api.info(), api.catalogue()]);
   } catch (err) {
@@ -121,9 +127,14 @@ async function start() {
   }
   window.addEventListener("hashchange", route);
   route();
-  // ArduinoPath.exe closes itself a while after the last window closes;
-  // this tells it a window is still open.
-  setInterval(() => api.ping().catch(() => {}), 60_000);
+  if (await storageIsTemporary()) {
+    messageBox({
+      kind: "info",
+      instruction: "Your browser isn't keeping your work",
+      text: ["This browser window can't save your work between visits (a private window does this).",
+        "Use Settings > Save my work before you close it, or open Circuit Pathways in a normal window."],
+    });
+  }
 }
 
 start();

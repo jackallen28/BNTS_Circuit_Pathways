@@ -1,0 +1,13 @@
+{
+  "name": "circuitpathways-launch-dev",
+  "private": true,
+  "description": "Development-only tooling (tests) for the Circuit Pathways website. Nothing here is needed to run the site.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/js/**/*.test.js\"",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
