@@ -178,3 +178,10 @@ test("if PiPath's main file can't load, the page says so instead of staying blan
   await expect(page.getByRole("heading", { name: "PiPath didn't start" })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("pre")).toContainText("main.js");
 });
+
+test("the start-up message names the file that went wrong", async ({ page }) => {
+  await page.route("**/pipath/js/state.js", (route) => route.fulfill({ status: 404, contentType: "text/plain", body: "nope" }));
+  await page.goto("/pipath/");
+  await expect(page.getByRole("heading", { name: "PiPath didn't start" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("pre")).toContainText("/pipath/js/state.js -> 404", { timeout: 15_000 });
+});

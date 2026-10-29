@@ -11,6 +11,34 @@
   }, true);
   window.addEventListener("unhandledrejection", function (e) { note((e.reason && e.reason.message) || e.reason || "An error happened"); });
 
+  // Fetches main.js and every file it imports, and lists the ones that didn't come back as JavaScript.
+  function probe() {
+    var seen = {}, lines = [], queue = ["/pipath/js/main.js"], count = 0;
+    function next() {
+      if (!queue.length || count > 60) return Promise.resolve(lines);
+      var url = queue.shift();
+      if (seen[url]) return next();
+      seen[url] = true;
+      count++;
+      return fetch(url, { credentials: "omit", cache: "no-store" }).then(function (r) {
+        var type = r.headers.get("content-type") || "";
+        if (!r.ok || !/javascript/i.test(type)) { lines.push(url + " -> " + r.status + " " + type); return null; }
+        return r.text();
+      }).then(function (text) {
+        if (text) {
+          var re = /(?:import|export)[^'"\n;]*?from\s*["']([^"']+)["']|import\s*["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g, m;
+          while ((m = re.exec(text))) {
+            var spec = m[1] || m[2] || m[3];
+            if (spec.charAt(0) === "/") queue.push(spec);
+            else if (spec.charAt(0) === ".") queue.push(new URL(spec, location.origin + url).pathname);
+          }
+        }
+        return next();
+      }, function (e) { lines.push(url + " -> could not be fetched (" + (e && e.message) + ")"); return next(); });
+    }
+    return next();
+  }
+
   setTimeout(function () {
     var app = document.getElementById("app");
     if (!app || app.childNodes.length) return;
@@ -33,9 +61,12 @@
     });
     var tech = document.createElement("pre");
     tech.style.cssText = "margin:10px 0 0;padding:8px;background:#fff;border:2px inset #fff;white-space:pre-wrap;font:12px/1.4 Consolas,monospace";
-    tech.textContent = "For the helper:\n" + (problems.length ? problems.join("\n") : "(no error was seen)") +
-      "\nsecure=" + window.isSecureContext + " isolated=" + window.crossOriginIsolated + " " + location.protocol + "//" + location.host;
+    var base = "For the helper:\n" + (problems.length ? problems.join("\n") : "(no error was seen)") +
+      "\nsecure=" + window.isSecureContext + " isolated=" + window.crossOriginIsolated + " " + location.protocol + "//" + location.host +
+      "\n" + navigator.userAgent;
+    tech.textContent = base + "\nChecking PiPath's files...";
     box.append(tech);
     app.append(box);
+    probe().then(function (lines) { tech.textContent = base + "\n" + (lines.length ? lines.join("\n") : "All of PiPath's files loaded when checked."); });
   }, 8000);
 })();
