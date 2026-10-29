@@ -6,12 +6,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { getEngine, readData } from "./engine.js";
+import { NOT_IN_BROWSER } from "../../../site/pipath/js/progress.js";
 
 const DEMO_FILES = new URL("../../../site/pipath/data/demo_files/", import.meta.url).pathname;
 
 const catalog = readData("catalog.json");
 // Activities that need a screen window the browser can't give (turtle) are listed in the app as "Pi only".
-const SKIP = new Set(JSON.parse(readFileSync(new URL("./unsupported.json", import.meta.url))));
+const SKIP = new Set(Object.keys(NOT_IN_BROWSER));
 
 /** A lesson's demo_files ("c2/examples.json", "p3/party") copied next to the program, like PiPath does. */
 function demoFiles(rels) {

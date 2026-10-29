@@ -18,3 +18,10 @@ services:
       # One or more teacher codes, separated by commas, each at least 8 characters.
       - key: TEACHER_CODES
         sync: false
+      # Signs the keys of your Raspberry Pis (Pi Link). Keep the same value for as long as Pis
+      # in the field use their keys. Made by you once (see launch/LAUNCH.md).
+      - key: PI_KEY_SECRET
+        sync: false
+      # Optional: IDs of Pi keys to switch off (lost or stolen Pis), separated by commas.
+      - key: REVOKED_PI_IDS
+        sync: false

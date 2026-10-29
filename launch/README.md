@@ -11,8 +11,13 @@ what is deployed. The earlier app and its docs are in `../development/`.
   flashes (STK500v1 for Uno/Nano, esptool-js for ESP boards).
 - **Teacher page** (`site/teacher/`): make a class code; save and open `.circuitclass` class files
   with students' work, all on the teacher's computer.
-- **PiPath** (`site/pipath/`): coming soon. **Pi Link prototype** (`site/pipath/remote/`): control a
-  real Raspberry Pi's pins from the browser (see `pi-bridge/README.md`).
+- **PiPath** (`site/pipath/`): Python in the browser (Pyodide) with an on-screen Raspberry Pi: 24 of the 25
+  activities, PiPath's own Coach, hints, adaptive nudges and code review (its Python engine runs unchanged).
+  `content-pipath/` holds the lessons as TOML; `tools/build_pipath_data.py` makes the JSON the site loads.
+- **Pi Link** (`site/pipath/remote/`, `pi-bridge/`): control a real Raspberry Pi's pins from the browser. Each Pi has
+  its own signed key and an installer that starts Pi Link at boot.
+
+**To launch: read [LAUNCH.md](LAUNCH.md).**
 
 ## What the server does and doesn't do
 
@@ -50,8 +55,9 @@ request and never logged. Logs hold the method, path, status code and time, and 
 ```
 go run ./cmd/launch -dev                 # http://localhost:8080  (teacher code: teacher-code-dev; no compilers)
 go test -race ./...                      # server, class codes, Pi relay, content
-python3 -m unittest discover pi-bridge   # the Pi Link app (no Pi needed)
-npm ci && npm test                       # simulator, wizard, save files, upload to a pretend board
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover pi-bridge   # the Pi Link app (no Pi needed)
+npm ci && npm test                       # ArduinoPath simulator and wizard, save files, upload to a pretend board,
+                                         # and PiPath: every activity's model answer in real Pyodide
 npm run e2e                              # the whole site in Chromium (set CHROMIUM_PATH if needed)
 go run ./cmd/launch -setup -warm -tools ~/tools    # install the real compilers (needs the internet)
 CIRCUITPATHWAYS_TOOLS=~/tools go test -run TestCompileEveryBoardForReal ./internal/arduino

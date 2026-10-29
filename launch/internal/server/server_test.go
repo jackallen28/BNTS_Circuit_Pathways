@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -239,4 +240,54 @@ func TestStaticFilesAreRevalidatedWithETags(t *testing.T) {
 	if w.Code != http.StatusNotModified {
 		t.Fatalf("an unchanged file should be a 304, got %d", w.Code)
 	}
+}
+
+// The real, embedded website: the files PiPath needs to run Python in the browser are there and are served
+// the way the browser requires.
+func TestRealSiteServesPythonForTheBrowser(t *testing.T) {
+	cat, problems := content.Load(launch.Content())
+	if len(problems) > 0 {
+		t.Fatal(problems[0])
+	}
+	signer, _ := classes.New("test-secret-0123456789")
+	s := New(Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234")})
+	for path, wantType := range map[string]string{
+		"/pipath/": "text/html",
+		"/pipath/vendor/pyodide/pyodide.asm.wasm":  "application/wasm",
+		"/pipath/vendor/pyodide/pyodide.mjs":       "text/javascript",
+		"/pipath/vendor/pyodide/python_stdlib.zip": "application/zip",
+		"/pipath/js/runtime/worker.js":             "text/javascript",
+		"/pipath/py/cpsim/gpiozero_sim.py":         "",
+		"/pipath/py/manifest.json":                 "application/json",
+		"/pipath/data/lessons/s1_hello.json":       "application/json",
+		"/pipath/data/catalog.json":                "application/json",
+		"/arduinopath/vendor/esptool-js/bundle.js": "text/javascript",
+		"/shared/local/localapi.js":                "text/javascript",
+	} {
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		if w.Code != 200 {
+			t.Errorf("%s: %d", path, w.Code)
+			continue
+		}
+		if ct := w.Header().Get("Content-Type"); wantType != "" && !strings.HasPrefix(ct, wantType) {
+			t.Errorf("%s is served as %q, want %q", path, ct, wantType)
+		}
+	}
+	// Python in a worker needs an isolated page (shared memory), and only PiPath's pages ask for it.
+	for path, want := range map[string]bool{"/pipath/": true, "/pipath/remote/": true, "/arduinopath/": false, "/": false} {
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		got := w.Header().Get("Cross-Origin-Embedder-Policy") == "require-corp" && w.Header().Get("Cross-Origin-Opener-Policy") == "same-origin"
+		if got != want {
+			t.Errorf("%s: isolated=%v, want %v", path, got, want)
+		}
+	}
+	// no cache folders from running the tests ever ship
+	fs.WalkDir(launch.Site(), ".", func(p string, d fs.DirEntry, err error) error {
+		if strings.Contains(p, "__pycache__") || strings.HasSuffix(p, ".pyc") {
+			t.Errorf("a Python cache file is in the website: %s", p)
+		}
+		return nil
+	})
 }

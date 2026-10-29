@@ -55,14 +55,14 @@
       <label class="btn btn-plain filebtn">Open class file <input type="file" id="open-class" accept=".circuitclass,.zip" hidden></label>
     </div>
     <h3>Student work</h3>
-    <p>Students save their own work with <b>Settings &gt; Save my work</b> and give you the <b>.circuit</b> files. Add them here to see who has done what.</p>
+    <p>Students save their own work with <b>Settings &gt; Save my work</b> and give you their <b>.circuit</b> (ArduinoPath) or <b>.pipath</b> (PiPath) files. Add them here to see who has done what.</p>
     <div class="trow">
-      <label class="btn filebtn">Add student files <input type="file" id="add-files" accept=".circuit,.zip" multiple hidden></label>
+      <label class="btn filebtn">Add student files <input type="file" id="add-files" accept=".circuit,.pipath,.zip" multiple hidden></label>
       <button type="button" class="btn btn-plain" id="save-all" disabled>Download all student work (.zip)</button>
     </div>
     <p class="note" id="file-note" role="status"></p>
     <div class="twrap"><table class="ttable" id="students" hidden>
-      <thead><tr><th>First name(s)</th><th>School</th><th>Projects</th><th>Last saved</th><th><span class="sr">Remove</span></th></tr></thead>
+      <thead><tr><th>First name(s)</th><th>School</th><th>App</th><th>Projects</th><th>Last saved</th><th><span class="sr">Remove</span></th></tr></thead>
       <tbody></tbody>
     </table></div>
     <p class="small privacy">Student names and schools are only ever read here, in your browser, from files you choose. They are not sent anywhere.</p>

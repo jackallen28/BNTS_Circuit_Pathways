@@ -88,7 +88,7 @@ function drawStudents() {
   const body = table.querySelector("tbody");
   body.replaceChildren(...students.map((s, i) => {
     const tr = document.createElement("tr");
-    for (const text of [joinNames(s.names), s.school, String(s.projects), s.updated ? new Date(s.updated).toLocaleString("en-AU") : ""]) {
+    for (const text of [joinNames(s.names), s.school, s.app, String(s.projects), s.updated ? new Date(s.updated).toLocaleString("en-AU") : ""]) {
       const td = document.createElement("td");
       td.textContent = text;
       tr.append(td);
@@ -105,13 +105,17 @@ function drawStudents() {
   }));
 }
 
+const FORMATS = ["arduinopath-save", "circuitpath-save", "pipath-save"];
+const isStudentFile = (n) => /\.(circuit|pipath)$/i.test(n);
+
 async function addStudentFile(name, bytes) {
-  const f = await readSaveFile(bytes);
+  const f = await readSaveFile(bytes, Date.now(), { formats: FORMATS, what: "Circuit Pathways" });
   if (!f.profile.names.length) throw new Error("has no name in it");
   const updated = Math.max(0, ...f.sketches.map((s) => s.updated_at), ...f.progress.map((p) => p.updated_at));
   const projects = new Set([...f.sketches, ...f.progress].map((x) => x.project_id)).size;
-  const same = students.findIndex((s) => s.names.join("|").toLowerCase() === f.profile.names.join("|").toLowerCase() && s.school.toLowerCase() === f.profile.school.toLowerCase());
-  const rec = { file: name, bytes, names: f.profile.names, school: f.profile.school, projects, updated };
+  const same = students.findIndex((s) => s.app === (f.manifest.format === "pipath-save" ? "PiPath" : "ArduinoPath") && s.names.join("|").toLowerCase() === f.profile.names.join("|").toLowerCase() && s.school.toLowerCase() === f.profile.school.toLowerCase());
+  const app = f.manifest.format === "pipath-save" ? "PiPath" : "ArduinoPath";
+  const rec = { file: name, bytes, app, names: f.profile.names, school: f.profile.school, projects, updated };
   if (same >= 0) {
     if (students[same].updated >= updated) return "kept";
     students[same] = rec;
@@ -128,11 +132,11 @@ async function addFiles(files) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     try {
       // A zip of .circuit files (such as "Save everyone's work") is opened too.
-      if (!/\.circuit$/i.test(file.name)) {
+      if (!isStudentFile(file.name)) {
         const inner = await readZip(bytes, { maxEntries: 600, maxEntryBytes: 9 << 20, maxTotalBytes: 256 << 20 }).catch(() => null);
         if (inner) {
           for (const [n, b] of inner) {
-            if (!/\.circuit$/i.test(n)) continue;
+            if (!isStudentFile(n)) continue;
             try { await addStudentFile(n.split("/").pop(), b); added++; } catch (e) { problems.push(`${n}: ${e.message}`); }
           }
           continue;
@@ -178,7 +182,7 @@ $("#save-class").addEventListener("click", () => {
   const used = new Set();
   for (const s of students) {
     let n = s.file.replace(/[^A-Za-z0-9._-]+/g, "_");
-    while (used.has(n.toLowerCase())) n = n.replace(/(\.circuit)?$/, "_2$1");
+    while (used.has(n.toLowerCase())) n = n.replace(/(\.(circuit|pipath))?$/, "_2$1");
     used.add(n.toLowerCase());
     files.push({ name: `students/${n}`, data: s.bytes });
   }
@@ -201,7 +205,7 @@ $("#open-class").addEventListener("change", async (e) => {
     showCode();
     students = [];
     for (const [n, b] of entries) {
-      if (n.startsWith("students/") && /\.circuit$/i.test(n)) await addStudentFile(n.slice(9), b).catch(() => {});
+      if (n.startsWith("students/") && isStudentFile(n)) await addStudentFile(n.slice(9), b).catch(() => {});
     }
     students.sort((a, b) => joinNames(a.names).localeCompare(joinNames(b.names)));
     drawStudents();
