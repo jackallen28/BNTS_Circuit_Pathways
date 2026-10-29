@@ -11,7 +11,7 @@
 import { h } from "../dom.js";
 import { Simulation } from "../sim/simulation.js";
 import { Bench } from "../bench.js";
-import { serialConsole } from "./console.js";
+import { serialConsole } from "./serialout.js";
 import { drawBreadboard, drawSchematic, loadCircuitParts } from "../circuit/render.js";
 import { defaultResolvePin, pinOverrides } from "../circuit/netlist.js";
 

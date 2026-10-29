@@ -6,7 +6,7 @@ import { markdown } from "../markdown.js";
 import { api, lesson as loadLesson, freeplay as loadFreeplay, demoFilesFor } from "../api.js";
 import { state } from "../state.js";
 import { createEditor } from "../widgets/editor.js";
-import { createConsole } from "../widgets/console.js";
+import { createConsole } from "../widgets/outputbox.js";
 import { createBoard } from "../widgets/board.js";
 import { messageBox, dialog } from "../widgets/window.js";
 import { getRunner } from "../runtime/shared.js";

@@ -14,8 +14,21 @@
   // Fetches main.js and every file it imports, and lists the ones that didn't come back as JavaScript.
   function probe() {
     var seen = {}, lines = [], queue = ["/pipath/js/main.js"], count = 0;
+    // the Python files PiPath loads once it starts (a filter that blocks one of these breaks running programs)
+    function python() {
+      return fetch("/pipath/py/manifest.json", { credentials: "omit", cache: "no-store" }).then(function (r) {
+        if (!r.ok) { lines.push("/pipath/py/manifest.json -> " + r.status + " " + (r.headers.get("content-type") || "")); return lines; }
+        return r.json().then(function (m) {
+          return Promise.all((m.files || []).map(function (f) {
+            return fetch("/pipath/py/" + f, { credentials: "omit", cache: "no-store" }).then(function (x) {
+              if (!x.ok) lines.push("/pipath/py/" + f + " -> " + x.status + " " + (x.headers.get("content-type") || ""));
+            }, function () { lines.push("/pipath/py/" + f + " -> could not be fetched"); });
+          })).then(function () { return lines; });
+        });
+      }, function () { lines.push("/pipath/py/manifest.json -> could not be fetched"); return lines; });
+    }
     function next() {
-      if (!queue.length || count > 60) return Promise.resolve(lines);
+      if (!queue.length || count > 60) return python();
       var url = queue.shift();
       if (seen[url]) return next();
       seen[url] = true;
