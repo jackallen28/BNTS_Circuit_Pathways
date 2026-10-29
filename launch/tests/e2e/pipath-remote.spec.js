@@ -171,3 +171,10 @@ test("PiPath's helper modules reach the Pi, and a program that prints forever is
   await expect(page.locator("#clue")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator("#run")).toContainText("Run", { timeout: 10_000 });
 });
+
+test("if PiPath's main file can't load, the page says so instead of staying blank", async ({ page }) => {
+  await page.route("**/pipath/js/main.js", (route) => route.abort());
+  await page.goto("/pipath/");
+  await expect(page.getByRole("heading", { name: "PiPath didn't start" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("pre")).toContainText("main.js");
+});
