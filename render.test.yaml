@@ -2,7 +2,7 @@
 # It is the same site and home page with PiPath and ArduinoPath, labelled TEST, with no class codes,
 # no teacher page, no Raspberry Pi linking and nothing saved (closing or reloading a tab clears it).
 # Upload to a real board is off (that needs the compilers: see render.paid.yaml).
-# Protect it with a password in front of it (the site itself has no sign-in).
+# The site itself has no sign-in: anyone with the link can open it.
 # Use it by choosing this file as the Blueprint path when you create the service in Render.
 # It can run beside the real site: it has its own name and its own address.
 services:

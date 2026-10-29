@@ -88,7 +88,7 @@ On Render: **New > Blueprint**, pick this repo and branch, and set **Blueprint f
 free service named `circuit-pathways-test`, with its own address; it can run beside the real site). Or by hand:
 **New > Web Service**, Runtime Docker, Root Directory `launch`, Dockerfile Path `./Dockerfile.free`, Free, and the
 environment variable `BETA` = `1`. That is all: no class secret, teacher codes or other settings are needed.
-There is no password in the site itself; put one in front of it (your own gateway or host setting) before sharing.
+There is no password in the site itself, so anyone with the link can open it (fine for a test; a gateway in front of it is optional).
 
 Upload to a real board is off on the free plan, so colleagues can try everything except real hardware. To let them
 upload too, deploy the full `Dockerfile` on a paid instance with `BETA=1`. The test link is open to anyone who has it, so
