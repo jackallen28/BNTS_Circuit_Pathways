@@ -1,0 +1,18 @@
+/* Launch-only additions to the Circuit Pathways theme (site.css) */
+.session { max-width: 980px; margin: 0 auto 80px; padding: 0 16px; text-align: center; }
+.session h2 { font-size: clamp(26px, 4vw, 40px); margin: 10px 0 22px; }
+.session-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; text-align: left; }
+.session .card { display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.07); }
+.session .card h3 { margin: 0; font-size: 22px; }
+.session .card p { margin: 0; color: rgba(255,255,255,.8); }
+.session label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.session input { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3);
+  background: rgba(10,20,40,.55); color: #fff; letter-spacing: .08em; }
+.session input:focus-visible { outline: 3px solid var(--teal2, #19c1ca); outline-offset: 2px; }
+.session .btn { align-self: flex-start; font: inherit; font-weight: 700; color: #fff; cursor: pointer; padding: 10px 20px;
+  border: 0; border-radius: 999px; background: linear-gradient(180deg, #74e3e9, var(--teal2, #19c1ca) 52%, #0a868c); }
+.session .btn-alt { background: linear-gradient(180deg, #b48fd0, var(--purple, #704988)); }
+.session .note { min-height: 1.4em; font-size: 14px; }
+.session .privacy { margin-top: 18px; }
+@media (max-width: 720px) { .session-grid { grid-template-columns: 1fr; } }
