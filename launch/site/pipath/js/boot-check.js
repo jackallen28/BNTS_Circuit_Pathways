@@ -74,8 +74,15 @@
     h.textContent = "PiPath didn't start";
     h.style.margin = "0 0 8px";
     box.append(h);
+    // a file that wouldn't load is most often a school or office network blocking it
+    var netAdvice = document.createElement("p");
+    netAdvice.style.cssText = "margin:0 0 10px;padding:8px;background:#ffffcc;border:2px solid #000;font-weight:bold";
+    netAdvice.textContent = "This network may be blocking part of PiPath. Try a different network. If you are at the Tech School, connect to 'Tech Guest'.";
+    netAdvice.hidden = !problems.some(function (t) { return /Could not load/.test(t); });
+    box.append(netAdvice);
     [
       "Try these, in order:",
+      "0. Switch to a different WiFi network, then reload this page. At the Tech School, connect to 'Tech Guest'.",
       "1. Hold Ctrl and press F5 (Cmd+Shift+R on a Mac) to load a fresh copy.",
       "2. Use Chrome or Edge on a laptop or computer.",
       "3. If the page is behind a password or a school filter, ask the person who set it up to allow all of this website's files.",
@@ -93,6 +100,6 @@
     tech.textContent = base + "\nChecking PiPath's files...";
     box.append(tech);
     app.append(box);
-    probe().then(function (lines) { tech.textContent = base + "\n" + (lines.length ? lines.join("\n") : "All of PiPath's files loaded when checked."); });
+    probe().then(function (lines) { if (lines.some(function (l) { return / -> 403 /.test(l); })) netAdvice.hidden = false; tech.textContent = base + "\n" + (lines.length ? lines.join("\n") : "All of PiPath's files loaded when checked."); });
   }, 8000);
 })();

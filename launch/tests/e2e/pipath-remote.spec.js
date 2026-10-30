@@ -177,6 +177,7 @@ test("if PiPath's main file can't load, the page says so instead of staying blan
   await page.goto("/pipath/");
   await expect(page.getByRole("heading", { name: "PiPath didn't start" })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("pre")).toContainText("main.js");
+  await expect(page.getByText("connect to 'Tech Guest'").first()).toBeVisible(); // the advice for a blocked network
 });
 
 test("the start-up message names the file that went wrong", async ({ page }) => {
