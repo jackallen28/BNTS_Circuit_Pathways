@@ -87,3 +87,9 @@ test("ArduinoPath opens with no class code, and has no save or download buttons"
   await expect(page.getByText("Saved ✓")).toHaveCount(0);
   await page.screenshot({ path: "test-results/screenshots/test-arduinopath.png" });
 });
+
+test("the file-check page works (it finds nothing blocked when nothing is)", async ({ page }) => {
+  await page.goto("/pipath/dev/blocktest.html");
+  await page.getByRole("button", { name: "Check it" }).click();
+  await expect(page.locator("#result")).toContainText("Neither was blocked", { timeout: 20_000 });
+});

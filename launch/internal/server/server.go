@@ -105,6 +105,7 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("POST /api/compile", s.handleCompile)
 	s.piRoutes(mux)
 	mux.HandleFunc("GET /api/info", s.handleInfo)
+	mux.HandleFunc("GET /pipath/dev/prefix", s.handlePrefix)
 	mux.HandleFunc("GET /arduinopath/data/catalogue.json", s.handleCatalogue)
 	mux.HandleFunc("GET /arduinopath/data/projects/{id}", s.handleProject)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {

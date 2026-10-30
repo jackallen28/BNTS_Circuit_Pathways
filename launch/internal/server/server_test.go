@@ -336,3 +336,28 @@ func TestTestVersionNeedsNoClassCodeAndHidesTeachersAndPis(t *testing.T) {
 		t.Errorf("a normal site isn't the test version: %s", w.Body)
 	}
 }
+
+func TestPrefixToolIsForTheTestVersionOnly(t *testing.T) {
+	s, _ := newTest(t)
+	s.Site = fstest.MapFS{"pipath/js/widgets/x.js": {Data: []byte("one\ntwo\nthree\n")}, "index.html": {Data: []byte("x")}}
+	get := func(q string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("GET", "/pipath/dev/prefix?"+q, nil))
+		return w
+	}
+	if w := get("file=widgets/x.js&n=1"); w.Code != 404 {
+		t.Errorf("a normal site has no such tool: %d", w.Code)
+	}
+	s.Beta = true
+	if w := get("file=widgets/x.js&n=2"); w.Code != 200 || w.Body.String() != "one\ntwo\n" || !strings.Contains(w.Header().Get("Content-Type"), "javascript") {
+		t.Errorf("first two lines: %d %q %s", w.Code, w.Body, w.Header().Get("Content-Type"))
+	}
+	if w := get("file=widgets/x.js&n=2&plain=1"); !strings.Contains(w.Header().Get("Content-Type"), "text/plain") {
+		t.Errorf("plain: %s", w.Header().Get("Content-Type"))
+	}
+	for _, f := range []string{"../../etc/passwd", "widgets/x.go", "widgets/..%2fx.js", "nothere.js"} {
+		if w := get("file=" + f); w.Code == 200 {
+			t.Errorf("%s should not be served", f)
+		}
+	}
+}
