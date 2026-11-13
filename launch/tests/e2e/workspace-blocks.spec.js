@@ -22,7 +22,7 @@ test("Smart Bin in Blocks: drag a number into the gap, Run, and the checklist ti
   await page.getByText("Blocks", { exact: true }).click();
   await page.getByRole("button", { name: "Let's go!" }).click();
 
-  await page.locator(".project-card", { hasText: "Smart Bin" }).click();
+  await page.locator(".project-card", { hasText: "Smart Bin" }).filter({ hasNotText: "Grove" }).click();
   const wizard = page.getByRole("dialog", { name: /Wiring Wizard/ });
   await wizard.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("tab", { name: "Blocks" })).toHaveAttribute("aria-selected", "true");

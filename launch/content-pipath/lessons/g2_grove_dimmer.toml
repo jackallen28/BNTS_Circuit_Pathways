@@ -1,0 +1,151 @@
+# GROVE 2: a Grove knob (Rotary Angle Sensor) on an analog port dims a Grove LED.
+id = "g2_grove_dimmer"
+title = "Grove: Knob Dimmer"
+file_name = "grove_dimmer.py"
+requires_gpio = true
+kit = "grove"
+
+intro = """
+## Read a knob, dim a light
+
+A Raspberry Pi can't read **analog** sensors (like a knob) by itself, but the **Grove Base Hat** can. Its analog ports are A0, A2, A4 and A6. The `grove.py` library reads them as a number from **0 to 999**.
+
+In this project you will read a **Grove knob** in port **A0** and use it to dim a **Grove LED** in port **D5**.
+
+*On a real Pi:* `grove.py` must be installed (your teacher does this once).
+"""
+
+outro = """
+## You built a dimmer!
+
+You read an analog sensor through the Base Hat and scaled its number (0 to 999) to a brightness (0 to 1) for a `PWMLED`.
+"""
+
+[[wiring]]
+part = "Grove Base Hat"
+connect = "Turn the Pi off. Press the Base Hat onto all 40 pins."
+
+[[wiring]]
+part = "Grove knob (Rotary Angle Sensor)"
+kind = "analog"
+pin = 0
+connect = "Grove cable: knob → analog port A0 on the Base Hat."
+
+[[wiring]]
+part = "Grove LED"
+kind = "led"
+pin = 5
+colour = "green"
+connect = "Grove cable: Grove LED → port D5."
+
+# ------------------------------------------------------------------ STEP 1
+[[steps]]
+title = "Read the knob"
+support = "guided"
+starter_mode = "replace"
+starter = '''
+from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor
+from time import sleep
+
+knob = GroveRotaryAngleSensor(0)    # port A0
+
+for i in range(8):
+    print(knob.value)
+    sleep(0.5)
+'''
+text = """
+`GroveRotaryAngleSensor(0)` is the knob in port **A0**. `knob.value` is how far it's turned, from **0 to 999**.
+
+**Your task:** run it, and turn the knob all the way one way, then the other. (*Simulator:* drag the knob's slider.)
+"""
+hints = [
+  "Turn the knob slowly and watch the numbers.",
+  "One end gives about 0, the other about 999.",
+]
+success = "The Base Hat turns the knob's position into a number."
+demo = '''
+from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor
+from time import sleep
+
+knob = GroveRotaryAngleSensor(0)    # port A0
+
+for i in range(8):
+    print(knob.value)
+    sleep(0.5)
+'''
+demo_events = ["1 analog 0 80", "2.5 analog 0 940"]
+
+[[steps.checks]]
+type = "runs_ok"
+label = "Your program runs"
+
+[[steps.checks]]
+type = "output_regex"
+value = '''(^|\n)\d{1,2}\n'''
+label = "Turned one way: a small number"
+
+[[steps.checks]]
+type = "output_regex"
+value = '''(^|\n)9\d\d\n'''
+label = "Turned the other way: over 900"
+
+# ------------------------------------------------------------------ STEP 2
+[[steps]]
+title = "Dim the light"
+support = "scaffolded"
+starter_mode = "replace"
+starter = '''
+from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor
+from gpiozero import PWMLED
+from time import sleep
+
+knob = GroveRotaryAngleSensor(0)
+light = PWMLED(5)
+
+for i in range(10):
+    light.value = knob.value / ___
+    print(round(light.value, 2))
+    sleep(0.3)
+'''
+text = """
+A `PWMLED`'s brightness goes from **0** (off) to **1** (full). The knob gives 0 to 999. Dividing by 999 turns one into the other.
+
+**Your task:** fill in the blank, run it, and turn the knob.
+"""
+hints = [
+  "What's the biggest number the knob gives?",
+  "Divide by 999: `knob.value / 999`.",
+]
+success = "Turn the knob and the light follows. That's a dimmer!"
+demo = '''
+from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor
+from gpiozero import PWMLED
+from time import sleep
+
+knob = GroveRotaryAngleSensor(0)
+light = PWMLED(5)
+
+for i in range(10):
+    light.value = knob.value / 999
+    print(round(light.value, 2))
+    sleep(0.3)
+'''
+demo_events = ["0.5 analog 0 999", "1.5 analog 0 0"]
+
+[[steps.checks]]
+type = "runs_ok"
+label = "Your program runs"
+
+[[steps.checks]]
+type = "code_regex"
+value = '''/\s*999'''
+label = "You divided by 999"
+
+[[steps.checks]]
+type = "output_contains"
+value = "1.0"
+label = "Turned right up: full brightness (1.0)"
+
+[[steps.checks]]
+type = "confirm"
+label = "The LED gets brighter as I turn the knob"

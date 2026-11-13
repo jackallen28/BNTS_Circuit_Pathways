@@ -242,7 +242,9 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     const rows = (les.wiring ?? []).filter((r) => r.connect || r.part);
     return h("div", { class: "note" },
       h("b", { text: "Wiring and safety" }),
-      h("ul", {}, ["Take the blue HAT off before you change any wires, and put it back on after.", "Never turn the Pi off to change wires: you'd lose your progress.", "Always put a 330Ω resistor with an LED."].map((t) => h("li", { text: t }))),
+      h("ul", {}, (les.kit === "grove"
+        ? ["Put the Grove Base Hat on with the Pi turned off.", "Plug Grove cables in and out gently: they only fit one way round, so never force one.", "Each module goes in the port the list below says: the port's name is the GPIO number in the code."]
+        : ["Take the blue HAT off before you change any wires, and put it back on after.", "Never turn the Pi off to change wires: you'd lose your progress.", "Always put a 330Ω resistor with an LED."]).map((t) => h("li", { text: t }))),
       rows.length ? h("ul", {}, rows.map((r) => h("li", {}, h("b", { text: `${r.part ?? r.kind}: ` }), r.connect ?? ""))) : null,
       h("p", { class: "small" }, "Using a real Pi? Set ", h("b", { text: "Run on: My Raspberry Pi" }), " at the top of the page to run your program on it, or ", h("a", { href: "/pipath/remote/", text: "use Pi Link" }), " to switch its pins by hand."));
   }

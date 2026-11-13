@@ -709,6 +709,41 @@ class Servo(GPIODevice):
         return "Servo", [self._pin], {self._pin: self._value if self._value is not None else 0.0}
 
 
+class AngularServo(Servo):
+    """A servo you set with an angle (gpiozero's AngularServo)."""
+
+    def __init__(self, pin=None, initial_angle=0, min_angle=-90, max_angle=90, min_pulse_width=1 / 1000, max_pulse_width=2 / 1000, frame_width=20 / 1000):
+        self._min_angle, self._max_angle = min_angle, max_angle
+        super().__init__(pin, initial_value=None)
+        if initial_angle is not None:
+            self.angle = initial_angle
+
+    @property
+    def min_angle(self):
+        return self._min_angle
+
+    @property
+    def max_angle(self):
+        return self._max_angle
+
+    @property
+    def angle(self):
+        if self._value is None:
+            return None
+        span = self._max_angle - self._min_angle
+        return self._min_angle + (self._value + 1) / 2 * span
+
+    @angle.setter
+    def angle(self, a):
+        if a is None:
+            self.value = None
+            return
+        lo, hi = sorted((self._min_angle, self._max_angle))
+        if not lo <= float(a) <= hi:
+            raise OutputDeviceBadValue(f"AngularServo angle must be between {lo} and {hi}")
+        self.value = (float(a) - self._min_angle) / (self._max_angle - self._min_angle) * 2 - 1
+
+
 class Tone(float):
     """A musical note: Tone("A4"), Tone(midi=69) or Tone(440)."""
     _NOTES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -1016,7 +1051,7 @@ _NAMES = [
 ]
 _PUBLIC = [
     "Pin", "Device", "GPIODevice", "OutputDevice", "DigitalOutputDevice", "PWMOutputDevice", "LED", "PWMLED", "Buzzer", "TonalBuzzer",
-    "RGBLED", "LEDBoard", "LEDBarGraph", "Servo", "DigitalInputDevice", "Button", "MotionSensor", "DistanceSensor",
+    "RGBLED", "LEDBoard", "LEDBarGraph", "Servo", "AngularServo", "DigitalInputDevice", "Button", "MotionSensor", "DistanceSensor",
 ]
 
 

@@ -845,6 +845,81 @@
     "c1_photobooth",
     "c2_teachable"
    ]
+  },
+  {
+   "concepts": [
+    "LED",
+    "Button(pull_up=False)",
+    "when_pressed",
+    "toggle()"
+   ],
+   "curriculum": [
+    "Digital Systems: Grove modules on the Base Hat's digital ports, an input and an output",
+    "Creating Digital Solutions: event-driven code with when_pressed"
+   ],
+   "gpio": true,
+   "id": "g1_grove_light",
+   "minutes": 30,
+   "status": "ready",
+   "stretch": [
+    "Add a second Grove LED on port D18 that is on while the first one is off.",
+    "Count the presses and print the count each time.",
+    "Make a long press (when_held) blink the LED three times."
+   ],
+   "subtitle": "A Grove LED and a Grove button on the Base Hat",
+   "support": "guided → brief",
+   "tier": "grove",
+   "title": "Grove: Light and Button"
+  },
+  {
+   "concepts": [
+    "analog sensors",
+    "grove.py",
+    "PWMLED",
+    "scaling numbers"
+   ],
+   "curriculum": [
+    "Digital Systems: analog input through the Base Hat's analog ports, and PWM output",
+    "Data: scaling a reading from 0-999 to a brightness from 0 to 1"
+   ],
+   "gpio": true,
+   "id": "g2_grove_dimmer",
+   "minutes": 35,
+   "status": "ready",
+   "stretch": [
+    "Print a text bar like [#####     ] that grows as you turn the knob.",
+    "Swap the knob for a Grove Light Sensor so the LED gets brighter as the room gets darker.",
+    "Only change the brightness when the knob moves by more than 20, so it doesn't flicker."
+   ],
+   "subtitle": "Read a Grove knob and dim an LED with it",
+   "support": "guided → brief",
+   "tier": "grove",
+   "title": "Grove: Knob Dimmer"
+  },
+  {
+   "concepts": [
+    "GroveUltrasonicRanger",
+    "AngularServo",
+    "if",
+    "functions"
+   ],
+   "curriculum": [
+    "Digital Systems: a sensor, an actuator and an indicator working together",
+    "Creating Digital Solutions: an algorithm that opens, waits and closes, written as a function"
+   ],
+   "gpio": true,
+   "id": "g3_grove_bin",
+   "minutes": 50,
+   "status": "ready",
+   "stretch": [
+    "Add a Grove Micro Switch on port D22 and print \"lid stuck!\" if it isn't pressed after the lid closes.",
+    "Count how many times the bin opens and print it.",
+    "Use a second Ultrasonic Ranger to tell how full the bin is."
+   ],
+   "subtitle": "An Ultrasonic Ranger, a servo lid and a light",
+   "support": "guided → brief",
+   "tier": "grove",
+   "title": "Grove: Smart Bin (Pi)"
   }
  ],
  "tiers": [
@@ -877,6 +952,12 @@
    "id": "lab",
    "tagline": "Extra hardware projects",
    "title": "Electronics Lab"
+  },
+  {
+   "description": "Grove modules plug into the Grove Base Hat with one cable each: no breadboard and no loose wires.",
+   "id": "grove",
+   "tagline": "Plug-in modules on the Base Hat",
+   "title": "Grove Kits"
   },
   {
    "description": "Take photos with a camera, then teach the Pi to recognise things.",

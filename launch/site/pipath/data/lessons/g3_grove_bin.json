@@ -1,0 +1,110 @@
+{
+ "file_name": "smart_bin.py",
+ "id": "g3_grove_bin",
+ "intro": "## A bin that opens by itself\n\nBuild a bin whose lid opens when a hand comes near, with a light that shows it's open.\n\n- **Grove Ultrasonic Ranger** in port **D18**: measures how far away your hand is\n- **Grove Servo** in the **PWM** port (GPIO 12): lifts the lid\n- **Grove LED** in port **D5**: shows the lid is open\n\n*On a real Pi:* `grove.py` must be installed (your teacher does this once).\n",
+ "kit": "grove",
+ "outro": "## Your bin opens by itself!\n\nYou read a distance, made a decision with `if`, moved a servo with `AngularServo`, and put the opening steps in a **function**.\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Far away: 80 cm",
+     "type": "output_regex",
+     "value": "(^|\\n)80\\.0\\n"
+    },
+    {
+     "label": "Close: 10 cm",
+     "type": "output_regex",
+     "value": "(^|\\n)10\\.0\\n"
+    }
+   ],
+   "demo": "from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger\nfrom time import sleep\n\nranger = GroveUltrasonicRanger(18)   # port D18\n\nfor i in range(8):\n    print(ranger.get_distance())\n    sleep(0.5)\n",
+   "demo_events": [
+    "1 distance 18 80",
+    "2.5 distance 18 10"
+   ],
+   "error_hints": {},
+   "hints": [
+    "Closer gives a smaller number.",
+    "Try under 15 cm: that's a hand over the bin."
+   ],
+   "id": "step1",
+   "starter": "from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger\nfrom time import sleep\n\nranger = GroveUltrasonicRanger(18)   # port D18\n\nfor i in range(8):\n    print(ranger.get_distance())\n    sleep(0.5)\n",
+   "starter_mode": "replace",
+   "success": "Your bin can sense a hand.",
+   "support": "guided",
+   "text": "`ranger.get_distance()` measures how far away the nearest thing is, in **centimetres**. It sends a click and times the echo, using just one Grove port.\n\n**Your task:** run it, and move your hand closer and further away. (*Simulator:* drag the ranger's slider.)\n",
+   "title": "How far away?"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The lid opens when a hand is close",
+     "type": "output_contains",
+     "value": "open"
+    },
+    {
+     "label": "Then it closes again",
+     "type": "output_contains",
+     "value": "closed"
+    },
+    {
+     "label": "I saw the lid open and the light come on",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger\nfrom gpiozero import AngularServo, LED\nfrom time import sleep\n\nranger = GroveUltrasonicRanger(18)\nlid = AngularServo(12, min_angle=0, max_angle=180)\nlight = LED(5)\nlid.angle = 0\n\ndef open_lid():\n    lid.angle = 90\n    light.on()\n    print(\"open\")\n    sleep(3)\n    lid.angle = 0\n    light.off()\n    print(\"closed\")\n\nfor i in range(30):\n    if ranger.get_distance() < 15:\n        open_lid()\n    sleep(0.2)\n",
+   "demo_events": [
+    "1 distance 18 10",
+    "1.5 distance 18 80"
+   ],
+   "error_hints": {},
+   "hints": [
+    "A hand over a bin is closer than about 15 cm.",
+    "`if ranger.get_distance() < 15:`"
+   ],
+   "id": "step2",
+   "starter": "from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger\nfrom gpiozero import AngularServo, LED\nfrom time import sleep\n\nranger = GroveUltrasonicRanger(18)\nlid = AngularServo(12, min_angle=0, max_angle=180)\nlight = LED(5)\nlid.angle = 0\n\ndef open_lid():\n    lid.angle = 90\n    light.on()\n    print(\"open\")\n    sleep(3)\n    lid.angle = 0\n    light.off()\n    print(\"closed\")\n\nfor i in range(30):\n    if ranger.get_distance() < ___:\n        open_lid()\n    sleep(0.2)\n",
+   "starter_mode": "replace",
+   "success": "A hands-free bin. Real ones work just like this.",
+   "support": "scaffolded",
+   "text": "`open_lid()` is a **function**: it opens the lid, turns the light on, waits 3 seconds, then closes it. The loop checks the distance again and again.\n\n**Your task:** fill in the blank with how close counts as \"a hand\" (15 cm works well), then run it and bring your hand close.\n",
+   "title": "Open the lid"
+  }
+ ],
+ "title": "Grove: Smart Bin (Pi)",
+ "wiring": [
+  {
+   "connect": "Turn the Pi off. Press the Base Hat onto all 40 pins.",
+   "part": "Grove Base Hat"
+  },
+  {
+   "connect": "Grove cable: Ultrasonic Ranger → port D18.",
+   "kind": "distance",
+   "part": "Grove Ultrasonic Ranger",
+   "pin": 18
+  },
+  {
+   "connect": "The servo's Grove plug → the PWM port (it's GPIO 12).",
+   "kind": "servo",
+   "part": "Grove Servo (lid)",
+   "pin": 12
+  },
+  {
+   "colour": "blue",
+   "connect": "Grove cable: Grove LED → port D5.",
+   "kind": "led",
+   "part": "Grove LED",
+   "pin": 5
+  }
+ ]
+}

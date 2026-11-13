@@ -17,7 +17,10 @@ const KIND = {
   LED: "led", PWMLED: "led", OutputDevice: "led", DigitalOutputDevice: "led", PWMOutputDevice: "led",
   Buzzer: "buzzer", TonalBuzzer: "buzzer", Button: "button", DigitalInputDevice: "switch", InputDevice: "switch",
   MotionSensor: "pir", RGBLED: "rgbled", DistanceSensor: "distance", Servo: "servo",
+  // Grove (grove.py) on the Base Hat
+  GroveUltrasonicRanger: "distance", RotaryAngle: "analog", Light: "analog", Moisture: "analog",
 };
+const ANALOG_LABEL = { RotaryAngle: "Grove knob", Light: "Grove light sensor", Moisture: "Grove moisture sensor" };
 
 const key = (kind, pins) => `${kind}:${pins.join(",")}`;
 
@@ -143,6 +146,18 @@ export function createBoard({ onCommand = () => {}, camera = false, stats = fals
       part.node = h("div", { class: "part" }, art, lbl, slider, reading, val);
       part.slider = slider;
       part.reading = reading;
+    } else if (kind === "analog") {
+      // a Grove sensor on one of the Base Hat's analog ports: drag to change what it reads (0 to 999)
+      const ch = pins[0];
+      const slider = h("input", { type: "range", min: 0, max: 999, value: 500, "aria-label": `${label}: its reading`,
+        oninput: () => { reading.textContent = slider.value; onCommand({ t: "analog", ch, value: Number(slider.value) }); } });
+      const reading = h("div", { class: "val", text: "500" });
+      art = svg("svg", { viewBox: "0 0 56 56", role: "img", "aria-hidden": "true" }, svg("rect", { x: 8, y: 8, width: 40, height: 40, rx: 4, fill: "#1f5fa8", stroke: "#123", "stroke-width": 2 }), svg("circle", { cx: 28, cy: 26, r: 10, fill: "#ddd", stroke: "#555", "stroke-width": 2 }), svg("rect", { x: 20, y: 40, width: 16, height: 6, fill: "#f3f3f0" }));
+      part.set = () => {};
+      part.node = h("div", { class: "part" }, art, lbl, slider, reading, h("div", { class: "val", text: `port A${ch}` }));
+      part.slider = slider;
+      part.reading = reading;
+      part.analog = true;
     }
     if (!part.node) {
       const interactive = kind === "button" || kind === "switch" || kind === "pir";
@@ -206,6 +221,7 @@ export function createBoard({ onCommand = () => {}, camera = false, stats = fals
           const kind = KIND[d.kind];
           if (!kind) continue;
           const pins = kind === "distance" || kind === "rgbled" || kind === "servo" ? d.pins : [d.pins[0]];
+          if (kind === "analog") { if (!parts.has(key("analog", pins))) make("analog", pins, ANALOG_LABEL[d.kind] ?? "Grove sensor", ""); continue; }
           if (kind === "distance" && ![...parts.values()].some((p) => p.kind === "distance" && p.pins[0] === pins[0])) make("distance", pins, `Distance sensor`, "");
           else if (kind !== "distance" && !parts.has(key(kind, pins))) {
             // a part the program made on a pin that isn't in the wiring list: add it, and remove the plain LED it duplicates
@@ -228,7 +244,9 @@ export function createBoard({ onCommand = () => {}, camera = false, stats = fals
     /** A fresh run: parts the last program added go away; the wiring list stays. */
     resetForRun() {
       for (const [k, p] of [...parts]) if (!this.static?.has(k)) { p.node.remove(); parts.delete(k); }
-      for (const p of parts.values()) if (p.slider) { p.slider.value = 100; p.reading.textContent = "100 cm"; }
+      for (const p of parts.values()) {
+        if (p.slider && p.analog) { p.slider.value = 500; p.reading.textContent = "500"; } else if (p.slider) { p.slider.value = 100; p.reading.textContent = "100 cm"; }
+      }
       values = {};
       for (const p of parts.values()) p.set({});
     },

@@ -15,6 +15,7 @@ _epoch = _time.time()  # wall-clock time at the host clock's zero
 devices: list = []     # every device made (including closed ones, until the run ends)
 pin_owner: dict = {}   # BCM pin -> the device using it
 distance_m: dict = {}  # DistanceSensor echo pin -> what it "sees", in metres
+analog: dict = {}      # Grove Base Hat analog channel -> its reading, 0 to 999 (a knob, light or moisture sensor)
 _tasks: list = []      # heap of (due, seq, fn)
 _seq = 0
 _last_devs = None
@@ -27,6 +28,7 @@ def reset():
     devices.clear()
     pin_owner.clear()
     distance_m.clear()
+    analog.clear()
     _tasks = []
     _seq = 0
     _last_devs = _last_pins = None
@@ -70,6 +72,8 @@ def _apply_event(ev: dict) -> None:
             d._board_set(kind == "press")
     elif kind == "distance":
         distance_m[int(ev["pin"])] = max(0.02, float(ev["cm"]) / 100.0)
+    elif kind == "analog":
+        analog[int(ev["ch"])] = max(0, min(999, int(float(ev["value"]))))
     elif kind == "stat":
         os.environ[f"PIPATH_SIM_{str(ev['name']).upper()}"] = str(float(ev["value"]))
     elif kind == "show":

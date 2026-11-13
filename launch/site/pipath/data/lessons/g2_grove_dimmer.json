@@ -1,0 +1,104 @@
+{
+ "file_name": "grove_dimmer.py",
+ "id": "g2_grove_dimmer",
+ "intro": "## Read a knob, dim a light\n\nA Raspberry Pi can't read **analog** sensors (like a knob) by itself, but the **Grove Base Hat** can. Its analog ports are A0, A2, A4 and A6. The `grove.py` library reads them as a number from **0 to 999**.\n\nIn this project you will read a **Grove knob** in port **A0** and use it to dim a **Grove LED** in port **D5**.\n\n*On a real Pi:* `grove.py` must be installed (your teacher does this once).\n",
+ "kit": "grove",
+ "outro": "## You built a dimmer!\n\nYou read an analog sensor through the Base Hat and scaled its number (0 to 999) to a brightness (0 to 1) for a `PWMLED`.\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "Turned one way: a small number",
+     "type": "output_regex",
+     "value": "(^|\\n)\\d{1,2}\\n"
+    },
+    {
+     "label": "Turned the other way: over 900",
+     "type": "output_regex",
+     "value": "(^|\\n)9\\d\\d\\n"
+    }
+   ],
+   "demo": "from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor\nfrom time import sleep\n\nknob = GroveRotaryAngleSensor(0)    # port A0\n\nfor i in range(8):\n    print(knob.value)\n    sleep(0.5)\n",
+   "demo_events": [
+    "1 analog 0 80",
+    "2.5 analog 0 940"
+   ],
+   "error_hints": {},
+   "hints": [
+    "Turn the knob slowly and watch the numbers.",
+    "One end gives about 0, the other about 999."
+   ],
+   "id": "step1",
+   "starter": "from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor\nfrom time import sleep\n\nknob = GroveRotaryAngleSensor(0)    # port A0\n\nfor i in range(8):\n    print(knob.value)\n    sleep(0.5)\n",
+   "starter_mode": "replace",
+   "success": "The Base Hat turns the knob's position into a number.",
+   "support": "guided",
+   "text": "`GroveRotaryAngleSensor(0)` is the knob in port **A0**. `knob.value` is how far it's turned, from **0 to 999**.\n\n**Your task:** run it, and turn the knob all the way one way, then the other. (*Simulator:* drag the knob's slider.)\n",
+   "title": "Read the knob"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "You divided by 999",
+     "type": "code_regex",
+     "value": "/\\s*999"
+    },
+    {
+     "label": "Turned right up: full brightness (1.0)",
+     "type": "output_contains",
+     "value": "1.0"
+    },
+    {
+     "label": "The LED gets brighter as I turn the knob",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor\nfrom gpiozero import PWMLED\nfrom time import sleep\n\nknob = GroveRotaryAngleSensor(0)\nlight = PWMLED(5)\n\nfor i in range(10):\n    light.value = knob.value / 999\n    print(round(light.value, 2))\n    sleep(0.3)\n",
+   "demo_events": [
+    "0.5 analog 0 999",
+    "1.5 analog 0 0"
+   ],
+   "error_hints": {},
+   "hints": [
+    "What's the biggest number the knob gives?",
+    "Divide by 999: `knob.value / 999`."
+   ],
+   "id": "step2",
+   "starter": "from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor\nfrom gpiozero import PWMLED\nfrom time import sleep\n\nknob = GroveRotaryAngleSensor(0)\nlight = PWMLED(5)\n\nfor i in range(10):\n    light.value = knob.value / ___\n    print(round(light.value, 2))\n    sleep(0.3)\n",
+   "starter_mode": "replace",
+   "success": "Turn the knob and the light follows. That's a dimmer!",
+   "support": "scaffolded",
+   "text": "A `PWMLED`'s brightness goes from **0** (off) to **1** (full). The knob gives 0 to 999. Dividing by 999 turns one into the other.\n\n**Your task:** fill in the blank, run it, and turn the knob.\n",
+   "title": "Dim the light"
+  }
+ ],
+ "title": "Grove: Knob Dimmer",
+ "wiring": [
+  {
+   "connect": "Turn the Pi off. Press the Base Hat onto all 40 pins.",
+   "part": "Grove Base Hat"
+  },
+  {
+   "connect": "Grove cable: knob → analog port A0 on the Base Hat.",
+   "kind": "analog",
+   "part": "Grove knob (Rotary Angle Sensor)",
+   "pin": 0
+  },
+  {
+   "colour": "green",
+   "connect": "Grove cable: Grove LED → port D5.",
+   "kind": "led",
+   "part": "Grove LED",
+   "pin": 5
+  }
+ ]
+}

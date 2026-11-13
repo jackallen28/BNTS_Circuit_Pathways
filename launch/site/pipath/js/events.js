@@ -34,6 +34,7 @@ export function commandToEvent(cmd) {
   const w = String(cmd).trim().split(/\s+/);
   if ((w[0] === "press" || w[0] === "release") && /^\d+$/.test(w[1] ?? "")) return { t: w[0], pin: Number(w[1]) };
   if (w[0] === "distance" && /^\d+$/.test(w[1] ?? "") && Number.isFinite(Number(w[2]))) return { t: "distance", pin: Number(w[1]), cm: Number(w[2]) };
+  if (w[0] === "analog" && /^\d$/.test(w[1] ?? "") && Number.isFinite(Number(w[2]))) return { t: "analog", ch: Number(w[1]), value: Number(w[2]) };
   if (w[0] === "stat" && ["temp", "load", "ram"].includes(w[1]) && Number.isFinite(Number(w[2]))) return { t: "stat", name: w[1], value: Number(w[2]) };
   if (w[0] === "show" && w[1]) return { t: "show", object: w[1] };
   return null;

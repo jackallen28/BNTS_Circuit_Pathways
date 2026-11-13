@@ -1,0 +1,135 @@
+{
+ "file_name": "grove_light.py",
+ "id": "g1_grove_light",
+ "intro": "## Grove: plug in and go\n\nThe **Grove Base Hat** sits on your Pi's pins and gives it Grove ports. Each Grove module plugs in with **one cable**: no breadboard and no loose wires.\n\nIn this project you will:\n- light a **Grove LED** in port **D5**\n- read a **Grove button** in port **D16**\n- make the button switch the light on and off with an **event**\n\nCheck the **Wiring** card: it says which port each module goes in.\n",
+ "kit": "grove",
+ "outro": "## You built a Grove light switch!\n\nYou used `LED`, `Button(..., pull_up=False)` and `when_pressed`. The port's name (D5, D16) is the GPIO number your code uses.\n",
+ "requires_gpio": true,
+ "steps": [
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The LED is on GPIO 5 (port D5)",
+     "type": "code_regex",
+     "value": "LED\\(\\s*5\\s*\\)"
+    },
+    {
+     "label": "I saw the Grove LED light up",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED\nfrom time import sleep\n\nlight = LED(5)    # the Grove LED is in port D5\n\nlight.on()\nsleep(2)\nlight.off()\n",
+   "error_hints": {},
+   "hints": [
+    "The port is called D5.",
+    "Use the number from the port's name: `LED(5)`."
+   ],
+   "id": "step1",
+   "starter": "from gpiozero import LED\nfrom time import sleep\n\nlight = LED(___)    # the Grove LED is in port D5\n\nlight.on()\nsleep(2)\nlight.off()\n",
+   "starter_mode": "replace",
+   "success": "Your first Grove module is working.",
+   "support": "guided",
+   "text": "The Grove LED is in port **D5**, so in your code it is GPIO **5**: the port's name is the pin's number.\n\n**Your task:** fill in the blank, then press **Run**. The LED should light for 2 seconds.\n",
+   "title": "Light the Grove LED"
+  },
+  {
+   "checks": [
+    {
+     "label": "Your program runs",
+     "type": "runs_ok"
+    },
+    {
+     "label": "The button doesn't use the Pi's pull-up",
+     "type": "code_regex",
+     "value": "pull_up\\s*=\\s*False"
+    },
+    {
+     "label": "It noticed the press",
+     "type": "output_contains",
+     "value": "Pressed!"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button\nfrom time import sleep\n\nlight = LED(5)\nbutton = Button(16, pull_up=False)\n\nprint(\"Press the button...\")\nbutton.wait_for_press()\nprint(\"Pressed!\")\nlight.on()\nsleep(1)\n",
+   "demo_events": [
+    "1 press 16",
+    "1.3 release 16"
+   ],
+   "error_hints": {},
+   "hints": [
+    "Should the Pi's pull-up be on? Not for a Grove button.",
+    "`pull_up=False`"
+   ],
+   "id": "step2",
+   "starter": "from gpiozero import LED, Button\nfrom time import sleep\n\nlight = LED(5)\nbutton = Button(16, pull_up=___)\n\nprint(\"Press the button...\")\nbutton.wait_for_press()\nprint(\"Pressed!\")\nlight.on()\nsleep(1)\n",
+   "starter_mode": "replace",
+   "success": "The Pi felt your press.",
+   "support": "scaffolded",
+   "text": "A Grove button has its own resistor. It reads **pressed** when its signal goes HIGH, so tell gpiozero **not** to use the Pi's pull-up: `pull_up=False`. (A breadboard button is the other way round.)\n\n**Your task:** fill in the blank, run it, and press the button.\n",
+   "title": "Press for light"
+  },
+  {
+   "checks": [
+    {
+     "label": "You used when_pressed",
+     "type": "code_regex",
+     "value": "when_pressed\\s*="
+    },
+    {
+     "label": "Pressing twice switches it on, then off",
+     "type": "output_regex",
+     "value": "on\\s*\\n(.*\\n)*off"
+    },
+    {
+     "label": "Each press switches the light",
+     "type": "confirm"
+    }
+   ],
+   "demo": "from gpiozero import LED, Button\nfrom signal import pause\n\nlight = LED(5)\nbutton = Button(16, pull_up=False)\n\ndef flip():\n    light.toggle()\n    print(\"on\" if light.is_lit else \"off\")\n\nbutton.when_pressed = flip\npause()\n",
+   "demo_events": [
+    "0.5 press 16",
+    "0.7 release 16",
+    "1.5 press 16",
+    "1.7 release 16"
+   ],
+   "demo_seconds": 2.5,
+   "error_hints": {},
+   "hints": [
+    "Write `def flip():` with `light.toggle()` inside it.",
+    "Print with `print(\"on\" if light.is_lit else \"off\")` after toggling.",
+    "Then `button.when_pressed = flip` and `pause()`."
+   ],
+   "id": "step3",
+   "run_mode": "until_stopped",
+   "starter": "from gpiozero import LED, Button\nfrom signal import pause\n\nlight = LED(5)\nbutton = Button(16, pull_up=False)\n\n",
+   "starter_mode": "keep",
+   "success": "A Grove light switch, driven by events.",
+   "support": "brief",
+   "text": "**Goal:** each press switches the light: on, then off, then on... Print \"on\" or \"off\" each time. Use an **event**: `button.when_pressed = flip`, where `flip` is a function you write. End with `pause()` so the program keeps listening, and press **Stop** when you're done.\n",
+   "title": "A light switch"
+  }
+ ],
+ "title": "Grove: Light and Button",
+ "wiring": [
+  {
+   "connect": "Turn the Pi off. Line the Base Hat's socket up with all 40 pins and press it straight down, gently and evenly.",
+   "part": "Grove Base Hat"
+  },
+  {
+   "colour": "blue",
+   "connect": "Grove cable: Grove LED → port D5 on the Base Hat. The plugs only fit one way round.",
+   "kind": "led",
+   "part": "Grove LED",
+   "pin": 5
+  },
+  {
+   "connect": "Grove cable: Grove Button → port D16 on the Base Hat.",
+   "kind": "button",
+   "part": "Grove Button",
+   "pin": 16
+  }
+ ]
+}

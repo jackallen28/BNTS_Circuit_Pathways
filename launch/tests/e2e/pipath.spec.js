@@ -27,7 +27,7 @@ test("a student's first PiPath activity", async ({ page }) => {
 
   // the picker: Free Play first, then the activities
   await expect(page.locator(".card").first()).toHaveClass(/free/);
-  await expect(page.locator(".card[data-id]")).toHaveCount(25);
+  await expect(page.locator(".card[data-id]")).toHaveCount(28);
   await expect(page.locator('.card[data-id="m2_turtle"]')).toBeDisabled();
   await page.screenshot({ path: "test-results/screenshots/pipath-picker.png" });
 

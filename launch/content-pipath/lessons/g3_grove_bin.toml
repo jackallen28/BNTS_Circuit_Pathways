@@ -1,0 +1,181 @@
+# GROVE 3: a smart bin on the Pi: Ultrasonic Ranger, a servo lid on the PWM port, and a light.
+id = "g3_grove_bin"
+title = "Grove: Smart Bin (Pi)"
+file_name = "smart_bin.py"
+requires_gpio = true
+kit = "grove"
+
+intro = """
+## A bin that opens by itself
+
+Build a bin whose lid opens when a hand comes near, with a light that shows it's open.
+
+- **Grove Ultrasonic Ranger** in port **D18**: measures how far away your hand is
+- **Grove Servo** in the **PWM** port (GPIO 12): lifts the lid
+- **Grove LED** in port **D5**: shows the lid is open
+
+*On a real Pi:* `grove.py` must be installed (your teacher does this once).
+"""
+
+outro = """
+## Your bin opens by itself!
+
+You read a distance, made a decision with `if`, moved a servo with `AngularServo`, and put the opening steps in a **function**.
+"""
+
+[[wiring]]
+part = "Grove Base Hat"
+connect = "Turn the Pi off. Press the Base Hat onto all 40 pins."
+
+[[wiring]]
+part = "Grove Ultrasonic Ranger"
+kind = "distance"
+pin = 18
+connect = "Grove cable: Ultrasonic Ranger → port D18."
+
+[[wiring]]
+part = "Grove Servo (lid)"
+kind = "servo"
+pin = 12
+connect = "The servo's Grove plug → the PWM port (it's GPIO 12)."
+
+[[wiring]]
+part = "Grove LED"
+kind = "led"
+pin = 5
+colour = "blue"
+connect = "Grove cable: Grove LED → port D5."
+
+# ------------------------------------------------------------------ STEP 1
+[[steps]]
+title = "How far away?"
+support = "guided"
+starter_mode = "replace"
+starter = '''
+from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger
+from time import sleep
+
+ranger = GroveUltrasonicRanger(18)   # port D18
+
+for i in range(8):
+    print(ranger.get_distance())
+    sleep(0.5)
+'''
+text = """
+`ranger.get_distance()` measures how far away the nearest thing is, in **centimetres**. It sends a click and times the echo, using just one Grove port.
+
+**Your task:** run it, and move your hand closer and further away. (*Simulator:* drag the ranger's slider.)
+"""
+hints = [
+  "Closer gives a smaller number.",
+  "Try under 15 cm: that's a hand over the bin.",
+]
+success = "Your bin can sense a hand."
+demo = '''
+from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger
+from time import sleep
+
+ranger = GroveUltrasonicRanger(18)   # port D18
+
+for i in range(8):
+    print(ranger.get_distance())
+    sleep(0.5)
+'''
+demo_events = ["1 distance 18 80", "2.5 distance 18 10"]
+
+[[steps.checks]]
+type = "runs_ok"
+label = "Your program runs"
+
+[[steps.checks]]
+type = "output_regex"
+value = '''(^|\n)80\.0\n'''
+label = "Far away: 80 cm"
+
+[[steps.checks]]
+type = "output_regex"
+value = '''(^|\n)10\.0\n'''
+label = "Close: 10 cm"
+
+# ------------------------------------------------------------------ STEP 2
+[[steps]]
+title = "Open the lid"
+support = "scaffolded"
+starter_mode = "replace"
+starter = '''
+from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger
+from gpiozero import AngularServo, LED
+from time import sleep
+
+ranger = GroveUltrasonicRanger(18)
+lid = AngularServo(12, min_angle=0, max_angle=180)
+light = LED(5)
+lid.angle = 0
+
+def open_lid():
+    lid.angle = 90
+    light.on()
+    print("open")
+    sleep(3)
+    lid.angle = 0
+    light.off()
+    print("closed")
+
+for i in range(30):
+    if ranger.get_distance() < ___:
+        open_lid()
+    sleep(0.2)
+'''
+text = """
+`open_lid()` is a **function**: it opens the lid, turns the light on, waits 3 seconds, then closes it. The loop checks the distance again and again.
+
+**Your task:** fill in the blank with how close counts as "a hand" (15 cm works well), then run it and bring your hand close.
+"""
+hints = [
+  "A hand over a bin is closer than about 15 cm.",
+  "`if ranger.get_distance() < 15:`",
+]
+success = "A hands-free bin. Real ones work just like this."
+demo = '''
+from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger
+from gpiozero import AngularServo, LED
+from time import sleep
+
+ranger = GroveUltrasonicRanger(18)
+lid = AngularServo(12, min_angle=0, max_angle=180)
+light = LED(5)
+lid.angle = 0
+
+def open_lid():
+    lid.angle = 90
+    light.on()
+    print("open")
+    sleep(3)
+    lid.angle = 0
+    light.off()
+    print("closed")
+
+for i in range(30):
+    if ranger.get_distance() < 15:
+        open_lid()
+    sleep(0.2)
+'''
+demo_events = ["1 distance 18 10", "1.5 distance 18 80"]
+
+[[steps.checks]]
+type = "runs_ok"
+label = "Your program runs"
+
+[[steps.checks]]
+type = "output_contains"
+value = "open"
+label = "The lid opens when a hand is close"
+
+[[steps.checks]]
+type = "output_contains"
+value = "closed"
+label = "Then it closes again"
+
+[[steps.checks]]
+type = "confirm"
+label = "I saw the lid open and the light come on"
