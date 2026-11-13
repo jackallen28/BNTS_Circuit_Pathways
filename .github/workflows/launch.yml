@@ -40,6 +40,9 @@ jobs:
       - run: npm ci
       - name: JavaScript tests (ArduinoPath simulator, wizard, saves, upload; PiPath in real Pyodide)
         run: npm test
+      - run: npm ci --prefix cloudflare
+      - name: Cloudflare Worker tests (classes, synced work, Pi relay; local Worker and D1)
+        run: npm test --prefix cloudflare
       - run: npx playwright install --with-deps chromium
       - name: Browser tests (the whole site, with pretend boards and a pretend Pi)
         run: npm run e2e
