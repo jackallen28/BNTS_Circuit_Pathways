@@ -57,12 +57,16 @@ npx wrangler secret put COMPILE_KEY             # a long random text; set the sa
 To deploy from GitHub instead, add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository
 secrets. Then run **Actions > Deploy to Cloudflare**.
 
-**The TEST site** (`npm run deploy:test`, or the same Action with "test") is the BETA version: no classes, no
-sign-in and nothing saved. Create its own database first (`npx wrangler d1 create circuit-pathways-test`) and
-put that id in the `test` section of `wrangler.jsonc`.
+**The TEST site** (`npm run deploy:test`, or the same Action with "test") is the BETA version: anyone can use the
+apps with no code, and nothing is saved on the computer. It has **beta teacher mode**: a teacher types **a teacher
+code they make up** (8+ characters) on the home page and makes a class, and students join it with the class code.
+A student in a class has their work saved to the class (in the TEST database), so it comes back after a reload.
+Create its own database first (`npx wrangler d1 create circuit-pathways-test`), put that id in the `test` section
+of `wrangler.jsonc`, and set its `CLASS_SECRET` (`npx wrangler secret put CLASS_SECRET --env test`).
 
 **The Pi beta site** (`npm run deploy:pi`, or the same Action with "pi") is for students using Raspberry Pis.
-It is the real site, marked BETA, where **a class code is optional**:
+It is the real site, marked BETA, where **a class code is optional**, and where teachers can also make up their
+own teacher code (beta teacher mode, as on the TEST site) as well as using the school's `TEACHER_CODES`:
 
 - With no code, a student starts straight away and their work is saved **on that Pi only** (in its browser).
 - With a class code (and their first name(s) and school), their work **also syncs to the class database**, so

@@ -67,7 +67,7 @@ const localPromise = storePromise.then((store) => createLocalApi({
   store, catalogue: catalog, session: tabSession("circuitpathways.pi.student"), version: "web",
   app: { name: "PiPath", format: "pipath-save", ext: "pipath", school: "Banyule Nillumbik Tech School", oldFormats: [] },
   settings: policy,
-  cloud: beta ? null : createCloud(),
+  cloud: createCloud(), // (in the TEST version too: a student who joins a class there has their work saved to it)
 }));
 
 export async function storageIsTemporary() {

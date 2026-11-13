@@ -12,13 +12,13 @@ const KEY = "circuitpathways.access";
  * (the Pi beta, where a class code is optional and work is saved on this device).
  * @returns {{kind: "class"|"student"|"teacher"|"local", value: string, expires_at: number, names?: string[], school?: string, class?: object}|null}
  */
-export function getAccess(now = Date.now(), optional = piBeta) {
-  if (beta) return { kind: "beta", value: "beta", expires_at: now + 12 * 3600 * 1000 }; // the TEST version needs no class code
+export function getAccess(now = Date.now(), optional = piBeta, test = beta) {
   try {
     const a = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (a && typeof a.value === "string" && a.expires_at > now && ["class", "student", "teacher"].includes(a.kind)) return a;
+    if (a && typeof a.value === "string" && a.expires_at > now && ["class", "student", "teacher"].includes(a.kind)) return a; // (a class joined, or a teacher, even in a beta)
     if (a) localStorage.removeItem(KEY);
   } catch { /* storage blocked */ }
+  if (test) return { kind: "beta", value: "beta", expires_at: now + 12 * 3600 * 1000 }; // the TEST version needs no class code
   return optional ? { kind: "local", value: "local", expires_at: now + 12 * 3600 * 1000 } : null;
 }
 

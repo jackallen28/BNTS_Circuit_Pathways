@@ -14,6 +14,19 @@ test("a normal site needs a class code", () => {
   assert.equal(inClass(getAccess(Date.now(), false)), true);
 });
 
+test("the TEST version gives the open 'beta' access, but a class joined (beta teacher mode) or a teacher wins", () => {
+  clearAccess();
+  assert.equal(getAccess(Date.now(), false, true).kind, "beta");
+  assert.equal(inClass(getAccess(Date.now(), false, true)), false);
+  setAccess("student", "s2.token", Date.now() + 60_000, { names: ["Ari"] });
+  assert.equal(getAccess(Date.now(), false, true).kind, "student");
+  assert.equal(inClass(getAccess(Date.now(), false, true)), true);
+  clearAccess();
+  setAccess("teacher", "t2.token", Date.now() + 60_000);
+  assert.equal(getAccess(Date.now(), false, true).kind, "teacher");
+  assert.equal(getAccess(Date.now() + 120_000, false, true).kind, "beta", "an expired sign-in falls back to open access");
+});
+
 test("the Pi beta lets a student start with no class: they're 'local'", () => {
   clearAccess();
   const a = getAccess(Date.now(), true);

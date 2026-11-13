@@ -224,12 +224,20 @@ compiler needs ~1.5 GB). Env: `CLASS_SECRET` (generated), `TEACHER_CODES`, `PI_K
 
 ## 8b. The TEST version (BETA=1)
 
-`BETA=1` (or `-beta`) turns the same build into a shareable test for colleagues: the home page shows a TEST label and no
-class/teacher boxes; `site/shared/beta.js` asks `/api/info`, and when it is the test version `getAccess()` returns an
-open "beta" access, `openStore()` returns the in-memory store, Save/Open my work, Download .ino, Wipe and the PiPath
-"Run on" choice are hidden, and a TEST tag is shown. The server returns 404 for `/teacher`, `/api/teacher|class|pi/`
-and the Pi Link page, sends `X-Robots-Tag: noindex`, and accepts the open access only for `/api/compile`. Blueprint:
-`render.test.yaml`. Tests: `tests/e2e/test-version.spec.js` (the config starts a second server on port 8544).
+`BETA=1` (or `-beta`) turns the same build into a shareable test for colleagues: the home page shows a TEST label;
+`site/shared/beta.js` asks `/api/info`, and when it is the test version `getAccess()` returns an open "beta" access (a
+joined class or teacher sign-in wins over it), `openStore()` returns the in-memory store, Save/Open my work, Download
+.ino, Wipe and the PiPath "Run on" choice are hidden, and a TEST tag is shown. The server returns 404 for `/api/pi/` and
+the Pi Link page, sends `X-Robots-Tag: noindex`, and accepts the open access only for `/api/compile`.
+
+**Beta teacher mode** (both beta editions, `info.teacher_mode`): classes and the teacher page are there, and a teacher
+signs in with **a code they make up** (8 to 64 characters; their classes are kept under it, nobody else sees them
+without it). The real site still only takes the school's `TEACHER_CODES`. Students join with the class code. On the Go
+site that is a stateless class code (nothing saved). On the Cloudflare TEST site, a student who joins has their first
+name(s), school and work saved to the class in the TEST database (the device itself still keeps nothing, so after a
+reload they join back in and their work returns); the Go site's class codes keep nothing. On Go set `CLASS_SECRET`, or
+class codes stop working when the TEST site restarts. Blueprint: `render.test.yaml`. Tests: `tests/e2e/test-version.spec.js`
+(second server, port 8544), `tests/e2e/cloudflare-test.spec.js` (the Worker's `test` env, port 8547), `cloudflare/test/pibeta.test.mjs`.
 
 ## 9. `development/` (the earlier, parked version)
 

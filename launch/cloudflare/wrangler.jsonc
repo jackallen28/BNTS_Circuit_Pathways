@@ -51,7 +51,7 @@
       ],
       "triggers": { "crons": [] }
     },
-    // the TEST (beta) version: no classes, teachers or Pi linking; nothing saved
+    // the TEST (beta) version: nothing saved on the device; a class joined (beta teacher mode) is saved to the class
     "test": {
       "name": "circuit-pathways-test",
       "vars": { "BETA": "1", "DEFAULT_SCHOOL": "Banyule Nillumbik Tech School" },
@@ -61,6 +61,9 @@
       "durable_objects": { "bindings": [{ "name": "PIHUB", "class_name": "PiHub" }] },
       "ratelimits": [
         { "name": "LIMIT_JOIN", "namespace_id": "2001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "LIMIT_SIGNIN", "namespace_id": "2002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "LIMIT_CLASS", "namespace_id": "2003", "simple": { "limit": 20, "period": 60 } },
+        { "name": "LIMIT_WORK", "namespace_id": "2004", "simple": { "limit": 120, "period": 60 } },
         { "name": "LIMIT_COMPILE", "namespace_id": "2005", "simple": { "limit": 20, "period": 60 } }
       ],
       "triggers": { "crons": [] }

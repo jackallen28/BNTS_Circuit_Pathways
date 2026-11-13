@@ -1,5 +1,5 @@
 // Settings: help level, what to show, text size, saving and opening your work, the curriculum, About.
-import { beta } from "../../../shared/beta.js";
+import { beta, TEST_WORK_NOTE } from "../../../shared/beta.js";
 import { h } from "../dom.js";
 import { download, joinNames } from "../dom.js";
 import { api } from "../api.js";
@@ -31,7 +31,7 @@ export function openSettings({ startTab = "help", projectId = null, onChanged = 
       h("select", { class: "input", "aria-label": "Code text size", onchange: (e) => { document.documentElement.style.setProperty("--code-size", `${e.target.value}px`); save({ code_size: Number(e.target.value) }); } },
         [13, 15, 18, 22, 26].map((n) => h("option", { value: n, text: `${n} px${n === 15 ? " (normal)" : ""}`, selected: (s().code_size ?? 15) === n }))),
     ]],
-    work: ["My work", () => beta ? [h("p", { text: "This is the TEST version, so nothing is saved and there are no save files. When you close or reload this tab, your work is cleared." })] : [
+    work: ["My work", () => beta ? [h("p", { text: TEST_WORK_NOTE })] : [
       h("p", { text: "Your work is saved in this browser, on this computer. To take it home or use another computer, save it as a file." }),
       h("p", {}, h("button", { class: "btn", type: "button", id: "save-work", text: "Save my work", onclick: async () => { const { bytes, name } = await api.exportMyWork(); download(bytes, name); } })),
       h("p", {}, h("label", { class: "btn", style: { display: "inline-block" } }, "Open my work ", h("input", { type: "file", id: "open-work", accept: ".pipath,.zip", hidden: true, onchange: (e) => openWork(e.target) }))),

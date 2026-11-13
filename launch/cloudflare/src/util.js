@@ -4,6 +4,14 @@ export const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"; // Crockford's base 
 
 const enc = new TextEncoder();
 
+const on = (v) => v === "1" || v === "true";
+/** The TEST version (BETA=1): nothing saved on the device unless a class is joined. */
+export const isBeta = (env) => on(env.BETA);
+/** The Pi beta (PI_BETA=1): students on Raspberry Pis, a class code is optional. */
+export const isPiBeta = (env) => !isBeta(env) && on(env.PI_BETA);
+/** Either beta edition. These have "beta teacher mode": a teacher makes up their own teacher code. */
+export const isBetaEdition = (env) => isBeta(env) || isPiBeta(env);
+
 /** Security headers for everything the Worker answers itself (static files get theirs from _headers). */
 export function secure(headers = new Headers()) {
   headers.set("X-Content-Type-Options", "nosniff");

@@ -2,7 +2,7 @@
 // static assets with the headers in _headers. This Worker answers the API: teacher sign-in, saved
 // classes (D1), students' synced work, the Raspberry Pi relay (a Durable Object per Pi), and sends
 // compiles on to a separate compiler (the Docker image) when COMPILE_URL is set.
-import { json, error, noContent, readJSON, secure, HttpError } from "./util.js";
+import { json, error, noContent, readJSON, secure, HttpError, isBeta, isPiBeta, isBetaEdition } from "./util.js";
 import { classRoutes, studentOf, cleanUp } from "./classes.js";
 import { teacherFrom, bearer } from "./auth.js";
 import { verifyPiKey, normaliseId } from "./pikeys.js";
@@ -11,12 +11,10 @@ import { checkCommand } from "./command.js";
 export { PiHub } from "./relay.js";
 
 const PLACEHOLDER_SERVER = "https://circuit-pathways.onrender.com";
-const BETA_HIDDEN = [/^\/teacher(\/|$)/, /^\/api\/teacher\//, /^\/api\/class\//, /^\/api\/student\//, /^\/api\/pi\//, /^\/pipath\/remote\/?(index\.html|circuitpathways_pi\.py|install\.sh)?$/];
-
-const isBeta = (env) => env.BETA === "1" || env.BETA === "true";
-// The Pi beta: students use the site on a Raspberry Pi. A class code is optional. Without one, work is
-// saved on that device only and the apps use the access word "local"; with one, work also syncs to the class.
-const isPiBeta = (env) => !isBeta(env) && (env.PI_BETA === "1" || env.PI_BETA === "true");
+// Beta editions: the TEST version (BETA=1, nothing saved on the device unless a class is joined) and the Pi
+// beta (PI_BETA=1, students on Raspberry Pis: a class code is optional, work is saved on the device, or on the
+// class when one is joined). Both have "beta teacher mode" (teachers make up their own teacher code) so
+// students can join a class. In the Pi beta, no class means the apps use the access word "local".
 
 /** Who may use the compiler and the Pi relay: a student in a class that's running, or a teacher. */
 async function accessOK(env, token, now) {
@@ -96,7 +94,6 @@ async function handle(req, env) {
   const p = url.pathname;
   const now = Date.now();
   const beta = isBeta(env);
-  if (beta && BETA_HIDDEN.some((re) => re.test(p))) return error(404, "not_found", "There's nothing here.");
   if (p === "/pipath/remote/circuitpathways_pi.py" || p === "/pipath/remote/install.sh") return piApp(req, env, url, p.split("/").pop());
   if (!p.startsWith("/api/")) return env.ASSETS.fetch(req);
 
@@ -109,8 +106,8 @@ async function handle(req, env) {
   if (p === "/api/info") {
     return json(200, {
       app: "Circuit Pathways", version: env.VERSION ?? "cloudflare", compile: Boolean(env.COMPILE_URL), beta,
-      edition: beta ? "test" : isPiBeta(env) ? "pi-beta" : "", class_optional: isPiBeta(env),
-      classes: !beta, relay: env.PI_KEY_SECRET ? "ws" : "off", commit: String(env.CF_VERSION_METADATA?.id ?? "").slice(0, 8),
+      edition: beta ? "test" : isPiBeta(env) ? "pi-beta" : "", class_optional: isPiBeta(env), teacher_mode: isBetaEdition(env),
+      classes: true, relay: env.PI_KEY_SECRET ? "ws" : "off", commit: String(env.CF_VERSION_METADATA?.id ?? "").slice(0, 8),
     });
   }
   if (p === "/api/compile" && req.method === "POST") {

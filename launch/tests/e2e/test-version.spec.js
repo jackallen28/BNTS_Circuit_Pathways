@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
 const BETA = `http://localhost:${Number(process.env.E2E_BETA_PORT) || 8544}`;
 test.use({ baseURL: BETA, storageState: { cookies: [], origins: [] } });
 
-test("the home page says TEST and has no class or teacher boxes", async ({ page }) => {
+test("the home page says TEST, and has beta teacher mode so students can join a class", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/^TEST: /);
   await expect(page.locator("#test-tag")).toBeVisible();
@@ -14,12 +14,39 @@ test("the home page says TEST and has no class or teacher boxes", async ({ page 
   await expect(page.locator("h1 .beta-badge")).toHaveText("BETA");
   await expect(page.getByRole("link", { name: /Open PiPath/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Open ArduinoPath/ })).toBeVisible();
-  for (const gone of ["#session", "#join-form", "#teacher-form", ".scroll-hint"]) await expect(page.locator(gone)).toBeHidden();
-  expect(await page.evaluate(() => document.body.innerText)).not.toMatch(/class code|teacher code|teacher sign/i); // (innerText leaves out hidden parts)
-  expect((await page.request.get("/teacher/")).status()).toBe(404);
-  expect((await page.request.get("/api/pi/events?code=X")).status()).toBe(404);
+  // beta teacher mode: the class and teacher boxes are there, with a hint that a teacher makes up their own code
+  for (const here of ["#session", "#join-form", "#teacher-form", ".scroll-hint", "#teacher-hint", "#optional-note"]) await expect(page.locator(here)).toBeVisible();
+  await expect(page.locator("#teacher-hint")).toContainText("make up a teacher code");
+  await expect(page.locator("#optional-note")).toContainText("TEST version");
+  expect((await page.request.get("/teacher/")).status()).toBe(200);
+  expect((await page.request.get("/api/pi/events?code=X")).status()).toBe(404); // (Pi linking stays off here)
   expect((await page.request.get("/api/info")).headers()["x-robots-tag"]).toContain("noindex");
   await page.screenshot({ path: "test-results/screenshots/test-home.png" });
+});
+
+test("beta teacher mode: a teacher makes up a code and a class code, and a student joins it", async ({ page, browser }) => {
+  await page.goto("/");
+  await page.locator("#teacher-form input[name=teacher]").fill("short");
+  await page.getByRole("button", { name: /Teacher sign in/ }).click();
+  await expect(page.locator("#teacher-form .note")).toContainText("isn't right");
+  await page.locator("#teacher-form input[name=teacher]").fill("my own beta code");
+  await page.getByRole("button", { name: /Teacher sign in/ }).click();
+  await page.waitForURL("**/teacher/");
+  await page.locator("#make").click();
+  const code = (await page.locator("#code").textContent()).trim();
+  expect(code).toMatch(/^[0-9A-Z]{5}-[0-9A-Z]{5}$/);
+
+  const sctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const sp = await sctx.newPage();
+  await sp.goto(`${BETA}/`);
+  await sp.locator("#join-form input[name=code]").fill(code);
+  await sp.getByRole("button", { name: /Join class/ }).click();
+  await expect(sp.locator("#session-in-text")).toContainText(`You're in class ${code}`);
+  // the apps still open without any fuss, and the student stays in their class
+  await sp.goto(`${BETA}/pipath/`);
+  await expect(sp).toHaveURL(/\/pipath\/$/);
+  expect(await sp.evaluate(() => JSON.parse(localStorage.getItem("circuitpathways.access")).kind)).toBe("class");
+  await sctx.close();
 });
 
 test("PiPath opens with no class code, runs Python, offers no saving, and forgets on reload", async ({ page }) => {

@@ -2,7 +2,7 @@
 // are kept about them. A class ends on the date the teacher picks (at most about a year away), and
 // the daily clean-up deletes it with everyone and everything in it. Teachers can delete sooner.
 import { cleanNames, cleanSchool, ValidationError } from "../../site/shared/local/validate.js";
-import { json, error, noContent, readJSON, randomCode, randomId, normaliseCode, showCode, HttpError } from "./util.js";
+import { json, error, noContent, readJSON, randomCode, randomId, normaliseCode, showCode, HttpError, isBetaEdition } from "./util.js";
 import { signIn, teacherFrom, studentFrom, studentToken, bearer } from "./auth.js";
 
 export const MAX_DAYS = 400;
@@ -101,7 +101,7 @@ export async function classRoutes(req, env, url, now, limit) {
   if (p === "/api/teacher/signin" && m === "POST") {
     await limit("signin");
     const body = await readJSON(req);
-    const res = await signIn(env, body.code, now);
+    const res = await signIn(env, body.code, now, isBetaEdition(env));
     if (!res) {
       await new Promise((r) => setTimeout(r, 400));
       return error(401, "bad_code", "That teacher code isn't right.");

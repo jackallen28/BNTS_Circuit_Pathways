@@ -2,7 +2,7 @@
 // class forms (students join with a class code, teachers sign in).
 
 import { getAccess, setAccess, clearAccess, postJSON, inClass } from "/shared/access.js";
-import { beta, piBeta, showTestTag, showBetaBadge } from "/shared/beta.js";
+import { beta, piBeta, teacherMode, savedClasses as classesKept, showTestTag, showBetaBadge } from "/shared/beta.js";
 import { takePiFromUrl, thisPi } from "/shared/thispi.js";
 
 // Opened from a Raspberry Pi's own shortcut (?pi=...): remember this Pi.
@@ -59,7 +59,7 @@ function showState() {
         : `You're in class ${a.value}, ${until}.`;
   }
   $("#need-class").hidden = new URLSearchParams(location.search).get("need") !== "class" || member || piBeta;
-  $("#optional-note").hidden = !piBeta || member;
+  $("#optional-note").hidden = !(piBeta || (beta && teacherMode)) || member;
 }
 
 function setNote(form, text, kind = "") {
@@ -150,17 +150,27 @@ if (thisPi() && !beta) {
   $("#on-pi").textContent = `This is the Raspberry Pi ${thisPi()}. When you choose "My Raspberry Pi" in PiPath, your programs run on it. Your work is saved on this Pi, and with your class once you've joined one, so you can carry on on any computer.`;
   $("#on-pi").hidden = false;
 }
+if (teacherMode) $("#teacher-hint").hidden = false; // beta teacher mode: teachers make up their own code
 if (piBeta) {
   // The Pi beta: students start straight away (saved on this device); a class code is optional.
   showBetaBadge();
   $(".scroll-hint").textContent = "Got a class code, or a teacher? Scroll down ▾";
 }
 if (beta) {
-  // The TEST version: the same home page, but no class codes or teacher sign-in.
+  // The TEST version: anyone can use the apps with no code, and nothing is saved on this computer. With beta
+  // teacher mode, teachers make up a code and make a class, and students can join it to try that.
   showTestTag();
   document.getElementById("beta-badge").hidden = false;
-  $("#session").hidden = true;
-  $(".scroll-hint").hidden = true;
+  if (teacherMode) {
+    $("#optional-note").textContent = classesKept
+      ? "This is the TEST version: pick PiPath or ArduinoPath above and try it with no code. Nothing is saved on this computer. To try a class, a teacher makes up a teacher code below and makes a class, and students join it with the class code. A student who joins has their work saved to the class."
+      : "This is the TEST version: pick PiPath or ArduinoPath above and try it with no code. Nothing is saved. To try a class, a teacher makes up a teacher code below and makes a class code, and students join with it.";
+    if (classesKept) $("#privacy").textContent = "This is the TEST version, so nothing is saved on this computer. If you join a class, only your first name(s) and school are kept with your work, so your teacher can see it. It's all deleted when the class ends. Nothing else about you is kept.";
+    $(".scroll-hint").textContent = "Got a class code, or a teacher? Scroll down ▾";
+  } else {
+    $("#session").hidden = true;
+    $(".scroll-hint").hidden = true;
+  }
 } else if (!$("#need-class").hidden) {
   $("#session").scrollIntoView();
 }

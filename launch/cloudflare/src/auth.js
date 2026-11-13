@@ -18,16 +18,23 @@ export function secret(env) {
 /** A teacher's identity: a fingerprint of their code (the code itself is never stored). */
 export const teacherId = async (env, code) => sign(secret(env), `teacher:${code}`, 12);
 
-export async function signIn(env, code, now) {
+async function teacherToken(env, code, now) {
+  const id = await teacherId(env, code);
+  const exp = now + TEACHER_HOURS * 3600 * 1000;
+  const body = `t2.${id}.${exp}`;
+  return { token: `${body}.${await sign(secret(env), body)}`, expires_at: exp };
+}
+
+/**
+ * A teacher signs in with one of the TEACHER_CODES. In the beta editions (`open`) they may also make up a
+ * code of their own (8+ characters): their classes are kept under it and nobody else can see them without it.
+ */
+export async function signIn(env, code, now, open = false) {
   const typed = String(code ?? "").trim();
   for (const c of teacherCodes(env)) {
-    if (same(c, typed)) {
-      const id = await teacherId(env, c);
-      const exp = now + TEACHER_HOURS * 3600 * 1000;
-      const body = `t2.${id}.${exp}`;
-      return { token: `${body}.${await sign(secret(env), body)}`, expires_at: exp };
-    }
+    if (same(c, typed)) return teacherToken(env, c, now);
   }
+  if (open && typed.length >= 8 && typed.length <= 64) return teacherToken(env, typed, now);
   return null;
 }
 

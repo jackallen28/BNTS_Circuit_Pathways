@@ -79,15 +79,20 @@ codes, the teacher page and Run on my Pi all work). Limits of a free Render serv
 
 ## A TEST version to share with colleagues
 
-The same site run with `BETA=1`: the **same home page** (PiPath and ArduinoPath) with a **TEST** label, but **no class
-codes, no teacher sign-in, no Raspberry Pi linking and nothing saved**. Colleagues open the link, make a pretend profile
-and try everything a student sees. Closing or reloading the tab clears it (there are no save files, no "Save my work" or
-"Download .ino", no autosave to the browser). Search engines are asked to stay away (`noindex`).
+The same site run with `BETA=1`: the **same home page** (PiPath and ArduinoPath) with a **TEST** label, **no Raspberry Pi
+linking and nothing saved**. Colleagues open the link, make a pretend profile and try everything a student sees. Closing
+or reloading the tab clears it (there are no save files, no "Save my work" or "Download .ino", no autosave to the
+browser). Search engines are asked to stay away (`noindex`).
+
+**Beta teacher mode:** a colleague who wants to try classes scrolls down, types **a teacher code they make up** (8 or more
+characters, and remembers it) and makes a class code; students join with it. No secret teacher codes are needed.
+On Render set a `CLASS_SECRET` (any long random text) too, or class codes stop working whenever the free site sleeps and
+restarts. (On the Cloudflare TEST site a student who joins a class also has their work saved to it.)
 
 On Render: **New > Blueprint**, pick this repo and branch, and set **Blueprint file path** to `render.test.yaml` (a second
 free service named `circuit-pathways-test`, with its own address; it can run beside the real site). Or by hand:
 **New > Web Service**, Runtime Docker, Root Directory `launch`, Dockerfile Path `./Dockerfile.free`, Free, and the
-environment variable `BETA` = `1`. That is all: no class secret, teacher codes or other settings are needed.
+environment variable `BETA` = `1`. That is all that is needed to open it: no teacher codes or other settings (add `CLASS_SECRET` if testers will try classes).
 There is no password in the site itself, so anyone with the link can open it (fine for a test; a gateway in front of it is optional).
 
 Upload to a real board is off on the free plan, so colleagues can try everything except real hardware. To let them

@@ -34,7 +34,7 @@ func main() {
 	toolsDir := flag.String("tools", env("TOOLS_DIR", "/opt/circuitpathways"), "folder with the Arduino tools installed by -setup")
 	setup := flag.Bool("setup", false, "install arduino-cli, the board cores and libraries into -tools, then stop (done when the image is built)")
 	warm := flag.Bool("warm", false, "after -setup, compile once for every board so the first student isn't slow")
-	beta := flag.Bool("beta", os.Getenv("BETA") == "1" || strings.EqualFold(os.Getenv("BETA"), "true"), "the TEST version: no class codes or teacher pages, nothing saved (also: BETA=1)")
+	beta := flag.Bool("beta", os.Getenv("BETA") == "1" || strings.EqualFold(os.Getenv("BETA"), "true"), "the TEST version: open to anyone, nothing saved, teachers make up their own code (also: BETA=1)")
 	dev := flag.Bool("dev", false, "development: random secrets, a teacher code of 'teacher-code-dev', no board tools needed")
 	piKeys := flag.Int("pi-keys", 0, "make this many Raspberry Pi keys (and an installer for each Pi) with PI_KEY_SECRET, then stop")
 	export := flag.String("export", "", "write the whole site (with ArduinoPath's data and a Cloudflare _headers file) into this folder, then stop")
@@ -76,11 +76,15 @@ func main() {
 	secret := os.Getenv("CLASS_SECRET")
 	teachers := os.Getenv("TEACHER_CODES")
 	if *dev || *beta {
-		// (the TEST version has no classes or teachers, so it needs no secrets at all)
+		// (the TEST version needs no secrets at all; but with a made-up CLASS_SECRET, class codes stop
+		// working whenever it restarts, so set CLASS_SECRET if testers will keep classes for days)
 		if secret == "" {
 			b := make([]byte, 16)
 			rand.Read(b)
 			secret = hex.EncodeToString(b)
+			if *beta {
+				log.Warn("CLASS_SECRET isn't set: class codes made on this TEST site stop working when it restarts")
+			}
 		}
 		if teachers == "" && *dev {
 			teachers = "teacher-code-dev"
@@ -97,7 +101,7 @@ func main() {
 		if teachers == "" {
 			b := make([]byte, 16)
 			rand.Read(b)
-			teachers = hex.EncodeToString(b) // nobody can sign in as a teacher: the pages are switched off
+			teachers = hex.EncodeToString(b) // (no school teacher codes here: teachers make up their own)
 		}
 	}
 	if *dev && piSecret == "" {

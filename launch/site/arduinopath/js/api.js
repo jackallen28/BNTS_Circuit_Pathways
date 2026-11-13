@@ -51,7 +51,7 @@ const catalogue = () => (cataloguePromise ??= getJSON("data/catalogue.json").cat
 
 const storePromise = openStore();
 let localPromise;
-const local = () => (localPromise ??= storePromise.then((store) => createLocalApi({ store, catalogue, session: tabSession(), version: "web", cloud: beta ? null : createCloud() })));
+const local = () => (localPromise ??= storePromise.then((store) => createLocalApi({ store, catalogue, session: tabSession(), version: "web", cloud: createCloud() })));
 
 /** True if this browser won't keep the student's work between visits (a private window, say). */
 export async function storageIsTemporary() {

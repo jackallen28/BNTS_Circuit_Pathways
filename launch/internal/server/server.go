@@ -47,8 +47,9 @@ type Config struct {
 	Relay *pirelay.Relay
 	// PiKeys checks Raspberry Pi keys (nil: Pi Link is off).
 	PiKeys *pilink.Keys
-	// Beta is the TEST version: no class codes or teacher pages, the apps are open to anyone with
-	// the link, and the page says nothing is saved. Pi Link is off.
+	// Beta is the TEST version: the apps are open to anyone with the link, and the page says nothing
+	// is saved. It has "beta teacher mode": a teacher makes up their own teacher code, makes a class
+	// code, and students can join it. Pi Link is off.
 	Beta bool
 	// CompileKey lets another front end (the Cloudflare Worker) use this server as its compiler:
 	// a request with X-Compile-Key set to it counts as a class member. Empty: off.
@@ -193,13 +194,14 @@ func shortCommit(c string) string {
 	return c
 }
 
-// betaHidden are the parts of the site the TEST version doesn't have: classes, teachers and Raspberry Pi linking.
+// betaHidden are the parts of the site the TEST version doesn't have: Raspberry Pi linking. (Classes and the
+// teacher page are there: the TEST version has "beta teacher mode", where a teacher makes up their own code.)
 func betaHidden(path string) bool {
 	switch path {
 	case "/pipath/remote", "/pipath/remote/", "/pipath/remote/index.html", "/pipath/remote/circuitpathways_pi.py", "/pipath/remote/install.sh":
 		return true // (pi-remote.js stays: PiPath's page loads it, and it does nothing without a Pi)
 	}
-	for _, p := range []string{"/teacher", "/api/teacher/", "/api/class/", "/api/pi/"} {
+	for _, p := range []string{"/api/pi/"} {
 		if path == p || strings.HasPrefix(path, strings.TrimSuffix(p, "/")+"/") {
 			return true
 		}
@@ -257,7 +259,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil, "beta": s.Beta, "commit": shortCommit(os.Getenv("RENDER_GIT_COMMIT")),
+		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil, "beta": s.Beta, "teacher_mode": s.Beta, "commit": shortCommit(os.Getenv("RENDER_GIT_COMMIT")),
 	})
 }
 

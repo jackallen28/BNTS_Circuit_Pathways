@@ -16,7 +16,10 @@ func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if !s.Teachers.Check(req.Code) {
+	// Beta teacher mode: on the TEST version a teacher may make up a code of their own (8+ characters), so
+	// anyone testing can make a class. (A real site only accepts the school's TEACHER_CODES.)
+	madeUp := s.Beta && len(strings.TrimSpace(req.Code)) >= 8 && len(strings.TrimSpace(req.Code)) <= 64
+	if !s.Teachers.Check(req.Code) && !madeUp {
 		// The same pause for every wrong code, so timing says nothing.
 		time.Sleep(400 * time.Millisecond)
 		writeError(w, http.StatusUnauthorized, "bad_teacher_code", "That teacher code isn't right. Check it and try again.")
