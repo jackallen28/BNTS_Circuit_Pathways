@@ -6,7 +6,6 @@ services:
   - type: web
     name: circuit-pathways
     runtime: docker
-    rootDir: launch
     dockerfilePath: ./Dockerfile
     # The ESP32 compiler needs about 1.5 GB of memory: use at least the Standard plan.
     plan: standard
@@ -21,7 +20,7 @@ services:
       - key: TEACHER_CODES
         sync: false
       # Signs the keys of your Raspberry Pis (Pi Link). Keep the same value for as long as Pis
-      # in the field use their keys. Made by you once (see launch/LAUNCH.md).
+      # in the field use their keys. Made by you once (see docs/deploy-render.md).
       - key: PI_KEY_SECRET
         sync: false
       # Optional: IDs of Pi keys to switch off (lost or stolen Pis), separated by commas.

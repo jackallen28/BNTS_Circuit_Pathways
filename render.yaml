@@ -1,5 +1,5 @@
 # Render Blueprint: Circuit Pathways, FREE version. No payment needed (if Render still asks for a card
-# for a Blueprint, create a plain Web Service instead: see launch/LAUNCH.md "Free hosting").
+# for a Blueprint, create a plain Web Service instead: see docs/deploy-render.md "Free hosting").
 # It has everything except "Upload to a real board" (that needs the Arduino compilers, which need a
 # paid plan: use render.paid.yaml for that). A free service sleeps after 15 minutes without visitors and
 # takes about a minute to wake up, so open the site a few minutes before a class.
@@ -7,7 +7,6 @@ services:
   - type: web
     name: circuit-pathways
     runtime: docker
-    rootDir: launch
     dockerfilePath: ./Dockerfile.free
     plan: free
     healthCheckPath: /healthz

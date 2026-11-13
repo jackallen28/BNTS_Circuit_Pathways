@@ -1,15 +1,12 @@
-name: CI
+name: CI (the website, the Worker, the Pi app)
 
 on:
   push:
-    paths-ignore: ["development/website/**", "launch/**"]     # the showcase website doesn't need the app's tests
   pull_request:
-    paths-ignore: ["development/website/**", "launch/**"]
 
 permissions:
   contents: read
 
-# A newer push replaces a run that's still going (the board jobs are heavy).
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -17,215 +14,76 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: development
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
-          go-version-file: development/go.mod
-
-      - name: Go formatting
-        run: test -z "$(gofmt -l . | tee /dev/stderr)"
-
-      - name: Go vet
-        run: go vet ./...
-
-      - name: Go tests (server, content, save files)
-        run: go test ./...
-
+          go-version-file: go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
+      - name: Go formatting
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - run: go vet ./...
+      - name: Go tests (server, class codes, Pi relay, content)
+        run: go test -race ./...
+      - name: PiPath's lesson data is up to date with its TOML
+        run: python3 tools/build_pipath_data.py --check
+      - name: Pi Link app tests (no Pi needed)
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover raspberry-pi
       - run: npm ci
-
-      - name: JavaScript tests
+      - name: JavaScript tests (ArduinoPath simulator, wizard, saves, upload; PiPath in real Pyodide)
         run: npm test
-
-      - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: GUI smoke test
+      - run: npm ci --prefix cloudflare
+      - name: Cloudflare Worker tests (classes, synced work, Pi relay; local Worker and D1)
+        run: npm test --prefix cloudflare
+      - run: npx playwright install --with-deps chromium
+      - name: Browser tests (the whole site, with pretend boards and a pretend Pi)
         run: npm run e2e
-
-      - name: Keep the screenshots
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: development/test-results/screenshots
+          path: test-results/screenshots
           if-no-files-found: ignore
 
-  windows:
-    # The real CircuitPath.exe on real Windows, with the board tools built
-    # in: the Go tests, pack the tools, unpack them and compile for every
-    # board, then start the exe and use it (and compile for an Uno through
-    # its API). The exe is kept as a download on the run's page.
-    runs-on: windows-latest
-    timeout-minutes: 120
-    defaults:
-      run:
-        shell: bash
-        working-directory: development
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: development/go.mod
-
-      - name: Go tests on Windows
-        run: go test ./...
-
-      - name: Restore the board tools
-        id: tools-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
-
-      - name: Install the board tools
-        run: |
-          go run ./cmd/circuitpath -data "$RUNNER_TEMP/cp" -install-arduino
-          rm -rf "$RUNNER_TEMP/cp/arduino/downloads"
-
-      - name: Save the board tools
-        if: steps.tools-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
-
-      - name: Build CircuitPath.exe with the board tools built in
-        run: |
-          mkdir -p dist
-          CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsgui -s -w -X circuitpath.Version=${GITHUB_SHA::7}" -o dist/CircuitPath.exe ./cmd/circuitpath
-          go run ./tools/packboards -in "$RUNNER_TEMP/cp/arduino" -out dist/boards.zip
-          go run ./tools/packboards -append dist/CircuitPath.exe -bundle dist/boards.zip
-          ls -la dist
-
-      - name: Unpack the built-in tools and compile for every board
-        env:
-          CIRCUITPATH_BOARDS: ${{ github.workspace }}/development/dist/CircuitPath.exe
-        run: go test -v -timeout 90m -run TestRealBundle ./internal/arduino
-
-      - name: Start CircuitPath.exe and use it
-        shell: pwsh
-        env:
-          CIRCUITPATH_EXPECT_TOOLS: "1"
-        run: ./tests/windows/smoke.ps1 -Exe dist/CircuitPath.exe
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CircuitPath-exe
-          path: development/dist/CircuitPath.exe
-          retention-days: 7
-
-  macos:
-    # The real CircuitPath.app on a real (Apple Silicon) Mac, with the board
-    # tools built in: the Go tests, pack the tools, build the universal app,
-    # sign it (ad hoc), compile for every board, start it and use it.
-    runs-on: macos-latest
-    timeout-minutes: 120
-    defaults:
-      run:
-        working-directory: development
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: development/go.mod
-
-      - name: Go tests on macOS
-        run: go test ./...
-
-      - name: Restore the board tools
-        id: tools-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
-
-      - name: Install the board tools
-        run: |
-          go run ./cmd/circuitpath -data "$RUNNER_TEMP/cp" -install-arduino
-          rm -rf "$RUNNER_TEMP/cp/arduino/downloads"
-
-      - name: Save the board tools
-        if: steps.tools-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
-
-      - name: Build CircuitPath.app with the board tools built in
-        run: |
-          for arch in amd64 arm64; do
-            CGO_ENABLED=0 GOOS=darwin GOARCH=$arch go build -trimpath -ldflags "-s -w -X circuitpath.Version=${GITHUB_SHA::7}" -o dist/circuitpath-$arch ./cmd/circuitpath
-          done
-          go run ./tools/packboards -in "$RUNNER_TEMP/cp/arduino" -out dist/boards.zip
-          go run ./tools/macapp -version 0.0.0 -amd64 dist/circuitpath-amd64 -arm64 dist/circuitpath-arm64 -boards dist/boards.zip -out dist
-          codesign --force --deep -s - dist/CircuitPath.app
-
-      - name: Unpack the built-in tools and compile for every board
-        env:
-          CIRCUITPATH_BOARDS: ${{ github.workspace }}/development/dist/CircuitPath.app/Contents/Resources/boards.zip
-        run: go test -v -timeout 90m -run TestRealBundle ./internal/arduino
-
-      - name: Start CircuitPath.app and use it
-        env:
-          CIRCUITPATH_EXPECT_TOOLS: "1"
-        run: tests/macos/smoke.sh dist/CircuitPath.app
-
-      - name: Zip
-        run: ditto -c -k --keepParent dist/CircuitPath.app dist/CircuitPath-macOS.zip
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CircuitPath-macOS
-          path: development/dist/CircuitPath-macOS.zip
-          retention-days: 7
-
-  boards:
-    # Every board compiles the kit check (every library the projects use)
-    # with the pinned cores and libraries (internal/arduino/requirements.json);
-    # then the tools are packed and unpacked like the apps do, and compile again.
+  # The real compilers, for every board: every board's upload file comes out
+  # right, and a broken sketch comes back with a line number.
+  compile:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    defaults:
-      run:
-        working-directory: development
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
-          go-version-file: development/go.mod
-
-      - name: Restore the board tools
-        id: tools-cache
-        uses: actions/cache/restore@v4
+          go-version-file: go.mod
+      - uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
+          path: ~/circuitpathways-tools
+          key: tools-${{ hashFiles('internal/arduino/requirements.json') }}
+      - run: go run ./cmd/launch -setup -warm -tools "$HOME/circuitpathways-tools"
+      - run: go test -count=1 -timeout 60m -run TestCompileEveryBoardForReal -v ./internal/arduino
+        env:
+          CIRCUITPATHWAYS_TOOLS: /home/runner/circuitpathways-tools
 
-      - name: Install the Arduino tools and compile for every board
-        run: |
-          go run ./cmd/circuitpath -data "$RUNNER_TEMP/cp" -setup-arduino
-          rm -rf "$RUNNER_TEMP/cp/arduino/downloads"
-
-      - name: Save the board tools
-        if: steps.tools-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+  # The image Render builds, built here first so a broken Dockerfile shows up before a deploy.
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
         with:
-          path: ${{ runner.temp }}/cp/arduino
-          key: arduino-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('development/internal/arduino/requirements.json') }}
-
-      - name: Pack the tools like the apps, unpack them and compile again
+          context: .
+          load: true
+          tags: circuitpathways:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: The image starts, answers, and has the compilers
         run: |
-          go run ./tools/packboards -in "$RUNNER_TEMP/cp/arduino" -out "$RUNNER_TEMP/boards.zip"
-          CIRCUITPATH_BOARDS="$RUNNER_TEMP/boards.zip" go test -v -timeout 90m -run TestRealBundle ./internal/arduino
+          docker run -d --name cp -p 8080:8080 -e CLASS_SECRET=0123456789abcdef0123 -e TEACHER_CODES=test-teacher-code -e PI_KEY_SECRET=0123456789abcdef0123 circuitpathways:test
+          for i in $(seq 1 30); do curl -fsS localhost:8080/healthz && break; sleep 1; done
+          curl -fsS localhost:8080/healthz
+          docker exec cp ls /opt/circuitpathways/bin/arduino-cli
+          docker logs cp 2>&1 | tail -5

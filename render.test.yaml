@@ -9,7 +9,6 @@ services:
   - type: web
     name: circuit-pathways-test
     runtime: docker
-    rootDir: launch
     dockerfilePath: ./Dockerfile.free
     plan: free
     healthCheckPath: /healthz

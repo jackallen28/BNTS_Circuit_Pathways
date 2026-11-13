@@ -1,0 +1,10 @@
+node_modules
+test-results
+playwright-report
+tests
+raspberry-pi
+*.md
+.git
+**/__pycache__
+private
+content/pipath

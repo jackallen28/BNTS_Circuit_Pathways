@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pi Link - PiPath</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../../img/bnts-mark.svg">
+<link rel="stylesheet" href="../../css/site.css">
+<link rel="stylesheet" href="../../css/launch.css">
+<link rel="stylesheet" href="remote.css">
+</head>
+<body data-view="pipath">
+<a class="skip" href="#main">Skip to the content</a>
+<div class="sky" aria-hidden="true"></div>
+<main id="main" class="remote">
+  <div class="w95">
+    <div class="w95-bar"><span>PiPath - Pi Link <small>(beta)</small></span><a class="x" href="../" aria-label="Back to PiPath">✕</a></div>
+    <div class="w95-body">
+      <h1>Control your Raspberry Pi from the browser</h1>
+
+      <section id="connect" aria-labelledby="h1">
+        <h2 id="h1">1. Link to your Pi</h2>
+        <p>Turn your Raspberry Pi on and wait a minute. Pi Link starts by itself. Then type the <b>Pi ID</b> from the label on your Pi, like <b>K7M2-QX9P</b>.</p>
+        <p class="small">This page switches pins by hand. To run a whole Python program on your Pi, open an activity in <a href="../">PiPath</a> and choose <b>Run on: My Raspberry Pi</b>.</p>
+        <form id="pair" autocomplete="off">
+          <label>Pi ID <input id="code" maxlength="12" spellcheck="false" autocapitalize="characters" placeholder="K7M2-QX9P" required></label>
+          <button class="btn" type="submit">Link to my Pi ▸</button>
+        </form>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <details class="setup">
+          <summary>My Pi isn't set up yet (teachers)</summary>
+          <p>Set a Pi up once, and it links by itself every time it turns on. On the Pi, open a Terminal and type (with that Pi's key from your teacher):</p>
+          <pre class="cmd" id="cmd"></pre>
+          <p class="small">Or use the installer file made for that Pi. See <b>raspberry-pi/README.md</b>.</p>
+        </details>
+      </section>
+
+      <section id="panel" hidden aria-labelledby="h2">
+        <h2 id="h2">2. Your Pi: <span id="pi-name"></span></h2>
+        <p class="status" id="pi-info"></p>
+        <div class="safety" role="note"><b>Before you wire:</b> turn the Pi's HAT off the pins and unplug wires before changing them. Use a 330Ω resistor with every LED. Pins give 3.3V only: never connect 5V to a GPIO pin.</div>
+        <div class="cols">
+          <div>
+            <h3>The 40-pin header</h3>
+            <p class="small">Click a GPIO pin to use it. The numbers are GPIO (BCM) numbers.</p>
+            <div id="header" class="pinout" role="group" aria-label="Raspberry Pi 40-pin header"></div>
+            <p class="small legend"><i class="dot out-on"></i> output on <i class="dot out-off"></i> output off <i class="dot in-hi"></i> input high <i class="dot in-lo"></i> input low <i class="dot pwm"></i> PWM</p>
+          </div>
+          <div>
+            <h3 id="pin-title">Pick a pin</h3>
+            <div id="pin-box" class="hp-box" hidden>
+              <fieldset>
+                <legend>What is it?</legend>
+                <label><input type="radio" name="mode" value="none"> Not used</label>
+                <label><input type="radio" name="mode" value="out"> Output (LED, buzzer)</label>
+                <label><input type="radio" name="mode" value="pwm"> PWM (dim an LED)</label>
+                <label><input type="radio" name="mode" value="in_up"> Input, pull-up (button to GND)</label>
+                <label><input type="radio" name="mode" value="in_down"> Input, pull-down</label>
+                <label><input type="radio" name="mode" value="in"> Input, floating (sensor)</label>
+              </fieldset>
+              <div id="ctl-out" hidden><button class="btn btn-big" id="toggle" type="button" aria-pressed="false">Turn ON</button></div>
+              <div id="ctl-pwm" hidden><label>Brightness <input id="duty" type="range" min="0" max="100" value="0"> <output id="duty-out">0%</output></label></div>
+              <div id="ctl-in" hidden><div class="hp-reading" id="reading">LOW</div><p class="small">Press your button or trigger your sensor and watch it change.</p></div>
+            </div>
+            <h3>Quick tries</h3>
+            <div class="quick">
+              <button class="btn" id="blink" type="button">Blink an LED on GPIO 17</button>
+              <button class="btn btn-alt" id="alloff" type="button">Turn everything off</button>
+            </div>
+            <p class="small" id="blink-help">Wire GPIO 17 → 330Ω resistor → LED long leg; LED short leg → GND.</p>
+          </div>
+        </div>
+        <h3>What happened</h3>
+        <ol class="log" id="log" aria-live="polite"></ol>
+        <p><button class="btn btn-plain" id="leave" type="button">Disconnect</button></p>
+      </section>
+    </div>
+  </div>
+</main>
+<script type="module" src="remote.js"></script>
+</body>
+</html>
