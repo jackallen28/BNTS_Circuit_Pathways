@@ -32,7 +32,7 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test   # the app server i
 All must pass before you commit. CI is `.github/workflows/launch.yml`.
 
 ## Working agreements
-- Branch: `claude/inspiring-hamilton-mfxok0` is the current working branch. Pull before you start; commit small, pushed often, so two agents don't collide. Say which files you are touching if you coordinate through the user.
+- Branches: **`main`** is the current work (see the top-level `README.md` for the map of repositories and branches). Day-to-day work happens on a `claude/...` branch (this session: `claude/inspiring-hamilton-mfxok0`); when the tests pass, `main` is brought up to date from it. Pull before you start; commit small, pushed often, so two agents don't collide. Say which files you are touching if you coordinate through the user.
 - Don't force-push, rewrite history, or open a PR unless asked.
 - Don't run `pkill -f` (it can kill your own shell); use `kill <pid>` or `fuser -k PORT/tcp`.
 - Generated files: `site/pipath/data/*.json`, `site/pipath/py/manifest.json` come from `tools/build_pipath_data.py`. Don't hand-edit.

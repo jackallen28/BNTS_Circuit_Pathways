@@ -10,13 +10,16 @@ student's browser** (Chrome or Edge on a laptop) from one website:
 
 | App | Language | Real hardware | In the browser |
 |---|---|---|---|
-| **PiPath** | Python | Raspberry Pi (GPIO, camera) | 24 of 25 activities run with Python in the browser (Pyodide) and an on-screen Pi. A student can instead choose **Run on: My Raspberry Pi** so the program runs on their own Pi. |
+| **PiPath** | Python | Raspberry Pi (GPIO, camera) | 27 of 28 activities run with Python in the browser (Pyodide) and an on-screen Pi. A student can instead choose **Run on: My Raspberry Pi** so the program runs on their own Pi. |
 | **ArduinoPath** | Blocks or Arduino C++ | Uno, Nano, NodeMCU, ESP32 and others | A full simulator, Wiring Wizard, Coach, and **Upload to a real board** over USB (Web Serial). |
 
 The teacher's priorities, which everything must respect:
 
-1. **No online student data.** A student gives a *first name (or up to 4 first names) and a school*, nothing else.
-   These stay in the student's browser and in save files the student downloads. The server never receives them.
+1. **Keep student data to the minimum.** A student gives a *first name (or up to 4 first names) and a school*, nothing
+   else. On the **Go / Render** site these stay in the student's browser and in save files the student downloads; the
+   server never receives them. On the **Cloudflare** site, a student who *chooses to join a class* has their first
+   name(s), school and work kept with that class (so the teacher can see it), and all of it is deleted after the
+   class's end date. A student with no class (the Pi beta, the TEST site) keeps everything on their own device.
 2. **No AI** anywhere (no generative features, no model calls). All help is a hand-written database of errors, hints
    and tiered explanations.
 3. **No accounts, cookies, analytics, CDN scripts or fonts.** Third-party code is vendored with its licence.
@@ -98,7 +101,7 @@ class, and the teacher page shows the roster and work. Everything is deleted aft
 
 ### PiPath (`site/pipath/`) - Windows 95 look
 - Vanilla ES modules and DOM helpers only (`js/dom.js` `h()`), CSSOM for dynamic styles (CSP forbids `style=""`).
-- Screens: login (profiles in this browser), setup (help level), picker (Free Play + 25 activities in tiers),
+- Screens: login (profiles in this browser), setup (help level), picker (Free Play + 28 activities in tiers),
   workspace (instructions, editor, board, Output console), Settings dialog.
 - **Python runs in the browser:** Pyodide 0.29.3 (vendored in `vendor/pyodide`) in a module worker
   (`js/runtime/worker.js`, `runner.js`, `ipc.js`). A SharedArrayBuffer ring carries button presses and `input()`

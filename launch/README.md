@@ -1,7 +1,8 @@
 # Circuit Pathways: the website (`launch/`)
 
 PiPath and ArduinoPath in the browser, for the Banyule Nillumbik Tech School. This folder is
-what is deployed. The earlier app and its docs are in `../development/`.
+what is deployed. The earlier app and its docs are in `../development/`. **New here? Start with the
+[top-level README](../README.md)**, which says which version is which and where everything lives.
 
 - **Home** (`site/index.html`): the Circuit Pathways page, where students join a class with a
   class code and teachers sign in.
@@ -11,7 +12,7 @@ what is deployed. The earlier app and its docs are in `../development/`.
   flashes (STK500v1 for Uno/Nano, esptool-js for ESP boards).
 - **Teacher page** (`site/teacher/`): make a class code; save and open `.circuitclass` class files
   with students' work, all on the teacher's computer.
-- **PiPath** (`site/pipath/`): Python in the browser (Pyodide) with an on-screen Raspberry Pi: 24 of the 25
+- **PiPath** (`site/pipath/`): Python in the browser (Pyodide) with an on-screen Raspberry Pi: 27 of the 28
   activities, PiPath's own Coach, hints, adaptive nudges and code review (its Python engine runs unchanged).
   `content-pipath/` holds the lessons as TOML; `tools/build_pipath_data.py` makes the JSON the site loads.
 - **Run on my Raspberry Pi** and **Pi Link** (`site/pipath/remote/`, `pi-bridge/`): a student links to their own Pi by its
@@ -20,7 +21,10 @@ what is deployed. The earlier app and its docs are in `../development/`.
 
 **To launch: read [LAUNCH.md](LAUNCH.md).**
 
-## What the server does and doesn't do
+## What the server does and doesn't do (the Go server, on Render)
+
+(On **Cloudflare** the same site is served by a Worker that *also* keeps classes: see [cloudflare/README.md](cloudflare/README.md)
+for exactly what is kept, and for how long.)
 
 It serves the pages, checks class codes and teacher sign-ins, **compiles** Arduino code, and
 **relays Pi Link** messages (pin commands, and for "Run on my Pi", the program and its output, held in memory for that moment). It has **no database and writes nothing to disk** except the

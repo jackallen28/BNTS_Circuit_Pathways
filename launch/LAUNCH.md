@@ -3,18 +3,24 @@
 This is the checklist for putting the site live and trying it yourself. It assumes the branch
 has been merged (or Render is pointed at this branch).
 
+> **Cloudflare instead?** The site can also run on Cloudflare Workers, with **classes saved in a database** (students'
+> first names, school and work, deleted when the class ends) and the **Pi beta** and **TEST** editions. That is set up
+> from [cloudflare/README.md](cloudflare/README.md). Most of this page (Pis, the compiler, hardware checks) applies to
+> both; the "nothing is stored" statements below are about the **Render** site.
+
 ## 1. What you are launching
 
 | Part | Where | What it does |
 |---|---|---|
 | Home page | `/` | The Circuit Pathways page. Students join a class with a class code; teachers sign in. |
 | ArduinoPath | `/arduinopath/` | The whole app in the browser: simulator, Wiring Wizard, Coach, Blocks. **Upload to a real board** from Chrome / Edge. |
-| PiPath | `/pipath/` | 24 of the 25 Python activities. **Run on:** the on-screen Simulator (Python runs in the browser) **or My Raspberry Pi** (the program runs on a real Pi that the student links to by its ID). |
+| PiPath | `/pipath/` | 27 of the 28 Python activities. **Run on:** the on-screen Simulator (Python runs in the browser) **or My Raspberry Pi** (the program runs on a real Pi that the student links to by its ID). |
 | Pi Link | `/pipath/remote/` | Switch a real Raspberry Pi's pins on and off by hand from the browser. Same Pi IDs. |
 | Teacher page | `/teacher/` | Make class codes. Save and open class files with students' work. |
 
-Students' names and schools stay in their own browser and in the files they save. The server
-stores nothing: no database, no logs of code, no student data.
+On Render, students' names and schools stay in their own browser and in the files they save. The server
+stores nothing: no database, no logs of code, no student data. (On Cloudflare, a student who joins a class has their
+first name(s), school and work kept with that class until it ends: see the privacy notice in section 6.)
 
 ## 2. Put it on Render
 
@@ -183,6 +189,17 @@ key (in `/etc/circuitpathways-pi.conf`, root only) private and use `REVOKED_PI_I
 > addresses in its normal logs. If a student chooses to run a program on their own Raspberry Pi, the program is sent
 > through our server to that Pi and what it prints comes back the same way; it is held in memory for that moment only
 > and is not stored. There are no accounts, cookies, advertising or analytics, and no generative AI.
+
+**On the Cloudflare site** (students can join a saved class), adapt this instead:
+
+> Circuit Pathways asks students for a first name and a school name. A student who does not join a class keeps these
+> only in their own browser and in the files they choose to save. A student who joins a class (with a class code from
+> their teacher) has their first name(s), school and the work they do in Circuit Pathways kept with that class, so
+> their teacher can see it and they can carry on on another device. Nothing else about them is kept, and all of it is
+> deleted after the class's end date, or sooner if the teacher or the student removes it. Backups kept by our database
+> provider may hold deleted information for up to 30 days. When a student uploads code to a board, the code is sent
+> to our server to be compiled and is not stored. Our hosting provider records visitors' addresses in its normal logs.
+> There are no accounts, cookies, advertising or analytics, and no generative AI.
 
 ## 7. Changing things later
 
