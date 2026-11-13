@@ -11,9 +11,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# The runners are pinned to Ubuntu 24.04 on purpose: "ubuntu-latest" moved to 26.04, which the pinned Playwright
+# can't install a browser on, so the browser tests silently stopped running.
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -50,7 +52,7 @@ jobs:
   # The real compilers, for every board: every board's upload file comes out
   # right, and a broken sketch comes back with a line number.
   compile:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -67,19 +69,20 @@ jobs:
           CIRCUITPATHWAYS_TOOLS: /home/runner/circuitpathways-tools
 
   # The image Render builds, built here first so a broken Dockerfile shows up before a deploy.
+  # (No build cache: exporting the 1.5 GB compiler layer to GitHub's cache made this job hang for two hours.)
   image:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Free some disk space (the compilers are big)
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           tags: circuitpathways:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
       - name: The image starts, answers, and has the compilers
         run: |
           docker run -d --name cp -p 8080:8080 -e CLASS_SECRET=0123456789abcdef0123 -e TEACHER_CODES=test-teacher-code -e PI_KEY_SECRET=0123456789abcdef0123 circuitpathways:test
