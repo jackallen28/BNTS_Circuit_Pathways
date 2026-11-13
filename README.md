@@ -49,10 +49,13 @@ Start with [`launch/docs/PROJECT-OVERVIEW.md`](launch/docs/PROJECT-OVERVIEW.md):
 
 ## Branches and tags in this repository
 
-- **`main`**: the current work. Everything is built from here.
-- Tags **`archive/BNTS_CircuitPath`** and **`archive/BNTS_PiPath`**: the two older versions that used to be the only branches.
-  They are kept so nothing is lost. The branches `BNTS_CircuitPath` and `BNTS_PiPath` still exist; once GitHub's default
-  branch is `main` they can be deleted (the tags keep the history).
+- **`main`**: the current work. Everything is built from here. (Set it as the default branch in the repository's
+  Settings > Branches, so new visitors land on it.)
+- **`claude/inspiring-hamilton-mfxok0`**: the working branch of the AI-assisted sessions; `main` is brought up to
+  date from it when the tests pass. It can be deleted once you no longer need it.
+- **`BNTS_CircuitPath`** and **`BNTS_PiPath`**: the two older versions that used to be the only branches (the
+  Windows/Mac laptop app with its showcase website, and the original PiPath). They share no history with `main`.
+  Keep them as they are, or copy them somewhere before deleting: nothing else holds them.
 
 ## Try it
 
