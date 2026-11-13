@@ -121,3 +121,50 @@ export function withGrove(project, grove, board) {
     grove_modules: x.modules.map(({ portDef, ...m }) => m),
   };
 }
+
+/** A role that isn't used yet: LED_PIN, then LED2_PIN, LED3_PIN... */
+export function freeRole(role, taken) {
+  if (!taken.includes(role)) return role;
+  for (let n = 2; ; n++) {
+    const r = role.replace(/(_PIN)?$/, `${n}$1`);
+    if (!taken.includes(r)) return r;
+  }
+}
+
+/**
+ * Free Play's "Add a Grove module": puts a module's code into an Arduino sketch. The #define goes at
+ * the top, any #include, global and helper function above setup(), its setup line into setup(), and
+ * a comment in loop() showing how to use it. Returns the new code.
+ * @param {string} code
+ * @param {object} grove  grove.json
+ * @param {{type: string, role: string, port: Port}} m  the module, its role (LED_PIN) and port
+ */
+export function addGroveCode(code, grove, m) {
+  const mod = grove.modules[m.type];
+  const a = mod.arduino ?? {};
+  const name = m.role.toLowerCase().replace(/_pin$/, "").replace(/_(\w)/g, (_, c) => c.toUpperCase());
+  const fill = (t) => t.replaceAll("{pin}", m.role).replaceAll("{name}", name);
+  let lines = code.split("\n");
+  const has = (s) => lines.some((l) => l.trim() === s.trim());
+  const top = [];
+  if (a.include && !has(a.include)) top.push(a.include);
+  top.push(`#define ${m.role} ${m.port.sig}  // ${mod.name} in port ${m.port.id}`);
+  // after the opening comments
+  let at = 0;
+  while (at < lines.length && (lines[at].startsWith("//") || lines[at].startsWith("#"))) at++;
+  lines.splice(at, 0, ...top);
+  const before = [];
+  if (a.global) before.push(fill(a.global));
+  if (a.helper && !code.includes(a.helper.split("\n")[1] ?? a.helper)) before.push(a.helper);
+  const setupAt = lines.findIndex((l) => /^\s*void\s+setup\s*\(\s*\)\s*\{/.test(l));
+  if (before.length) lines.splice(setupAt >= 0 ? setupAt : lines.length, 0, ...before, "");
+  const s = lines.findIndex((l) => /^\s*void\s+setup\s*\(\s*\)\s*\{/.test(l));
+  if (s >= 0 && a.setup) lines.splice(s + 1, 0, `  ${fill(a.setup)}`);
+  const l = lines.findIndex((x) => /^\s*void\s+loop\s*\(\s*\)\s*\{/.test(x));
+  const read = a.read && fill(a.read);
+  const use = a.on ? fill(a.on)
+    : read ? (read.includes("==") ? `if (${read}) { ... }` : `${a.helper ? "long cm" : "int value"} = ${read};`)
+      : a.use ? fill(a.use) : null;
+  if (l >= 0 && use) lines.splice(l + 1, 0, `  // ${mod.name}: ${use}`);
+  return lines.join("\n");
+}

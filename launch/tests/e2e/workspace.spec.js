@@ -169,3 +169,30 @@ test("Upload needs a class code: without one the compile is refused", async ({ p
   });
   expect(res.status()).toBe(401);
 });
+
+test("Free Play with a Grove kit: add a module, its code goes in, it's in the simulator, and it comes back next time", async ({ page }) => {
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(e.message));
+  await newStudent(page, "Gus");
+  await page.locator(".freeplay-card").click();
+  const box = page.locator(".grove-box");
+  await expect(box).toContainText("Grove Base Shield V2");
+  await box.getByLabel("Grove module").selectOption("grove-led");
+  await expect(box.getByLabel("Port")).toHaveValue("D2");
+  await box.getByLabel("Port").selectOption("D4");
+  await box.getByRole("button", { name: "Add" }).click();
+  // the mini wizard opens for it
+  const wiz = page.getByRole("dialog", { name: /Wiring Wizard/ });
+  await expect(wiz.getByRole("heading", { name: /Meet the Grove LED/ })).toBeVisible();
+  await wiz.getByRole("button", { name: "Next ▶" }).click();
+  await expect(wiz).toContainText("into port D4");
+  await wiz.getByRole("button", { name: "Close" }).click();
+  await expect(page.locator(".editor-text")).toHaveValue(/#define LED_PIN 4 .*port D4/);
+  await expect(box).toContainText("Grove LED → port D4 (LED_PIN)");
+  await expect(page.locator(".run-holder .cp-grove-shield")).toBeVisible();
+  // come back: it's still there
+  await page.reload();
+  await expect(page.locator(".grove-box")).toContainText("Grove LED → port D4", { timeout: 15_000 });
+  await expect(page.locator(".run-holder .cp-grove-shield")).toBeVisible();
+  expect(problems).toEqual([]);
+});

@@ -558,3 +558,9 @@
 .blocks-code-box > summary { padding: 4px 10px; cursor: pointer; color: var(--instruction); font-size: var(--font-size-small); }
 .blocks-code { margin: 0; max-height: 170px; overflow: auto; padding: 6px 10px; background: #fff; border-top: 1px solid #dde5ee; font-size: 12px; line-height: 1.4; }
 .blocklyText.ap-raw-line, .ap-raw-line { font-family: var(--font-code) !important; }
+
+/* Free Play: Grove modules */
+.grove-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.grove-add .input { max-width: 100%; }
+.grove-list { margin: 8px 0 0; padding-left: 18px; }
+.grove-list li { margin: 3px 0; }

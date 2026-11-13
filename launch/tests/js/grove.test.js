@@ -92,3 +92,21 @@ test("the bench: a Grove button is LOW until pressed, the ranger gives echo time
   b2.apply([{ type: "digital", pin: 4, value: 1 }]);
   assert.equal(b2.lights().led.led, 1, "the Grove LED lights when its pin is HIGH (its resistor is on the module)");
 });
+
+test("Free Play: adding a module puts its #define, include, helper and setup line in the sketch", async () => {
+  const { addGroveCode, freeRole } = await import("../../site/shared/grove/grove.js");
+  const port = (id) => grove.shields["base-shield"].ports.find((p) => p.id === id);
+  let code = "// Free Play\n\nvoid setup() {\n}\n\nvoid loop() {\n}\n";
+  code = addGroveCode(code, grove, { type: "grove-servo", role: "SERVO_PIN", port: port("D5") });
+  code = addGroveCode(code, grove, { type: "grove-ultrasonic", role: "RANGER_PIN", port: port("D7") });
+  code = addGroveCode(code, grove, { type: "grove-button", role: freeRole("BUTTON_PIN", ["BUTTON_PIN"]), port: port("D2") });
+  assert.match(code, /#include <Servo\.h>\n#define SERVO_PIN 5/);
+  assert.match(code, /#define BUTTON2_PIN 2/);
+  assert.match(code, /long readCm\(int pin\)/);
+  assert.match(code, /void setup\(\) \{\n  pinMode\(BUTTON2_PIN, INPUT\);\n  servo\.attach\(SERVO_PIN\);/);
+  assert.match(code, /long cm = readCm\(RANGER_PIN\);/);
+  assert.match(code, /if \(digitalRead\(BUTTON2_PIN\) == HIGH\)/);
+  const { runHeadless } = await import("../../site/arduinopath/js/sim/headless.js");
+  const uno = boards().find((b) => b.id === "uno");
+  assert.equal(runHeadless(code, { board: uno, ms: 200 }).ok, true, "the sketch runs");
+});

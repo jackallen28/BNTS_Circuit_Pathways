@@ -22,6 +22,7 @@ import { review } from "../review.js";
 import * as realboard from "../realboard.js";
 import { pinPlan } from "../sim/pins.js";
 import { blocksView } from "../blocks/view.js";
+import { withGrove, pickPort, freeRole, addGroveCode, shieldFor } from "/shared/grove/grove.js";
 import { splitText, showExplanation, starterFor, demoFor, blanks, baudOf, simDiagnostics, checklist, allDone, firstFailing, canSkip, openingStep } from "../guide.js";
 
 export function starterSketch(title) {
@@ -114,6 +115,9 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
   let stepIndex = 0;
   let editor = null;
   let rp = null;
+  let freeGrove = []; // Free Play's Grove modules: [{ id, type, role, port }]
+  let freeProject = null; // ...as a project, so the simulator can draw and run them
+  let groveData = null;
   let runKind = null; // "run" | "goal" | null
   let mode = "sim"; // what the checklist is about: "sim" | "board"
   let boardSerial = ""; // what the real board has printed since the last upload
@@ -389,10 +393,87 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
           h("li", { text: "Print the numbers 1 to 100 in the Serial Monitor, but say \"Fizz\" for multiples of 3." }),
           h("li", { text: "Ask a question in the Serial Monitor and answer it with an if." }),
           h("li", { text: "Pick a project from the list to learn a new part, then come back and mix them up." }))),
+      groveBox(),
       h("fieldset", { class: "groupbox" },
         h("legend", { text: "Cheat sheet" }),
         h("pre", { class: "code cheat", text: "pinMode(pin, OUTPUT);\ndigitalWrite(pin, HIGH);\ndigitalRead(pin)\nanalogRead(A0)\ndelay(500);\nSerial.begin(9600);\nSerial.println(\"Hi\");\nif (x > 5) { ... }\nfor (int i = 0; i < 10; i++) { ... }" })),
       safetyNoteFreePlay());
+  }
+
+  // ---------- Free Play: Grove modules ----------
+  /** "Using a Grove kit? Add a module": its code goes into the sketch and it appears in the simulator. */
+  function groveBox() {
+    const box = h("fieldset", { class: "groupbox grove-box" }, h("legend", { text: "Grove modules" }));
+    if (!groveData) {
+      api.grove().then((g) => { groveData = g; renderGuide(); }).catch(() => {});
+      return box;
+    }
+    const shield = shieldFor(groveData, "arduinopath", board()?.id);
+    if (!shield) {
+      box.append(h("p", { class: "small", text: "Using a Grove kit? The Grove Base Shield fits an Arduino Uno or Mega: choose one in Settings to add Grove modules here." }));
+      return box;
+    }
+    const typeSel = h("select", { class: "input", "aria-label": "Grove module" },
+      Object.entries(groveData.modules).map(([t, m]) => h("option", { value: t, text: m.name })));
+    const portSel = h("select", { class: "input", "aria-label": "Port" });
+    const fillPorts = () => {
+      const used = freeGrove.map((m) => m.port);
+      const fitsList = shield.ports.filter((p) => groveData.modules[typeSel.value].ports.includes(p.kind));
+      portSel.replaceChildren(...fitsList.map((p) => h("option", { value: p.id, text: `Port ${p.id}${used.includes(p.id) ? " (in use)" : ""}`, disabled: used.includes(p.id) })));
+      const free = pickPort(groveData, { id: "s", ...shield }, typeSel.value, used);
+      if (free) portSel.value = free.id;
+    };
+    typeSel.addEventListener("change", fillPorts);
+    fillPorts();
+    box.append(
+      h("p", { class: "small", text: `Using a Grove kit? Put the ${shield.name} on your board, then add each module here: its code goes into your sketch and it shows up in the simulator.` }),
+      h("div", { class: "grove-add" }, typeSel, portSel, h("button", { class: "pill", type: "button", onclick: () => addGrove(typeSel.value, portSel.value) }, "Add")));
+    if (freeGrove.length) {
+      box.append(h("ul", { class: "grove-list" }, freeGrove.map((m) => h("li", {},
+        h("span", { text: `${groveData.modules[m.type].name} → port ${m.port} (${m.role})` }), " ",
+        h("button", { class: "link-button", type: "button", onclick: () => plugIn(m.id) }, "How to plug it in"), " ",
+        h("button", { class: "link-button", type: "button", onclick: () => removeGrove(m.id) }, "Remove")))));
+    }
+    return box;
+  }
+
+  function rebuildFreeCircuit() {
+    freeProject = freeGrove.length
+      ? withGrove({ id: "freeplay", title: "Free Play", steps: [], parts: freeGrove.map((m) => ({ type: m.type })), grove: { shield: shieldFor(groveData, "arduinopath", board()?.id)?.id ?? "base-shield", modules: freeGrove } }, groveData)
+      : null;
+    rp?.destroy();
+    rp = null;
+    ensureRunPanel();
+  }
+
+  async function addGrove(type, portId) {
+    const shield = shieldFor(groveData, "arduinopath", board()?.id);
+    const port = shield.ports.find((p) => p.id === portId);
+    if (!port || freeGrove.some((m) => m.port === portId)) return;
+    const role = freeRole(groveData.modules[type].role, freeGrove.map((m) => m.role));
+    const id = `${type.replace(/^grove-/, "")}-${port.id.toLowerCase()}`;
+    freeGrove.push({ id, type, role, port: port.id });
+    editor.value = addGroveCode(code(), groveData, { type, role, port });
+    saver.change(code());
+    api.saveProgress("freeplay", { step: 0, grove: freeGrove }).catch(() => {});
+    rebuildFreeCircuit();
+    renderGuide();
+    plugIn(id);
+  }
+
+  function removeGrove(id) {
+    freeGrove = freeGrove.filter((m) => m.id !== id);
+    api.saveProgress("freeplay", { step: 0, grove: freeGrove }).catch(() => {});
+    rebuildFreeCircuit();
+    renderGuide();
+  }
+
+  /** The mini Wiring Wizard for one module: meet it, plug it in, test it. */
+  async function plugIn(id) {
+    if (!freeProject) return;
+    const wizard = await import("../wizard.js");
+    stopRun();
+    wizard.openWiringWizard({ project: freeProject, board: board(), pins: pinPlan(freeProject, board()), partsOnly: [id], save: async () => {}, onDone: () => {}, onClose: () => {} });
   }
 
   function safetyNoteFreePlay() {
@@ -570,7 +651,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
   function ensureRunPanel() {
     if (rp) return rp;
     rp = createRunPanel({
-      board: board(), project, circuit: project?.circuit ?? null,
+      board: board(), project: isFreePlay ? freeProject : project, circuit: (isFreePlay ? freeProject : project)?.circuit ?? null,
       onRuntimeError: (err) => {
         if (runKind !== "run") return;
         showClue({ title: "The simulator found a clue", explain: err.message, line: err.line || undefined, hints: [] });
@@ -913,7 +994,18 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     if (coding === "blocks") setCoding("blocks", false);
     ensureRunPanel();
     if (isFreePlay) {
-      if (firstTime) api.saveProgress(projectId, { step: 0, started_at: Date.now() }).catch(() => {});
+      // the Grove modules added before come back
+      let saved = null;
+      try { saved = (await api.progress()).find((p) => p.project_id === "freeplay")?.data; } catch { /* none */ }
+      if (Array.isArray(saved?.grove) && saved.grove.length) {
+        try {
+          groveData ??= await api.grove();
+          freeGrove = saved.grove.filter((m) => groveData.modules[m.type]);
+          rebuildFreeCircuit();
+        } catch { /* start without them */ }
+      } else if (!saved) {
+        api.saveProgress(projectId, { step: 0, started_at: Date.now() }).catch(() => {});
+      }
       renderGuide();
     } else {
       if (firstTime) {
