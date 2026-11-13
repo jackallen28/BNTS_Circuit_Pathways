@@ -63,7 +63,7 @@ jobs:
         with:
           path: ~/circuitpathways-tools
           key: tools-${{ hashFiles('internal/arduino/requirements.json') }}
-      - run: go run ./cmd/launch -setup -warm -tools "$HOME/circuitpathways-tools"
+      - run: go run ./cmd/circuitpathways -setup -warm -tools "$HOME/circuitpathways-tools"
       - run: go test -count=1 -timeout 60m -run TestCompileEveryBoardForReal -v ./internal/arduino
         env:
           CIRCUITPATHWAYS_TOOLS: /home/runner/circuitpathways-tools

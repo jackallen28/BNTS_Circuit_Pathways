@@ -6,7 +6,7 @@ set -e
 here="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$here"
 persist="$(mktemp -d)"
-(cd .. && go run ./cmd/launch -export "$persist/dist" >/dev/null)
+(cd .. && go run ./cmd/circuitpathways -export "$persist/dist" >/dev/null)
 envargs=""
 [ -n "$2" ] && envargs="--env $2"
 ./node_modules/.bin/wrangler d1 migrations apply DB --local --persist-to "$persist" $envargs >/dev/null

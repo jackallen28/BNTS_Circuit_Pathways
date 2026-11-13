@@ -25,6 +25,7 @@ test("no class code needed: work is saved on the device, and the home page says 
   await expect(page.locator("#optional-note")).toBeVisible();
   await expect(page.locator("#optional-note")).toContainText("saved on this device");
   await expect(page.locator("#privacy")).toContainText("device only");
+  await expect(page.locator("#build")).toContainText("Pi beta, Cloudflare"); // which build this is, for bug reports
   await expect(page.locator("#test-tag")).toHaveCount(0); // it saves, so no TEST ticker
   await expect(page.locator("#session-forms")).toBeVisible(); // the class code is optional, not hidden
   await expect(page.locator("#teacher-hint")).toContainText("make up a teacher code"); // beta teacher mode

@@ -1,5 +1,5 @@
 // Settings: help level, what to show, text size, saving and opening your work, the curriculum, About.
-import { beta, TEST_WORK_NOTE } from "../../../shared/beta.js";
+import { beta, TEST_WORK_NOTE, buildLabel } from "../../../shared/beta.js";
 import { h } from "../dom.js";
 import { download, joinNames } from "../dom.js";
 import { api } from "../api.js";
@@ -45,7 +45,7 @@ export function openSettings({ startTab = "help", projectId = null, onChanged = 
       show(cur.find((p) => p.id === (projectId ?? cur[0].id)));
       return [h("p", { text: "Victorian Curriculum: Digital Technologies, Levels 9 and 10." }), sel, detail];
     }],
-    about: ["About", () => [markdown("**PiPath** was developed by the Banyule Nillumbik Tech School and reviewed by teachers. It is **not hosted on AI**: every hint was written by people. Your Python runs in your browser, and your work stays on this computer. It aims to open up Python to every student by adapting to what each student needs.\n\nPart pictures and the school logo belong to their owners. Python runs with Pyodide (MPL-2.0).")]],
+    about: ["About", () => [markdown("**PiPath** was developed by the Banyule Nillumbik Tech School and reviewed by teachers. It is **not hosted on AI**: every hint was written by people. Your Python runs in your browser, and your work is saved in this browser. If you join a class, your first name(s), school and work are also kept with your class for your teacher, and deleted when the class ends. It aims to open up Python to every student by adapting to what each student needs.\n\nPart pictures and the school logo belong to their owners. Python runs with Pyodide (MPL-2.0)." + (buildLabel() ? `\n\nThis is: ${buildLabel()}.` : ""))]],
   };
 
   async function openWork(input) {

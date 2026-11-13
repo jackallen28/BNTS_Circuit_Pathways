@@ -5,12 +5,13 @@ answer, every Wiring Wizard test program, the saved classes and the Pi relay. Th
 **pretend** Pi. This list checks what only real hardware can: uploading over USB, the Serial Monitor, the Wiring
 Wizard's Test, **Run on my Pi**, and the Raspberry Pi as a student computer.
 
-Allow about two hours. Tick each box. If something goes wrong, see **When something goes wrong** at the end.
+Set things up first with [test-day.md](test-day.md), and run its preflight (`node tools/preflight.mjs <site> --pi <ID>`) so you
+start from a site that is ready. Allow about two hours. Tick each box. If something goes wrong, see **When something goes wrong** at the end.
 
 ## What you need
 
 - A laptop with **Chrome or Edge** (a student account without admin rights is best), and the site's address (the real
-  site, the Pi beta or the TEST site).
+  site, the Pi beta or the TEST version).
 - A **class code** from a teacher (or use the Pi beta, where a code is optional).
 - Boards: a **genuine Arduino Uno**, a **Nano clone (CH340 chip)**, a **NodeMCU** and an **ESP32 DevKit**, with
   **USB cables that carry data** (some only charge).

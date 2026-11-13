@@ -10,7 +10,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=${VERSION}" -o /out/launch ./cmd/launch
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=${VERSION}" -o /out/circuitpathways ./cmd/circuitpathways
 
 FROM debian:bookworm-slim
 # python3: the ESP8266 compiler's tools use it. No other tools are needed.
@@ -18,9 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 app \
     && mkdir /opt/circuitpathways && chown app /opt/circuitpathways
-COPY --from=build /out/launch /usr/local/bin/launch
+COPY --from=build /out/circuitpathways /usr/local/bin/circuitpathways
 USER app
 ENV TOOLS_DIR=/opt/circuitpathways PORT=8080
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s CMD ["python3", "-c", "import urllib.request,os;urllib.request.urlopen('http://127.0.0.1:%s/healthz'%os.environ.get('PORT','8080'))"]
-CMD ["launch"]
+CMD ["circuitpathways"]

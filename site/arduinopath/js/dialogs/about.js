@@ -3,6 +3,7 @@
 import { h, icon } from "../dom.js";
 import { openDialog } from "../widgets/window.js";
 import { state } from "../state.js";
+import { buildLabel } from "../../../shared/beta.js";
 
 export function aboutContent() {
   return h("div", { class: "about" },
@@ -10,7 +11,7 @@ export function aboutContent() {
       icon("app", "icon-48"),
       h("div", {},
         h("div", { class: "about-title", text: "ArduinoPath" }),
-        h("div", { class: "muted", text: `Version ${state.info?.version ?? ""}` }))),
+        h("div", { class: "muted", text: buildLabel() || "Circuit Pathways" }))),
     h("p", { text: "ArduinoPath helps you learn to code Arduino and ESP boards, one part at a time." }),
     h("p", { text: "It was developed by the Banyule Nillumbik Tech School (BNTS) and reviewed by teachers." }),
     h("p", { text: "It is not hosted on AI. Every hint was written by people, and your work is saved in this browser on your own computer. Your code is sent only to be compiled when you upload. If you join a class, your first name(s), school and work are also kept with the class for your teacher, and deleted when the class ends. Nothing else about you is kept." }),

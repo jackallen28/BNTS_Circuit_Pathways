@@ -23,12 +23,13 @@ monitor) is on the `drafts` branch, not here.
 
 ## Commands (run at the repository root)
 ```
-go run ./cmd/launch -dev                 # http://localhost:8080, teacher code teacher-code-dev, no compilers
+go run ./cmd/circuitpathways -dev                 # http://localhost:8080, teacher code teacher-code-dev, no compilers
 gofmt -l . ; go vet ./... ; go test -race ./...
 python3 tools/build_pipath_data.py --check          # run without --check to regenerate after editing content/pipath/
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover raspberry-pi
 npm ci && npm test
 CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test   # the app server is started by the config; port E2E_PORT or 8543
+node tools/preflight.mjs http://localhost:8080 --teacher-code teacher-code-dev --no-compile   # is a running site ready for a test day?
 ```
 All must pass before you commit. CI is `.github/workflows/ci.yml`.
 

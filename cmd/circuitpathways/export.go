@@ -16,14 +16,14 @@ import (
 // catalogue and projects as JSON files, the generic Pi installer, and a _headers file with this
 // server's security headers. The folder is emptied first.
 func exportSite(dir string, beta bool) error {
-	cat, problems := content.Load(launch.Content())
+	cat, problems := content.Load(circuitpathways.Content())
 	if len(problems) > 0 {
 		return fmt.Errorf("content problem: %v", problems[0])
 	}
 	if err := os.RemoveAll(dir); err != nil {
 		return err
 	}
-	site := launch.Site()
+	site := circuitpathways.Site()
 	write := func(rel string, data []byte) error {
 		p := filepath.Join(dir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {

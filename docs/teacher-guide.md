@@ -11,13 +11,13 @@ people.
 |---|---|---|
 | **The real site** | Needed | Classes. A student joins with the class code you make. |
 | **The Pi beta** | Optional | Students on Raspberry Pis. Without a code, work is saved on that Pi. With one, it is also saved to the class. |
-| **The TEST site** | Optional | Trying it out. Nothing is kept on the computer; a student in a class has their work saved to the class. |
+| **The TEST version** | Optional | Trying it out. Nothing is kept on the computer; a student in a class has their work saved to the class. |
 
 Ask whoever set it up which address to use. [`../README.md`](../README.md) explains the editions.
 
 ## Before your first lesson
 
-1. **Sign in on the home page** with your teacher code. (On the Pi beta and TEST sites you can make up a code of your
+1. **Sign in on the home page** with your teacher code. (On the Pi beta and TEST versions you can make up a code of your
    own, 8 or more characters. Write it down: your classes are kept under it, and it is how you get back to them.)
 2. **Make a class** on the **Teacher page**: a name (no student names), the school, and the day it ends. You get a class
    code such as `ABCDE-FGHJK`. Give it to your students.

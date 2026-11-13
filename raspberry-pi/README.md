@@ -17,7 +17,7 @@ addresses, no certificates on the Pi.
 ## Try it (no Pi needed)
 
 ```
-go run ./cmd/launch -dev
+go run ./cmd/circuitpathways -dev
 # in another terminal:
 python3 site/pipath/remote/circuitpathways_pi.py --mock --server http://localhost:8080
 ```

@@ -41,7 +41,7 @@ first name(s), school and work kept with that class until it ends: see the priva
 If your Render address isn't `circuit-pathways.onrender.com`, regenerate the Pi installers with the real address:
 
 ```
-PI_KEY_SECRET=<the same value> go run ./cmd/launch -pi-keys 5 -pi-out private/pi -server https://<your-address>
+PI_KEY_SECRET=<the same value> go run ./cmd/circuitpathways -pi-keys 5 -pi-out private/pi -server https://<your-address>
 ```
 (That makes new IDs. To keep the IDs you already have, use `sudo pilink server ...` on each Pi instead.)
 
@@ -65,7 +65,7 @@ PI_KEY_SECRET=<the same value> go run ./cmd/launch -pi-keys 5 -pi-out private/pi
 - **PiPath says "Your browser can't run Python here"**: use a recent Chrome or Edge, and open it from the
   site's own address (not an embedded frame). Python needs a page the browser treats as isolated; the server sends the
   headers for that on `/pipath/`.
-- **Upload says the compiler is switched off**: the image has no compilers (the build step `launch -setup -warm` failed). Check the Render build log.
+- **Upload says the compiler is switched off**: the image has no compilers (the build step `circuitpathways -setup -warm` failed). Check the Render build log.
 - Logs show the method, path, status and time of each API call, and nothing else.
 
 ## Free hosting (no payment)
@@ -92,7 +92,7 @@ browser). Search engines are asked to stay away (`noindex`).
 **Beta teacher mode:** a colleague who wants to try classes scrolls down, types **a teacher code they make up** (8 or more
 characters, and remembers it) and makes a class code; students join with it. No secret teacher codes are needed.
 On Render set a `CLASS_SECRET` (any long random text) too, or class codes stop working whenever the free site sleeps and
-restarts. (On the Cloudflare TEST site a student who joins a class also has their work saved to it.)
+restarts. (On the Cloudflare TEST version a student who joins a class also has their work saved to it.)
 
 On Render: **New > Blueprint**, pick this repo and branch, and set **Blueprint file path** to `render.test.yaml` (a second
 free service named `circuit-pathways-test`, with its own address; it can run beside the real site). Or by hand:
@@ -102,7 +102,7 @@ There is no password in the site itself, so anyone with the link can open it (fi
 
 Upload to a real board is off on the free plan, so colleagues can try everything except real hardware. To let them
 upload too, deploy the full `Dockerfile` on a paid instance with `BETA=1`. The test link is open to anyone who has it, so
-only share it with people you trust. Try it locally: `go run ./cmd/launch -dev -beta`.
+only share it with people you trust. Try it locally: `go run ./cmd/circuitpathways -dev -beta`.
 
 ## 4. Set up the Raspberry Pis
 
@@ -135,12 +135,12 @@ On a small Pi (Zero 2, 3) the first open of PiPath downloads about 12 MB of Pyth
 Handy commands on a Pi: `pilink show` (the ID), `pilink status`, `pilink log`, `sudo pilink restart`,
 `sudo pilink run on|off`, `sudo pilink server https://new-address`, `sudo pilink uninstall`.
 
-More keys: `PI_KEY_SECRET=... go run ./cmd/launch -pi-keys 20 -pi-out private/pi2 -server https://your-address`.
+More keys: `PI_KEY_SECRET=... go run ./cmd/circuitpathways -pi-keys 20 -pi-out private/pi2 -server https://your-address`.
 A lost or stolen Pi: add its ID to `REVOKED_PI_IDS` in Render (comma-separated), and its key stops working.
 
 **If you updated the site after installing a Pi,** write fresh installers for the same keys and run them on the Pis
 (running the installer again just updates the Pi; keys and IDs don't change):
-`go run ./cmd/launch -pi-refresh private/pi/pi-keys.csv -pi-out private/pi -server https://your-address`.
+`go run ./cmd/circuitpathways -pi-refresh private/pi/pi-keys.csv -pi-out private/pi -server https://your-address`.
 
 ### Running students' programs on a Pi (what it means, and the limits)
 

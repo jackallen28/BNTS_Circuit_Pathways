@@ -105,9 +105,9 @@ async function handle(req, env) {
   if (p === "/healthz" || p === "/api/healthz") return new Response("ok\n");
   if (p === "/api/info") {
     return json(200, {
-      app: "Circuit Pathways", version: env.VERSION ?? "cloudflare", compile: Boolean(env.COMPILE_URL), beta,
+      app: "Circuit Pathways", version: env.VERSION ?? "cloudflare", host: "cloudflare", compile: Boolean(env.COMPILE_URL), beta,
       edition: beta ? "test" : isPiBeta(env) ? "pi-beta" : "", class_optional: isPiBeta(env), teacher_mode: isBetaEdition(env),
-      classes: true, relay: env.PI_KEY_SECRET ? "ws" : "off", commit: String(env.CF_VERSION_METADATA?.id ?? "").slice(0, 8),
+      classes: true, relay: env.PI_KEY_SECRET ? "ws" : "off", commit: String(env.VERSION || env.CF_VERSION_METADATA?.id || "").slice(0, 8),
     });
   }
   if (p === "/api/compile" && req.method === "POST") {

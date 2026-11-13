@@ -33,8 +33,8 @@ test("beta teacher mode: a teacher makes up a code and a class code, and a stude
   await page.getByRole("button", { name: /Teacher sign in/ }).click();
   await page.waitForURL("**/teacher/");
   await page.locator("#make").click();
+  await expect(page.locator("#code")).toHaveText(/^[0-9A-Z]{5}-[0-9A-Z]{5}$/); // (waits for the server's answer)
   const code = (await page.locator("#code").textContent()).trim();
-  expect(code).toMatch(/^[0-9A-Z]{5}-[0-9A-Z]{5}$/);
 
   const sctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const sp = await sctx.newPage();

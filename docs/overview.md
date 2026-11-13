@@ -19,7 +19,7 @@ The teacher's priorities, which everything must respect:
    else. On the **Go / Render** site these stay in the student's browser and in save files the student downloads; the
    server never receives them. On the **Cloudflare** site, a student who *chooses to join a class* has their first
    name(s), school and work kept with that class (so the teacher can see it), and all of it is deleted after the
-   class's end date. A student with no class (the Pi beta, the TEST site) keeps everything on their own device.
+   class's end date. A student with no class (the Pi beta, the TEST version) keeps everything on their own device.
 2. **No AI** anywhere (no generative features, no model calls). All help is a hand-written database of errors, hints
    and tiered explanations.
 3. **No accounts, cookies, analytics, CDN scripts or fonts.** Third-party code is vendored with its licence.
@@ -67,7 +67,7 @@ site/                   everything the browser loads (plain HTML, CSS and ES mod
 content/                what a teacher can edit, as data
   arduinopath/                  boards, parts, projects, errors, kit, curriculum (JSON)
   pipath/                       lessons, catalogue, errors, free play (TOML)
-cmd/launch/             the Go program: flags, environment, Pi keys, the export for Cloudflare
+cmd/circuitpathways/             the Go program: flags, environment, Pi keys, the export for Cloudflare
 internal/               the Go server's packages (listed below)
 embed.go                builds site/ and content/arduinopath/ into the Go program
 cloudflare/             the same site as a Cloudflare Worker: classes in D1, the Pi relay, the compile proxy
@@ -197,7 +197,7 @@ Both sides only make **outgoing** connections, so it works on school networks an
     `File "program.py"`. Off switch: `RUN=no` / `sudo pilink run off`.
 - **Relay** (`internal/pirelay`): `Command.Check()` is the whitelist (file names, sizes, helper list, camera
   object); events `hello/state/error/pong/run/out/exit`; browser queue 512 so output is never dropped.
-- **Installer** (`internal/pilink/install.sh.tmpl`, per-Pi via `go run ./cmd/launch -pi-keys N`; refresh with
+- **Installer** (`internal/pilink/install.sh.tmpl`, per-Pi via `go run ./cmd/circuitpathways -pi-keys N`; refresh with
   `-pi-refresh pi-keys.csv`): installs the app, `cprun`, a locked-down systemd service that starts at boot, the
   `pilink` helper (`show|status|log|restart|run on|off|server|uninstall`), `PI-LINK-ID.txt`, a desktop ID popup.
   The template uses `<% %>` delimiters because bash `[[ ]]` clashes with Go's `{{ }}`.
@@ -245,10 +245,10 @@ the Pi Link page, sends `X-Robots-Tag: noindex`, and accepts the open access onl
 **Beta teacher mode** (both beta editions, `info.teacher_mode`): classes and the teacher page are there, and a teacher
 signs in with **a code they make up** (8 to 64 characters; their classes are kept under it, nobody else sees them
 without it). The real site still only takes the school's `TEACHER_CODES`. Students join with the class code. On the Go
-site that is a stateless class code (nothing saved). On the Cloudflare TEST site, a student who joins has their first
+site that is a stateless class code (nothing saved). On the Cloudflare TEST version, a student who joins has their first
 name(s), school and work saved to the class in the TEST database (the device itself still keeps nothing, so after a
 reload they join back in and their work returns); the Go site's class codes keep nothing. On Go set `CLASS_SECRET`, or
-class codes stop working when the TEST site restarts. Blueprint: `render.test.yaml`. Tests: `tests/e2e/test-version.spec.js`
+class codes stop working when the TEST version restarts. Blueprint: `render.test.yaml`. Tests: `tests/e2e/test-version.spec.js`
 (second server, port 8544), `tests/e2e/cloudflare-test.spec.js` (the Worker's `test` env, port 8547), `cloudflare/test/pibeta.test.mjs`.
 
 ## 9. Older and experimental work (the `drafts` branch)

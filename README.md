@@ -61,12 +61,15 @@ AGENTS.md      The rules for anyone (or any AI tool) changing the code. Read it 
 ## Try it
 
 ```bash
-go run ./cmd/launch -dev                 # http://localhost:8080  (teacher code: teacher-code-dev)
-go run ./cmd/launch -dev -beta           # the TEST edition (make up your own teacher code)
+go run ./cmd/circuitpathways -dev                 # http://localhost:8080  (teacher code: teacher-code-dev)
+go run ./cmd/circuitpathways -dev -beta           # the TEST edition (make up your own teacher code)
 npm ci && npm test                       # the JavaScript tests
 go test ./...                            # the Go tests
 CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test   # the browser tests
 ```
+
+About to test with a real Pi and Arduino? Follow [`docs/test-day.md`](docs/test-day.md); its first step after setting up is
+`node tools/preflight.mjs <site address> --pi <Pi ID>`, which checks the site is ready.
 
 The full list of commands, and what must pass before a change is committed, is in [`AGENTS.md`](AGENTS.md).
 

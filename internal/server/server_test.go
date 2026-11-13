@@ -34,7 +34,7 @@ func (f *fakeCompiler) Compile(ctx context.Context, code, fqbn string, props []s
 
 func newTest(t *testing.T) (*Server, *fakeCompiler) {
 	t.Helper()
-	cat, problems := content.Load(launch.Content())
+	cat, problems := content.Load(circuitpathways.Content())
 	if len(problems) > 0 {
 		t.Fatal(problems[0])
 	}
@@ -245,12 +245,12 @@ func TestStaticFilesAreRevalidatedWithETags(t *testing.T) {
 // The real, embedded website: the files PiPath needs to run Python in the browser are there and are served
 // the way the browser requires.
 func TestRealSiteServesPythonForTheBrowser(t *testing.T) {
-	cat, problems := content.Load(launch.Content())
+	cat, problems := content.Load(circuitpathways.Content())
 	if len(problems) > 0 {
 		t.Fatal(problems[0])
 	}
 	signer, _ := classes.New("test-secret-0123456789")
-	s := New(Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234")})
+	s := New(Config{Site: circuitpathways.Site(), Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234")})
 	for path, wantType := range map[string]string{
 		"/pipath/": "text/html",
 		"/pipath/vendor/pyodide/pyodide.asm.wasm":  "application/wasm",
@@ -284,7 +284,7 @@ func TestRealSiteServesPythonForTheBrowser(t *testing.T) {
 		}
 	}
 	// no cache folders from running the tests ever ship
-	fs.WalkDir(launch.Site(), ".", func(p string, d fs.DirEntry, err error) error {
+	fs.WalkDir(circuitpathways.Site(), ".", func(p string, d fs.DirEntry, err error) error {
 		if strings.Contains(p, "__pycache__") || strings.HasSuffix(p, ".pyc") {
 			t.Errorf("a Python cache file is in the website: %s", p)
 		}
@@ -302,6 +302,9 @@ func TestTestVersionNeedsNoClassCodeHasBetaTeacherModeAndHidesPis(t *testing.T) 
 	}
 	// it says so, says teachers can make their own code, and asks search engines to stay away
 	info := get("/api/info")
+	if !strings.Contains(info.Body.String(), `"edition":"test"`) || !strings.Contains(info.Body.String(), `"host":"go"`) {
+		t.Errorf("info should say which edition and host this is: %s", info.Body)
+	}
 	if !strings.Contains(info.Body.String(), `"beta":true`) || !strings.Contains(info.Body.String(), `"teacher_mode":true`) {
 		t.Errorf("info should say this is the test version with teacher mode: %s", info.Body)
 	}

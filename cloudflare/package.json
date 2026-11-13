@@ -8,10 +8,10 @@
     "build:test": "sh build.sh --beta",
     "dev": "sh build.sh && wrangler d1 migrations apply DB --local && wrangler dev --local",
     "test": "sh build.sh && node --test --test-concurrency=1 \"test/*.test.mjs\"",
-    "deploy": "sh build.sh && wrangler d1 migrations apply DB --remote && wrangler deploy",
-    "deploy:test": "sh build.sh --beta && wrangler deploy --env test",
+    "deploy": "sh build.sh && wrangler d1 migrations apply DB --remote && wrangler deploy --var VERSION:$(git rev-parse --short HEAD)",
+    "deploy:test": "sh build.sh --beta && wrangler deploy --env test --var VERSION:$(git rev-parse --short HEAD)",
     "build:pi": "sh build.sh --beta",
-    "deploy:pi": "sh build.sh --beta && wrangler d1 migrations apply DB --remote --env pi && wrangler deploy --env pi"
+    "deploy:pi": "sh build.sh --beta && wrangler d1 migrations apply DB --remote --env pi && wrangler deploy --env pi --var VERSION:$(git rev-parse --short HEAD)"
   },
   "devDependencies": {
     "wrangler": "4.161.0"

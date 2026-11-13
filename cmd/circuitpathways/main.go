@@ -1,4 +1,4 @@
-// Command launch is the Circuit Pathways website: PiPath and ArduinoPath in
+// Command circuitpathways is the Circuit Pathways website: PiPath and ArduinoPath in
 // the browser. See README.md for how to run it on Render.
 package main
 
@@ -121,14 +121,14 @@ func main() {
 		log.Error("set TEACHER_CODES to one or more teacher codes (each at least 8 characters), separated by commas")
 		os.Exit(1)
 	}
-	cat, problems := content.Load(launch.Content())
+	cat, problems := content.Load(circuitpathways.Content())
 	if len(problems) > 0 {
 		for _, p := range problems {
 			log.Error("content problem", "problem", p.Error())
 		}
 		os.Exit(1)
 	}
-	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log, Beta: *beta, CompileKey: os.Getenv("COMPILE_KEY")}
+	cfg := server.Config{Site: circuitpathways.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log, Beta: *beta, CompileKey: os.Getenv("COMPILE_KEY")}
 	if tools, err := arduino.InstalledTools(*toolsDir, log); err == nil {
 		cfg.Compiler = tools
 	} else if *dev || *beta {
@@ -174,7 +174,7 @@ func runSetup(dir string, warm bool, log *slog.Logger) error {
 	if !warm {
 		return nil
 	}
-	cat, problems := content.Load(launch.Content())
+	cat, problems := content.Load(circuitpathways.Content())
 	if len(problems) > 0 {
 		return fmt.Errorf("content: %s", problems[0].Error())
 	}

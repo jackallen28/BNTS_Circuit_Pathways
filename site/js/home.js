@@ -2,7 +2,7 @@
 // class forms (students join with a class code, teachers sign in).
 
 import { getAccess, setAccess, clearAccess, postJSON, inClass } from "/shared/access.js";
-import { beta, piBeta, teacherMode, savedClasses as classesKept, showTestTag, showBetaBadge } from "/shared/beta.js";
+import { beta, piBeta, teacherMode, savedClasses as classesKept, showTestTag, showBetaBadge, buildLabel } from "/shared/beta.js";
 import { takePiFromUrl, thisPi } from "/shared/thispi.js";
 
 // Opened from a Raspberry Pi's own shortcut (?pi=...): remember this Pi.
@@ -146,6 +146,7 @@ $("#leave").addEventListener("click", () => {
 });
 
 showState();
+$("#build").textContent = buildLabel(); // which build this is, for bug reports
 if (thisPi() && !beta) {
   $("#on-pi").textContent = `This is the Raspberry Pi ${thisPi()}. When you choose "My Raspberry Pi" in PiPath, your programs run on it. Your work is saved on this Pi, and with your class once you've joined one, so you can carry on on any computer.`;
   $("#on-pi").hidden = false;

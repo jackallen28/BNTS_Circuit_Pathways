@@ -1,5 +1,5 @@
 {
-  "name": "circuitpathways-launch-dev",
+  "name": "circuitpathways",
   "private": true,
   "description": "Development-only tooling (tests) for the Circuit Pathways website. Nothing here is needed to run the site.",
   "type": "module",

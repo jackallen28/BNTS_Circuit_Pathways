@@ -46,7 +46,7 @@ func CatalogueJSON(c *content.Catalogue) ([]byte, error) {
 // file, so a copy of the site served from Cloudflare's static assets behaves the same.
 func HeadersFile(beta bool) string {
 	var b strings.Builder
-	b.WriteString("# Made by `launch -export`: the same headers the Go server sends (internal/server). Don't edit.\n")
+	b.WriteString("# Made by `circuitpathways -export`: the same headers the Go server sends (internal/server). Don't edit.\n")
 	b.WriteString("/*\n")
 	b.WriteString("  Content-Security-Policy: " + cspFor("/") + "\n")
 	b.WriteString("  X-Content-Type-Options: nosniff\n  X-Frame-Options: SAMEORIGIN\n  Referrer-Policy: no-referrer\n")

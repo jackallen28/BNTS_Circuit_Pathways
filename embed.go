@@ -1,6 +1,6 @@
-// Package launch holds the website and the content that are built into the
+// Package circuitpathways holds the website and the content that are built into the
 // server, so the hosted site is one file.
-package launch
+package circuitpathways
 
 import (
 	"embed"

@@ -24,6 +24,22 @@ export const teacherMode = info.teacher_mode === true;
 /** Classes are kept by the server (the Cloudflare site), so a student who joins one has their work saved to it. */
 export const savedClasses = info.classes === true;
 
+const HOSTS = { cloudflare: "Cloudflare", render: "Render", go: "Go server" };
+const EDITIONS = { "pi-beta": "Pi beta", test: "TEST version", "": "Real site" };
+
+/** Which build this is, for About boxes and bug reports: the edition, where it runs and the commit. */
+export const build = {
+  edition: info.edition ?? (info.beta ? "test" : ""),
+  host: info.host ?? "",
+  commit: info.commit || (info.version && !["dev", "cloudflare", "web"].includes(info.version) ? info.version : ""),
+};
+
+/** "Pi beta, Cloudflare, build 5e86a54" (or "" if the server didn't say). */
+export function buildLabel(b = build) {
+  if (!b.host && !b.commit) return "";
+  return [EDITIONS[b.edition] ?? b.edition, HOSTS[b.host] ?? b.host, b.commit && `build ${b.commit}`].filter(Boolean).join(", ");
+}
+
 /** What Settings > My work says on the TEST version. */
 export const TEST_WORK_NOTE = savedClasses
   ? "This is the TEST version, so nothing is saved on this computer and there are no save files. Your work is cleared when you close or reload this tab, unless you've joined a class on the home page: then it is saved to your class."

@@ -3,4 +3,4 @@
 # Needs Go. Pass --beta for the TEST version (adds noindex).
 set -e
 cd "$(dirname "$0")/.."
-go run ./cmd/launch -export cloudflare/dist "$@"
+go run ./cmd/circuitpathways -export cloudflare/dist "$@"

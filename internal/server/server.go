@@ -186,6 +186,22 @@ func cspFor(path string) string {
 	return cspBase + "; style-src 'self' 'unsafe-inline'"
 }
 
+// hostName says where this server runs, for the About box: Render sets RENDER, anywhere else is plain "go".
+func hostName() string {
+	if os.Getenv("RENDER") != "" {
+		return "render"
+	}
+	return "go"
+}
+
+// edition is "test" for the TEST version and "" for the real site (the Pi beta is a Cloudflare edition).
+func edition(beta bool) string {
+	if beta {
+		return "test"
+	}
+	return ""
+}
+
 // shortCommit is the first characters of the commit Render built (so a teacher can see which version is live).
 func shortCommit(c string) string {
 	if len(c) > 7 {
@@ -260,6 +276,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil, "beta": s.Beta, "teacher_mode": s.Beta, "commit": shortCommit(os.Getenv("RENDER_GIT_COMMIT")),
+		"host": hostName(), "edition": edition(s.Beta),
 	})
 }
 

@@ -22,6 +22,7 @@ after(() => { pi?.stop(); testSite?.stop(); normal?.stop(); });
 test("/api/info says it's the Pi beta and that a class code is optional", async () => {
   const { data } = await onPi("GET", "/api/info");
   assert.equal(data.edition, "pi-beta");
+  assert.equal(data.host, "cloudflare");
   assert.equal(data.class_optional, true);
   assert.equal(data.classes, true, "classes still work");
   assert.equal(data.beta, false, "it saves, unlike the TEST version");

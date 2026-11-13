@@ -57,7 +57,7 @@ npx wrangler secret put COMPILE_KEY             # a long random text; set the sa
 To deploy from GitHub instead, add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository
 secrets. Then run **Actions > Deploy to Cloudflare**.
 
-**The TEST site** (`npm run deploy:test`, or the same Action with "test") is the BETA version: anyone can use the
+**The TEST version** (`npm run deploy:test`, or the same Action with "test") is the BETA version: anyone can use the
 apps with no code, and nothing is saved on the computer. It has **beta teacher mode**: a teacher types **a teacher
 code they make up** (8+ characters) on the home page and makes a class, and students join it with the class code.
 A student in a class has their work saved to the class (in the TEST database), so it comes back after a reload.
@@ -66,7 +66,7 @@ of `wrangler.jsonc`, and set its `CLASS_SECRET` (`npx wrangler secret put CLASS_
 
 **The Pi beta site** (`npm run deploy:pi`, or the same Action with "pi") is for students using Raspberry Pis.
 It is the real site, marked BETA, where **a class code is optional**, and where teachers can also make up their
-own teacher code (beta teacher mode, as on the TEST site) as well as using the school's `TEACHER_CODES`:
+own teacher code (beta teacher mode, as on the TEST version) as well as using the school's `TEACHER_CODES`:
 
 - With no code, a student starts straight away and their work is saved **on that Pi only** (in its browser).
 - With a class code (and their first name(s) and school), their work **also syncs to the class database**, so
@@ -84,7 +84,7 @@ for s in CLASS_SECRET TEACHER_CODES PI_KEY_SECRET COMPILE_URL COMPILE_KEY; do np
 ```
 
 Then point the Pis at it: `sudo pilink server https://circuit-pathways-pi.YOUR-NAME.workers.dev` on each Pi, or
-make fresh installers with `launch -pi-refresh ... -server <that address>` (see ../docs/deploy-render.md).
+make fresh installers with `circuitpathways -pi-refresh ... -server <that address>` (see ../docs/deploy-render.md).
 
 **Each teacher has their own code.** Their classes belong to that code. If a teacher's code is
 removed from `TEACHER_CODES`, they can't sign in any more, and their classes are deleted when they end.
@@ -92,7 +92,7 @@ removed from `TEACHER_CODES`, they can't sign in any more, and their classes are
 ## Raspberry Pis
 
 Pis link over WebSockets here. Pi app 0.2.0+ does this by itself, and still works with the Go site.
-Re-run each Pi's installer (made with `launch -pi-refresh`) to update older Pis. Set it to this
+Re-run each Pi's installer (made with `circuitpathways -pi-refresh`) to update older Pis. Set it to this
 site's address: `sudo pilink server https://your-site`.
 
 **The Raspberry Pi version** (students using a Pi as their computer): the installer also puts
@@ -118,4 +118,4 @@ npm test             # the Worker's API, classes and Pi relay against a local Wo
 
 `npm test` and the browser test (`tests/e2e/cloudflare.spec.js`) run Cloudflare's own runtime
 (workerd) on this computer. They have not been run against a real Cloudflare account: try the
-first deploy on the TEST site.
+first deploy on the TEST version.

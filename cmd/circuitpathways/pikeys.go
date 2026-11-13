@@ -17,7 +17,7 @@ const devPiKeySecret = "dev-pi-key-secret-do-not-use-in-production"
 
 // piAppSource is the Pi app that goes inside every installer.
 func piAppSource() ([]byte, error) {
-	return fs.ReadFile(launch.Site(), "pipath/remote/circuitpathways_pi.py")
+	return fs.ReadFile(circuitpathways.Site(), "pipath/remote/circuitpathways_pi.py")
 }
 
 // refreshPiInstallers writes new installers (with the current Pi app inside) for Pis that already

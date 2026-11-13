@@ -58,13 +58,13 @@ request and never logged. Logs hold the method, path, status code and time, and 
 ## Develop
 
 ```
-go run ./cmd/launch -dev                 # http://localhost:8080  (teacher code: teacher-code-dev; no compilers)
+go run ./cmd/circuitpathways -dev                 # http://localhost:8080  (teacher code: teacher-code-dev; no compilers)
 go test -race ./...                      # server, class codes, Pi relay, content
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover raspberry-pi   # the Pi Link app (no Pi needed)
 npm ci && npm test                       # ArduinoPath simulator and wizard, save files, upload to a pretend board,
                                          # and PiPath: every activity's model answer in real Pyodide
 npm run e2e                              # the whole site in Chromium (set CHROMIUM_PATH if needed)
-go run ./cmd/launch -setup -warm -tools ~/tools    # install the real compilers (needs the internet)
+go run ./cmd/circuitpathways -setup -warm -tools ~/tools    # install the real compilers (needs the internet)
 CIRCUITPATHWAYS_TOOLS=~/tools go test -run TestCompileEveryBoardForReal ./internal/arduino
 ```
 

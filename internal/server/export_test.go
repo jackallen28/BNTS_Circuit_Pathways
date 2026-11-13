@@ -27,12 +27,12 @@ func TestCacheControlFor(t *testing.T) {
 
 // The big, rarely changing files are cached for a week by both the Go site and Cloudflare's _headers.
 func TestVendoredFilesAreCachedLongOnBothSites(t *testing.T) {
-	cat, problems := content.Load(launch.Content())
+	cat, problems := content.Load(circuitpathways.Content())
 	if len(problems) > 0 {
 		t.Fatal(problems[0])
 	}
 	signer, _ := classes.New("test-secret-0123456789")
-	s := New(Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234")})
+	s := New(Config{Site: circuitpathways.Site(), Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234")})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, httptest.NewRequest("GET", "/pipath/vendor/pyodide/pyodide.asm.wasm", nil))
 	if got := w.Header().Get("Cache-Control"); got != vendorCacheControl {

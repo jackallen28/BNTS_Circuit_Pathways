@@ -24,13 +24,13 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: [
     {
-      command: `go run ./cmd/launch -dev -addr :${PORT}`,
+      command: `go run ./cmd/circuitpathways -dev -addr :${PORT}`,
       url: `http://localhost:${PORT}/healthz`,
       reuseExistingServer: false,
       timeout: 180_000,
     },
     {
-      command: `go run ./cmd/launch -dev -beta -addr :${BETA_PORT}`,
+      command: `go run ./cmd/circuitpathways -dev -beta -addr :${BETA_PORT}`,
       url: `http://localhost:${BETA_PORT}/healthz`,
       reuseExistingServer: false,
       timeout: 180_000,

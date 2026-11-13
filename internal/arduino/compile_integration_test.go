@@ -12,17 +12,17 @@ import (
 )
 
 // A real compile for every board, with the real compilers. It runs only when
-// CIRCUITPATHWAYS_TOOLS points at a folder made by `launch -setup` (CI does this).
+// CIRCUITPATHWAYS_TOOLS points at a folder made by `circuitpathways -setup` (CI does this).
 func TestCompileEveryBoardForReal(t *testing.T) {
 	dir := os.Getenv("CIRCUITPATHWAYS_TOOLS")
 	if dir == "" {
-		t.Skip("set CIRCUITPATHWAYS_TOOLS to a folder made by `launch -setup` to run this")
+		t.Skip("set CIRCUITPATHWAYS_TOOLS to a folder made by `circuitpathways -setup` to run this")
 	}
 	tools, err := arduino.InstalledTools(dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cat, problems := content.Load(launch.Content())
+	cat, problems := content.Load(circuitpathways.Content())
 	if len(problems) > 0 {
 		t.Fatal(problems[0])
 	}
