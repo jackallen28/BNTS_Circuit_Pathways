@@ -20,6 +20,7 @@ import { explain } from "../coach.js";
 import { normalise, stepState, stepStars, projectStars, starsMessage, hintsUnlocked, Coach, harder, easier } from "../learning.js";
 import { review } from "../review.js";
 import * as realboard from "../realboard.js";
+import { boardHelp } from "../dialogs/boardhelp.js";
 import { pinPlan } from "../sim/pins.js";
 import { blocksView } from "../blocks/view.js";
 import { withGrove, pickPort, freeRole, addGroveCode, shieldFor } from "/shared/grove/grove.js";
@@ -771,10 +772,12 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     const guess = realboard.guessPort(ports, board(), portSelect.value || realboard.rememberedPort());
     portSelect.replaceChildren(
       h("option", { value: "", text: ports.length ? "Pick your board" : "No board chosen yet" }),
-      ports.map((p) => h("option", { value: p.port, text: realboard.portLabel(p), selected: p.port === guess || null })),
-      h("option", { value: CONNECT, text: "Choose a board..." }));
+      ...ports.map((p) => h("option", { value: p.port, text: realboard.portLabel(p), selected: p.port === guess || null })),
+      h("option", { value: CONNECT, text: "Choose a board..." }),
+      h("option", { value: HELP, text: "Can't see your board?" }));
   }
   const CONNECT = "__connect__";
+  const HELP = "__help__";
   /** Opens the browser's own box for picking the board's USB port. */
   async function connectBoard() {
     if (!realboard.supported) {
@@ -788,6 +791,8 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
       await messageBox({ kind: "error", instruction: "The board couldn't be chosen.", text: err.message });
       return null;
     }
+    // Nothing picked: maybe the board wasn't in the list (a cable, or a driver).
+    if (!id) id = await boardHelp();
     await refreshPorts();
     if (id) {
       portSelect.value = id;
@@ -800,6 +805,13 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     if (portSelect.value === CONNECT) {
       portSelect.value = "";
       await connectBoard();
+      return;
+    }
+    if (portSelect.value === HELP) {
+      portSelect.value = "";
+      const id = await boardHelp();
+      await refreshPorts();
+      if (id) { portSelect.value = id; realboard.rememberPort(id); }
       return;
     }
     realboard.rememberPort(portSelect.value);

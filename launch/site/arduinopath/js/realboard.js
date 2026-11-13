@@ -20,6 +20,10 @@ export const listPorts = ws.listPorts;
 /** Asks the student to pick their board in the browser's own box. Returns its id, or null if they cancelled. */
 export const requestPort = ws.requestPort;
 
+/** The USB way, for a board the normal box doesn't list (see usbserial.js). */
+export const requestUsbPort = ws.requestUsbPort;
+export const usbSupported = ws.usbSupported;
+
 const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
 /** How this board is uploaded: its own settings, or its chosen variant's. */
@@ -141,7 +145,8 @@ export function portLabel(p) {
   };
   const what = p.board || chips[p.chip];
   const name = p.vid ? `USB board ${p.vid}:${p.pid}` : "Serial port";
-  return what ? `${name} (${what})` : name;
+  const label = what ? `${name} (${what})` : name;
+  return p.via === "usb" ? `${label}, the USB way` : label;
 }
 
 /**

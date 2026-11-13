@@ -2,12 +2,22 @@
 // serial port. Browsers never list every port: the student picks their
 // board once in the browser's own "Select a port" box, and the browser
 // remembers it for this site.
+//
+// When Web Serial can't see a board (no driver on this computer), or the
+// browser has WebUSB but no Web Serial (Chrome on Android), the "USB way"
+// talks to the board's USB chip itself: see usbserial.js.
+
+import { UsbSerialPort, USB_FILTERS, driverFor } from "./usbserial.js";
 
 /** Is Web Serial here? (Not in Safari or Firefox.) */
-export const supported = typeof navigator !== "undefined" && "serial" in navigator;
+export const serialSupported = typeof navigator !== "undefined" && "serial" in navigator;
+/** Is WebUSB here? (Chrome and Edge, including Chrome on Android.) */
+export const usbSupported = typeof navigator !== "undefined" && "usb" in navigator;
+/** Can this browser reach a board at all? */
+export const supported = serialSupported || usbSupported;
 
 export const NO_SERIAL_MESSAGE =
-  "Uploading to a board needs Chrome or Edge on a laptop. Open this page in one of those. (The simulator works in any browser.)";
+  "Uploading to a board needs Chrome or Edge. Open this page in one of those. (The simulator works in any browser.)";
 
 const ids = new WeakMap();
 let nextId = 1;
@@ -27,7 +37,7 @@ function describe(port) {
   const { usbVendorId: vid, usbProductId: pid } = port.getInfo?.() ?? {};
   const id = portId(port);
   byId.set(id, port);
-  return { port: id, vid: vid ? vid.toString(16).padStart(4, "0") : "", pid: pid ? pid.toString(16).padStart(4, "0") : "", chip: chipOf(vid) };
+  return { port: id, vid: vid ? vid.toString(16).padStart(4, "0") : "", pid: pid ? pid.toString(16).padStart(4, "0") : "", chip: chipOf(vid), ...(port.via === "usb" ? { via: "usb" } : {}) };
 }
 
 /** What USB chip a vendor id belongs to (the common ones in school kits). */
@@ -38,6 +48,7 @@ export function chipOf(vid) {
     case 0x0403: return "FTDI";
     case 0x2341: case 0x2a03: return "Arduino";
     case 0x303a: return "ESP32 USB";
+    case 0x2e8a: return "Raspberry Pi Pico";
     default: return "";
   }
 }
@@ -47,23 +58,52 @@ export function register(port) {
   return describe(port).port;
 }
 
-/** Boards this site has already been allowed to use. */
-export async function listPorts() {
-  if (!supported) return [];
-  try {
-    return (await navigator.serial.getPorts()).map(describe);
-  } catch {
-    return [];
-  }
+// One UsbSerialPort per USB device, so a board keeps its id while it's plugged in.
+const usbPorts = new WeakMap();
+function usbPort(device) {
+  if (!usbPorts.has(device)) usbPorts.set(device, new UsbSerialPort(device));
+  return usbPorts.get(device);
 }
 
-/** Opens the browser's "Select a port" box. Returns the port's id, or null if the student cancelled. */
+/** Boards this site has already been allowed to use (the normal way, then the USB way). */
+export async function listPorts() {
+  const out = [];
+  if (serialSupported) {
+    try { out.push(...(await navigator.serial.getPorts()).map(describe)); } catch { /* none */ }
+  }
+  if (usbSupported) {
+    try {
+      for (const d of await navigator.usb.getDevices()) if (driverFor(d)) out.push(describe(usbPort(d)));
+    } catch { /* none */ }
+  }
+  return out;
+}
+
+/**
+ * Opens the browser's "Select a port" box (or, in a browser without Web
+ * Serial, its "connect a USB device" box). Returns the port's id, or null if
+ * the student cancelled.
+ */
 export async function requestPort() {
-  if (!supported) throw new Error(NO_SERIAL_MESSAGE);
+  if (!serialSupported) {
+    if (usbSupported) return requestUsbPort();
+    throw new Error(NO_SERIAL_MESSAGE);
+  }
   try {
     return describe(await navigator.serial.requestPort()).port;
   } catch (err) {
     if (err?.name === "NotFoundError") return null; // cancelled
+    throw err;
+  }
+}
+
+/** The USB way: the browser's "connect a USB device" box, for boards Web Serial can't see. */
+export async function requestUsbPort() {
+  if (!usbSupported) throw new Error(NO_SERIAL_MESSAGE);
+  try {
+    return describe(usbPort(await navigator.usb.requestDevice({ filters: USB_FILTERS }))).port;
+  } catch (err) {
+    if (err?.name === "NotFoundError") return null; // cancelled, or no board plugged in
     throw err;
   }
 }

@@ -20,12 +20,14 @@ export function tinyHex() {
 
 /**
  * @param page
- * @param {{ silentFirst?: number, programSays?: string[], compile?: object }} opts
+ * @param {{ silentFirst?: number, programSays?: string[], compile?: object, usb?: boolean }} opts
  *   silentFirst: how many upload attempts the bootloader ignores (like a wrong board setting)
  *   programSays: what the uploaded program prints, one entry per message
+ *   usb: Web Serial can't see the board (no driver); it's only there the USB
+ *     way, as a CH340 chip on navigator.usb
  */
-export async function installFakeBoard(page, { silentFirst = 0, programSays = [], compile } = {}) {
-  await page.addInitScript(({ silentFirst, programSays }) => {
+export async function installFakeBoard(page, { silentFirst = 0, programSays = [], compile, usb = false } = {}) {
+  await page.addInitScript(({ silentFirst, programSays, usb }) => {
     const log = (window.__serial = { opens: [], writes: [], uploads: 0, requested: 0, flash: [] });
     const enc = new TextEncoder();
     let attempt = 0;
@@ -99,6 +101,68 @@ export async function installFakeBoard(page, { silentFirst = 0, programSays = []
       },
     };
     let granted = false;
+    if (usb) {
+      // No driver: Web Serial's box is empty (the student closes it).
+      Object.defineProperty(navigator, "serial", {
+        configurable: true,
+        value: {
+          getPorts: async () => [],
+          requestPort: async () => { log.requested++; throw new DOMException("No port selected by the user.", "NotFoundError"); },
+        },
+      });
+      // The same board as a CH340 chip, for WebUSB: control requests set the
+      // speed and DTR, bulk transfers carry the bytes.
+      const BAUD = { 0xcc83: 115200, 0x9883: 57600, 0xb282: 9600 };
+      let reader = null;
+      const shut = async () => { if (port.state === "open") await port.close(); reader = null; };
+      const dev = {
+        vendorId: 0x1a86, productId: 0x7523, opened: false, configuration: null,
+        async open() { this.opened = true; },
+        async close() { this.opened = false; await shut(); },
+        async selectConfiguration() {
+          this.configuration = { interfaces: [{ interfaceNumber: 0, alternate: { interfaceClass: 0xff, endpoints: [
+            { endpointNumber: 2, direction: "in", type: "bulk", packetSize: 32 },
+            { endpointNumber: 2, direction: "out", type: "bulk", packetSize: 32 }] } }] };
+        },
+        async claimInterface() { log.usbClaims = (log.usbClaims || 0) + 1; },
+        async releaseInterface() { await shut(); },
+        async clearHalt() {},
+        async controlTransferIn(setup, len) { return { status: "ok", data: new DataView(new ArrayBuffer(len)) }; },
+        async controlTransferOut(setup) {
+          if (setup.request === 0x9a && setup.value === 0x1312) {
+            await shut();
+            await port.open({ baudRate: BAUD[setup.index] ?? 9600 });
+            reader = port.readable.getReader();
+          }
+          if (setup.request === 0xa4) await port.setSignals({ dataTerminalReady: Boolean(~setup.value & 0x20) });
+          return { status: "ok" };
+        },
+        async transferOut(ep, data) {
+          port.receive(new Uint8Array(data.buffer ?? data, data.byteOffset ?? 0, data.byteLength));
+          return { status: "ok", bytesWritten: data.byteLength };
+        },
+        async transferIn() {
+          const r = reader;
+          const { value, done } = r ? await r.read() : { done: true };
+          if (done) throw new DOMException("The device was disconnected.", "NetworkError");
+          return { status: "ok", data: new DataView(value.buffer, value.byteOffset, value.byteLength) };
+        },
+      };
+      let usbGranted = false;
+      Object.defineProperty(navigator, "usb", {
+        configurable: true,
+        value: {
+          getDevices: async () => (usbGranted ? [dev] : []),
+          requestDevice: async ({ filters }) => {
+            log.usbRequested = (log.usbRequested || 0) + 1;
+            if (!filters.some((f) => f.vendorId === 0x1a86 && (!f.productId || f.productId === 0x7523))) throw new DOMException("No device selected.", "NotFoundError");
+            usbGranted = true;
+            return dev;
+          },
+        },
+      });
+      return;
+    }
     Object.defineProperty(navigator, "serial", {
       configurable: true,
       value: {
@@ -106,7 +170,7 @@ export async function installFakeBoard(page, { silentFirst = 0, programSays = []
         requestPort: async () => { log.requested++; granted = true; return port; },
       },
     });
-  }, { silentFirst, programSays });
+  }, { silentFirst, programSays, usb });
 
   await page.route("**/api/compile", (r) => r.fulfill({
     json: compile ?? { ok: true, output: "", errors: [], size: { flash: 924, flash_max: 32256, ram: 9, ram_max: 2048 },

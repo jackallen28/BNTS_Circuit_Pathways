@@ -20,6 +20,7 @@ import { testSketch, TEST_BAUD } from "./wiring-test.js";
 import { TestRows, FIXES, wizardPages } from "./wizard-rows.js";
 import { upload, openSerial, guessPort, portLabel, sortPorts, rememberedPort, rememberPort, listPorts, requestPort, supported as serialSupported, NO_SERIAL_MESSAGE } from "./realboard.js";
 import { explain } from "./coach.js";
+import { boardHelp } from "./dialogs/boardhelp.js";
 import { state } from "./state.js";
 
 const GROVE_SAFETY = "Unplug the USB cable before you plug in or unplug a module, and plug it back in when you're done. " +
@@ -190,7 +191,8 @@ export function openWiringWizard({ project, board, pins, onDone = () => {}, onCl
     const test = h("button", { class: "btn default", type: "button" }, "Test");
     const portSel = h("select", { class: "input", "aria-label": "USB port" });
     const portRow = h("label", { class: "wiz-port", hidden: mode !== "real" }, "Port: ", portSel,
-      h("button", { class: "btn small", type: "button", onclick: () => chooseBoard() }, "Choose my board"));
+      h("button", { class: "btn small", type: "button", onclick: () => chooseBoard() }, "Choose my board"),
+      h("button", { class: "btn small link", type: "button", onclick: () => helpMe() }, "Can't see your board?"));
     const modeRadio = (value, label) => h("label", {}, h("input", { type: "radio", name: "wiz-mode", value, checked: mode === value,
       onchange: () => { stopTest(); mode = value; renderTest(); } }), ` ${label}`);
     const side = mode === "sim" ? rp.el : h("div", { class: "wiz-real" },
@@ -223,11 +225,19 @@ export function openWiringWizard({ project, board, pins, onDone = () => {}, onCl
     async function chooseBoard() {
       try {
         const id = await requestPort();
+        if (!id) return helpMe(); // nothing picked: maybe the board wasn't in the list
         await findPorts();
-        if (id) portSel.value = id;
+        portSel.value = id;
       } catch (e) {
         status.textContent = e.message;
       }
+    }
+
+    /** Driver tips, and the USB way for boards the browser's box doesn't list. */
+    async function helpMe() {
+      const id = await boardHelp();
+      await findPorts();
+      if (id) { portSel.value = id; rememberPort(id); }
     }
 
     function buildRows() {

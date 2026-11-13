@@ -152,6 +152,48 @@ test("uploading to a real board", async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
+// A board Web Serial can't see (no driver on this computer): the student
+// closes the empty box, gets the Can't see your board? help, and uploads the
+// USB way (WebUSB talking to the CH340 chip itself).
+test("uploading the USB way when the computer has no driver for the board", async ({ page }) => {
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(e.message));
+  await installFakeBoard(page, { usb: true, programSays: ["Hello the USB way!\r\n"] });
+  const serial = () => page.evaluate(() => window.__serial);
+
+  await newStudent(page, "Ari");
+  await page.locator(".project-card", { hasText: "Serial Chatbot" }).click();
+  const editor = page.locator(".editor-text");
+  await expect(editor).toHaveValue(/___/);
+  await editor.fill((await editor.inputValue()).replace("___", '"Hello the USB way!"'));
+
+  await page.locator("#tool-upload").click();
+  await page.getByRole("button", { name: "OK" }).click();
+  const help = page.getByRole("dialog", { name: "Can't see your board?" });
+  await expect(help).toContainText("Some cables only charge");
+  await page.screenshot({ path: "test-results/screenshots/board-help.png" });
+  await help.getByRole("button", { name: "Try the USB way" }).click();
+
+  const monitor = page.locator(".console-out").first();
+  await expect(monitor).toContainText("Hello the USB way!", { timeout: 15_000 });
+  const s = await serial();
+  expect(s.requested).toBe(1);
+  expect(s.usbRequested).toBe(1);
+  expect(s.uploads).toBe(1);
+  expect(s.opens.at(-1)).toBe(9600);
+  // the port list names the board as connected the USB way
+  await expect.poll(() => page.evaluate(() => {
+    const sel = document.querySelector(".port-select");
+    return sel?.selectedOptions[0]?.textContent ?? "";
+  })).toContain("the USB way");
+
+  // Send reaches the board the USB way too.
+  await page.getByLabel("Text to send").fill("hi chip");
+  await page.getByLabel("Text to send").press("Enter");
+  await expect.poll(async () => (await serial()).writes).toEqual(["hi chip\n"]);
+  expect(problems).toEqual([]);
+});
+
 test("a compile error from the real compiler is explained by the Coach", async ({ page }) => {
   await installFakeBoard(page, { compile: { ok: false, output: "sketch.ino:3:1: error: expected ';' before '}' token", errors: [{ file: "sketch.ino", line: 3, col: 1, severity: "error", message: "expected ';' before '}' token" }] } });
   await newStudent(page, "Noor");
