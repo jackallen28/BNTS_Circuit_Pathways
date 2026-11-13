@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/subtle"
 	"context"
 	"net/http"
 	"time"
@@ -34,7 +35,7 @@ func (s *Server) handleCompile(w http.ResponseWriter, r *http.Request) {
 	if s.limited(w, r, s.limits.compile) {
 		return
 	}
-	if v := r.Header.Get(accessHeader); !s.Signer.CheckAccess(v, s.Now()) && !(s.Beta && v == "beta") {
+	if v := r.Header.Get(accessHeader); !s.Signer.CheckAccess(v, s.Now()) && !(s.Beta && v == "beta") && !s.compileKeyOK(r) {
 		writeError(w, http.StatusUnauthorized, "no_class", "Join a class with your class code to upload to a board.")
 		return
 	}
@@ -95,4 +96,10 @@ func (s *Server) handleCompile(w http.ResponseWriter, r *http.Request) {
 		out.Artifacts = append(out.Artifacts, artifactJSON{Name: a.Name, Offset: a.Offset, Data: a.Data})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// compileKeyOK: the request comes from a front end this server compiles for (see Config.CompileKey).
+func (s *Server) compileKeyOK(r *http.Request) bool {
+	k := r.Header.Get("X-Compile-Key")
+	return len(s.CompileKey) >= 16 && subtle.ConstantTimeCompare([]byte(k), []byte(s.CompileKey)) == 1
 }

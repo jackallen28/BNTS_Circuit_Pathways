@@ -28,6 +28,10 @@ from __future__ import annotations
 import argparse
 import base64
 import codecs
+import hashlib
+import socket
+import ssl
+import urllib.parse
 import json
 import os
 import queue
@@ -50,6 +54,9 @@ MIN_PIN, MAX_PIN = 2, 27
 FAILSAFE_SECONDS = 10      # no connection for this long: every output goes off
 POLL_HZ = 20               # how often inputs are read
 HEARTBEAT_SECONDS = 2      # state is re-sent this often even if nothing changed
+HEARTBEAT_WS_SECONDS = 20  # ...or this often over a WebSocket (the Cloudflare site), where changes still go at once
+WS_PING_SECONDS = 25       # a WebSocket that has been quiet this long gets a "ping"
+WS_DEAD_SECONDS = 70       # ...and one with no answer for this long is given up and reconnected
 MAX_COMMANDS_PER_SECOND = 200
 
 MODES = ("out", "in", "in_up", "in_down", "pwm")
@@ -635,6 +642,147 @@ class Runner:
                 self.active = False
 
 
+
+# ---------------------------------------------------------------- a small WebSocket client (standard library only)
+
+class WSRefused(Exception):
+    """The website answered the WebSocket request without switching to a WebSocket."""
+
+    def __init__(self, status, body=""):
+        super().__init__(f"the website said {status}")
+        self.status, self.body = status, body
+
+
+class WebSocket:
+    """Just enough of RFC 6455 for Pi Link: text messages, ping/pong and close. Goes through an
+    HTTPS proxy when the system has one (as urllib does)."""
+
+    GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+    def __init__(self, url, headers, timeout=20):
+        u = urllib.parse.urlsplit(url)
+        secure = u.scheme in ("https", "wss")
+        host, port = u.hostname, u.port or (443 if secure else 80)
+        proxy = urllib.request.getproxies().get("https" if secure else "http")
+        if proxy and not urllib.request.proxy_bypass(host):
+            p = urllib.parse.urlsplit(proxy if "://" in proxy else "http://" + proxy)
+            sock = socket.create_connection((p.hostname, p.port or 80), timeout=timeout)
+            sock.sendall(f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n".encode())
+            head = self._read_head(sock)
+            if not head.split(b"\r\n", 1)[0].split(b" ")[1:2] == [b"200"]:
+                raise OSError("the proxy wouldn't connect")
+        else:
+            sock = socket.create_connection((host, port), timeout=timeout)
+        if secure:
+            sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+        self.sock = sock
+        self.lock = threading.Lock()
+        key = base64.b64encode(os.urandom(16)).decode()
+        path = (u.path or "/") + ("?" + u.query if u.query else "")
+        lines = [f"GET {path} HTTP/1.1", f"Host: {u.netloc}", "Upgrade: websocket", "Connection: Upgrade",
+                 f"Sec-WebSocket-Key: {key}", "Sec-WebSocket-Version: 13"] + [f"{k}: {v}" for k, v in headers.items()]
+        sock.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
+        head, self.buf = self._read_head(sock, keep=True)
+        status_line, _, rest = head.decode("latin-1").partition("\r\n")
+        status = int(status_line.split(" ")[1]) if len(status_line.split(" ")) > 1 else 0
+        if status != 101:
+            sock.close()
+            raise WSRefused(status)
+        accept = base64.b64encode(hashlib.sha1((key + self.GUID).encode()).digest()).decode()
+        if accept.lower() not in rest.lower():
+            sock.close()
+            raise OSError("the website's WebSocket answer wasn't right")
+        self.sock.settimeout(0.5)
+
+    @staticmethod
+    def _read_head(sock, keep=False):
+        data = b""
+        while b"\r\n\r\n" not in data:
+            chunk = sock.recv(4096)
+            if not chunk:
+                raise OSError("the website closed the connection")
+            data += chunk
+            if len(data) > 65536:
+                raise OSError("the website's answer was too long")
+        head, _, rest = data.partition(b"\r\n\r\n")
+        return (head, rest) if keep else head
+
+    def _frame(self, opcode, payload):
+        mask = os.urandom(4)
+        n = len(payload)
+        if n < 126:
+            head = bytes([0x80 | opcode, 0x80 | n])
+        elif n < 65536:
+            head = bytes([0x80 | opcode, 0x80 | 126]) + n.to_bytes(2, "big")
+        else:
+            head = bytes([0x80 | opcode, 0x80 | 127]) + n.to_bytes(8, "big")
+        return head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+
+    def send_text(self, text):
+        data = self._frame(1, text.encode("utf-8"))
+        with self.lock:
+            self.sock.sendall(data)
+
+    def _need(self, n, deadline):
+        while len(self.buf) < n:
+            if time.monotonic() > deadline:
+                return False
+            with self.lock:
+                try:
+                    chunk = self.sock.recv(65536)
+                except (socket.timeout, ssl.SSLWantReadError):
+                    continue
+            if not chunk:
+                raise ConnectionError("the website closed the connection")
+            self.buf += chunk
+        return True
+
+    def recv_text(self, timeout):
+        """The next text message, or None if nothing came within timeout seconds."""
+        deadline = time.monotonic() + timeout
+        parts = []
+        while True:
+            if not self._need(2, deadline):
+                return None
+            b0, b1 = self.buf[0], self.buf[1]
+            n, at = b1 & 0x7F, 2
+            if n == 126:
+                if not self._need(4, deadline + 5):
+                    return None
+                n, at = int.from_bytes(self.buf[2:4], "big"), 4
+            elif n == 127:
+                if not self._need(10, deadline + 5):
+                    return None
+                n, at = int.from_bytes(self.buf[2:10], "big"), 10
+            if n > 1 << 20:
+                raise ConnectionError("a message from the website was too big")
+            if not self._need(at + n, deadline + 10):
+                return None
+            payload, self.buf = self.buf[at:at + n], self.buf[at + n:]
+            opcode = b0 & 0x0F
+            if opcode == 8:
+                raise ConnectionError("the website closed the connection")
+            if opcode == 9:  # ping
+                with self.lock:
+                    self.sock.sendall(self._frame(10, payload))
+                continue
+            if opcode == 10:
+                continue
+            parts.append(payload)
+            if b0 & 0x80:
+                return b"".join(parts).decode("utf-8", "replace")
+
+    def close(self):
+        try:
+            with self.lock:
+                self.sock.sendall(self._frame(8, b""))
+        except OSError:
+            pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
 # ---------------------------------------------------------------- talking to the website
 
 def pi_id(key: str) -> str:
@@ -654,6 +802,9 @@ class Server:
         self.id = pi_id(self.key)
         self.name = name
         self.open = opener
+        self.use_ws = True   # try a WebSocket first (the Cloudflare site); fall back to a stream (the Go site)
+        self.ws = None
+        self.ws_factory = WebSocket
 
     def _request(self, path, body=None, timeout=20):
         h = {"X-Circuit-Pathways": "1", "X-Pi-Key": self.key, "User-Agent": f"circuitpathways-pi/{VERSION}"}
@@ -664,8 +815,16 @@ class Server:
         return self.open(urllib.request.Request(self.base + path, data=data, headers=h), timeout=timeout)
 
     def send(self, event):
+        ws = self.ws
+        if ws is not None:
+            ws.send_text(json.dumps(event))
+            return
         with self._request("/api/pi/pi/send", {"event": event}) as r:
             r.read()
+
+    @property
+    def heartbeat(self):
+        return HEARTBEAT_WS_SECONDS if self.ws is not None else HEARTBEAT_SECONDS
 
     def fetch(self, path):
         """A file from this website (PiPath's helper modules). Nothing from anywhere else."""
@@ -674,9 +833,24 @@ class Server:
         with self._request(path, timeout=20) as r:
             return r.read(300_000)
 
-    def commands(self):
-        """Yields each command from the website, until the connection ends."""
+    def commands(self, on_open=None):
+        """Yields each command from the website, until the connection ends. on_open is called once
+        the connection is open (that is when the Pi says hello)."""
+        on_open = on_open or (lambda: None)
+        if self.use_ws:
+            try:
+                ws = self.ws_factory(self.base + "/api/pi/pi/ws", {"X-Pi-Key": self.key, "User-Agent": f"circuitpathways-pi/{VERSION}"})
+            except WSRefused as e:
+                if e.status in (403, 503):
+                    raise urllib.error.HTTPError(self.base, e.status, "refused", {}, None)
+                self.use_ws = False  # an older site: use its event stream instead
+            else:
+                self.ws = ws
+                on_open()
+                yield from self._ws_commands(ws)
+                return
         resp = self._request("/api/pi/pi/events", timeout=45)
+        on_open()
         with resp:
             for raw in resp:
                 line = raw.decode("utf-8", "replace").strip()
@@ -685,6 +859,32 @@ class Server:
                         yield json.loads(line[5:])
                     except ValueError:
                         continue
+
+
+    def _ws_commands(self, ws):
+        self.ws = ws
+        last_heard = last_sent = time.monotonic()
+        try:
+            while True:
+                text = ws.recv_text(timeout=1.0)
+                now = time.monotonic()
+                if text is None:
+                    if now - last_heard > WS_DEAD_SECONDS:
+                        raise ConnectionError("the website stopped answering")
+                    if now - last_sent > WS_PING_SECONDS:
+                        ws.send_text("ping")
+                        last_sent = now
+                    continue
+                last_heard = now
+                if text == "pong":
+                    continue
+                try:
+                    yield json.loads(text)
+                except ValueError:
+                    continue
+        finally:
+            self.ws = None
+            ws.close()
 
 
 def show_id(pid, server):
@@ -771,7 +971,7 @@ class Link:
             now = self.clock()
             if self.connected:
                 snap = self.bridge.snapshot()
-                if snap != last or now - last_sent >= HEARTBEAT_SECONDS:
+                if snap != last or now - last_sent >= getattr(self.server, "heartbeat", HEARTBEAT_SECONDS):
                     self.emit({"type": "state", "data": {"pins": snap}})
                     last, last_sent = snap, now
             elif self.lost_at is not None and now - self.lost_at >= FAILSAFE_SECONDS:
@@ -780,6 +980,17 @@ class Link:
                 self.lost_at = None
                 self.log("Lost the connection: every output is switched off.")
 
+    def _commands_with_hello(self):
+        """The website's commands, with this Pi's hello sent as soon as the connection is open."""
+        hello = lambda: self.emit(self.bridge.hello_event(self.server.name, self.runner.enabled))  # noqa: E731
+        try:
+            yield from self.server.commands(on_open=hello)
+        except TypeError as e:  # a stand-in server (the tests) without on_open
+            if "on_open" not in str(e):
+                raise
+            hello()
+            yield from self.server.commands()
+
     def run(self):
         threading.Thread(target=self._sender, daemon=True).start()
         threading.Thread(target=self._poller, daemon=True).start()
@@ -787,10 +998,9 @@ class Link:
         show_id(self.server.id, self.server.base)
         while not self.stop.is_set():
             try:
-                self.emit(self.bridge.hello_event(self.server.name, self.runner.enabled))
                 self.connected, self.lost_at = True, None
                 got_any = False
-                for cmd in self.server.commands():
+                for cmd in self._commands_with_hello():
                     if not got_any:
                         got_any, delay = True, 1.0
                     try:

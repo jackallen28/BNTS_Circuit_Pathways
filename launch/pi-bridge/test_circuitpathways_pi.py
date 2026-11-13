@@ -135,6 +135,8 @@ class FakeWebsite(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if self.path == "/api/pi/pi/ws":  # the Go site has no WebSocket relay: the Pi falls back to its stream
+            return self._json(404, {"error": "not_found"})
         assert self.path == "/api/pi/pi/events"
         if type(self).refuse or self.headers["X-Pi-Key"] != KEY:
             return self._json(403, {"error": "pi_key"})
@@ -474,3 +476,108 @@ class WhoRunsTheProgramTests(unittest.TestCase):
         finally:
             os.unlink(secret.name)
             shutil.rmtree(base, ignore_errors=True)
+
+
+class FakeWebSocketSite(BaseHTTPRequestHandler):
+    """The Cloudflare site's side of a Pi WebSocket: sends the commands, collects the Pi's events."""
+    commands, received = [], []
+    refuse = False
+
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        import base64 as b64, hashlib
+        if self.path != "/api/pi/pi/ws" or self.headers.get("Upgrade", "").lower() != "websocket":
+            self.send_response(404)
+            self.end_headers()
+            return
+        if type(self).refuse or self.headers["X-Pi-Key"] != KEY:
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        accept = b64.b64encode(hashlib.sha1((self.headers["Sec-WebSocket-Key"] + pi.WebSocket.GUID).encode()).digest()).decode()
+        self.send_response(101)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", accept)
+        self.end_headers()
+        self.wfile.flush()
+        sock = self.connection
+
+        def send(text):
+            data = text.encode()
+            head = bytes([0x81, len(data)]) if len(data) < 126 else bytes([0x81, 126]) + len(data).to_bytes(2, "big")
+            sock.sendall(head + data)
+
+        def read_frame():
+            def need(n):
+                buf = b""
+                while len(buf) < n:
+                    chunk = sock.recv(n - len(buf))
+                    if not chunk:
+                        raise ConnectionError
+                    buf += chunk
+                return buf
+            b0, b1 = need(2)
+            n = b1 & 0x7F
+            if n == 126:
+                n = int.from_bytes(need(2), "big")
+            mask = need(4)
+            payload = bytes(c ^ mask[i % 4] for i, c in enumerate(need(n)))
+            return b0 & 0x0F, payload
+
+        sock.settimeout(5)
+        try:
+            for c in type(self).commands:
+                send(json.dumps(c))
+            deadline = time.time() + 3
+            while time.time() < deadline:
+                op, payload = read_frame()
+                if op == 8:
+                    break
+                if op == 1:
+                    text = payload.decode()
+                    if text == "ping":
+                        send("pong")
+                    else:
+                        type(self).received.append(json.loads(text))
+        except (ConnectionError, OSError):
+            pass
+
+
+class WebSocketLinkTests(unittest.TestCase):
+    def setUp(self):
+        FakeWebSocketSite.commands = [{"op": "mode", "pin": 17, "mode": "out"}, {"op": "write", "pin": 17, "value": 1}, {"op": "shell"}]
+        FakeWebSocketSite.received = []
+        FakeWebSocketSite.refuse = False
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), FakeWebSocketSite)
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+
+    def tearDown(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+    def test_over_a_websocket_the_pi_says_hello_runs_commands_and_reports_back(self):
+        b = bridge()
+        logs = []
+        link = pi.Link(b, pi.Server(self.url, KEY), log=logs.append)
+        threading.Thread(target=link.run, daemon=True).start()
+        deadline = time.time() + 6
+        while time.time() < deadline and not any(e["type"] == "state" and e["data"]["pins"].get("17", {}).get("value") == 1 for e in FakeWebSocketSite.received):
+            time.sleep(0.05)
+        link.stop.set()
+        got = FakeWebSocketSite.received
+        self.assertEqual(got[0]["type"], "hello", "hello goes first, over the WebSocket")
+        self.assertTrue(any(e["type"] == "state" and e["data"]["pins"]["17"]["value"] == 1 for e in got))
+        self.assertTrue(any(e["type"] == "error" for e in got), "a bad command is answered with an error")
+        self.assertTrue(link.server.use_ws, "it stays on WebSockets")
+
+    def test_a_refused_key_over_a_websocket_is_explained(self):
+        FakeWebSocketSite.refuse = True
+        logs = []
+        link = pi.Link(bridge(), pi.Server(self.url, KEY), log=logs.append, sleep=lambda s: link.stop.set() if s >= 60 else time.sleep(0.01))
+        link.run()
+        self.assertTrue(any("isn't valid" in m for m in logs), logs)

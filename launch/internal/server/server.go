@@ -50,6 +50,9 @@ type Config struct {
 	// Beta is the TEST version: no class codes or teacher pages, the apps are open to anyone with
 	// the link, and the page says nothing is saved. Pi Link is off.
 	Beta bool
+	// CompileKey lets another front end (the Cloudflare Worker) use this server as its compiler:
+	// a request with X-Compile-Key set to it counts as a class member. Empty: off.
+	CompileKey string
 }
 
 // Server is the http.Handler.
@@ -143,7 +146,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 			h.Set("Cross-Origin-Embedder-Policy", "require-corp")
 		}
 		// Web Serial (uploading to a board) only on our own pages; nothing else is needed.
-		h.Set("Permissions-Policy", "serial=(self), camera=(), microphone=(), geolocation=(), interest-cohort=()")
+		h.Set("Permissions-Policy", permissionsPolicy)
 		h.Set("Strict-Transport-Security", "max-age=31536000")
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			h.Set("Cache-Control", "no-store")
@@ -259,20 +262,14 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
-	c := s.Catalogue
-	boards := make([]json.RawMessage, 0, len(c.Boards))
-	for _, b := range c.Boards {
-		boards = append(boards, b.Raw)
+	b, err := CatalogueJSON(s.Catalogue)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "oops", "The catalogue couldn't be made.")
+		return
 	}
-	projects := make([]any, 0, len(c.Projects))
-	for _, p := range c.Projects {
-		projects = append(projects, p.ProjectSummary)
-	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=300")
-	writeJSON(w, http.StatusOK, map[string]any{
-		"tiers": c.Tiers, "parts": c.Parts, "kit": c.Kit, "boards": boards,
-		"projects": projects, "errors": c.Errors, "curriculum": c.Curriculum,
-	})
+	w.Write(b)
 }
 
 func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {

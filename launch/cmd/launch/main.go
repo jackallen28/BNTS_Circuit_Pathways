@@ -37,11 +37,19 @@ func main() {
 	beta := flag.Bool("beta", os.Getenv("BETA") == "1" || strings.EqualFold(os.Getenv("BETA"), "true"), "the TEST version: no class codes or teacher pages, nothing saved (also: BETA=1)")
 	dev := flag.Bool("dev", false, "development: random secrets, a teacher code of 'teacher-code-dev', no board tools needed")
 	piKeys := flag.Int("pi-keys", 0, "make this many Raspberry Pi keys (and an installer for each Pi) with PI_KEY_SECRET, then stop")
+	export := flag.String("export", "", "write the whole site (with ArduinoPath's data and a Cloudflare _headers file) into this folder, then stop")
 	piRefresh := flag.String("pi-refresh", "", "path to a pi-keys.csv: write new installers for those Pis (same keys), then stop")
 	piOut := flag.String("pi-out", "pi-keys", "the folder -pi-keys writes into")
 	piServer := flag.String("server", env("SITE_URL", pilink.PlaceholderServer), "the website address written into each Pi's installer (-pi-keys)")
 	flag.Parse()
 
+	if *export != "" {
+		if err := exportSite(*export, *beta); err != nil {
+			fmt.Fprintln(os.Stderr, "Sorry:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *piRefresh != "" {
 		if err := refreshPiInstallers(*piRefresh, *piOut, *piServer); err != nil {
 			fmt.Fprintln(os.Stderr, "Sorry:", err)
@@ -116,7 +124,7 @@ func main() {
 		}
 		os.Exit(1)
 	}
-	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log, Beta: *beta}
+	cfg := server.Config{Site: launch.Site(), Catalogue: cat, Signer: signer, Teachers: tc, PiKeys: keys, Version: Version, Log: log, Beta: *beta, CompileKey: os.Getenv("COMPILE_KEY")}
 	if tools, err := arduino.InstalledTools(*toolsDir, log); err == nil {
 		cfg.Compiler = tools
 	} else if *dev || *beta {
