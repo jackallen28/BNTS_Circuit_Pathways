@@ -36,6 +36,12 @@ test("no class code needed: work is saved on the device, and the home page says 
   await expect(page).toHaveURL(/\/pipath\//);
   await newStudent(page, "Ben");
   await page.locator(".card.free").click();
+  // the About box says which build this is (and no longer says work never leaves the computer)
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("tab", { name: "About" }).or(page.getByText("About", { exact: true })).first().click();
+  await expect(page.getByRole("dialog")).toContainText("This is: Pi beta, Cloudflare");
+  await expect(page.getByRole("dialog")).toContainText("deleted when the class ends");
+  await page.getByRole("button", { name: "OK" }).click();
   await page.locator("#code").fill('print("saved on this Pi")\n');
   await expect(page.locator("#save-status")).toContainText("Saved", { timeout: 10_000 });
   await page.reload();

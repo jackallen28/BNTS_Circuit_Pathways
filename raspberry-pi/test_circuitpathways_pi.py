@@ -565,8 +565,12 @@ class WebSocketLinkTests(unittest.TestCase):
         logs = []
         link = pi.Link(b, pi.Server(self.url, KEY), log=logs.append)
         threading.Thread(target=link.run, daemon=True).start()
+        # wait for BOTH answers: the pin going on, and the error for the bad command (they arrive in either order)
+        def seen(got):
+            return (any(e["type"] == "state" and e["data"]["pins"].get("17", {}).get("value") == 1 for e in got)
+                    and any(e["type"] == "error" for e in got))
         deadline = time.time() + 6
-        while time.time() < deadline and not any(e["type"] == "state" and e["data"]["pins"].get("17", {}).get("value") == 1 for e in FakeWebSocketSite.received):
+        while time.time() < deadline and not seen(list(FakeWebSocketSite.received)):
             time.sleep(0.05)
         link.stop.set()
         got = FakeWebSocketSite.received

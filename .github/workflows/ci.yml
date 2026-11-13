@@ -44,10 +44,12 @@ jobs:
         run: npm run e2e
       - uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true   # a full artifact quota must not turn passing tests red
         with:
           name: screenshots
           path: test-results/screenshots
           if-no-files-found: ignore
+          retention-days: 3
 
   # The real compilers, for every board: every board's upload file comes out
   # right, and a broken sketch comes back with a line number.
