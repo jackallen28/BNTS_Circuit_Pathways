@@ -1,4 +1,5 @@
 // The welcome screen: pick your name, or make a profile (first names and school, nothing else).
+import { classLink } from "/shared/local/cloud.js";
 import { beta } from "../../../shared/beta.js";
 import { h, fill, joinNames, download } from "../dom.js";
 import { api } from "../api.js";
@@ -27,9 +28,12 @@ export function loginScreen(root, { onLoggedIn, onCreated }) {
   }
 
   function newProfile(error = "") {
-    const names = [h("input", { class: "input", id: "name1", autocomplete: "off", maxlength: 30, autofocus: true })];
+    // a student who joined a class on the home page: their names and school are already known
+    const link = classLink();
+    const known = link?.names?.length ? link.names : [""];
+    const names = known.map((n, i) => h("input", { class: "input", id: i === 0 ? "name1" : null, "aria-label": i ? `First name ${i + 1}` : null, autocomplete: "off", maxlength: 30, autofocus: i === 0, value: n }));
     const list = h("div", {}, names);
-    const school = h("input", { class: "input", id: "school", autocomplete: "off", maxlength: 60 });
+    const school = h("input", { class: "input", id: "school", autocomplete: "off", maxlength: 60, value: link?.school ?? "" });
     const msg = h("div", { class: ["note", "error"], role: "alert", hidden: !error, text: error });
     const submit = async () => {
       try {

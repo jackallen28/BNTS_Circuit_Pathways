@@ -6,20 +6,24 @@ import { beta } from "./beta.js";
 
 const KEY = "circuitpathways.access";
 
-/** @returns {{kind: "class"|"teacher", value: string, expires_at: number}|null} */
+/**
+ * kind "class": a class code (the Go site); "student": a student who joined a saved class (the Cloudflare
+ * site), with their first names and school as they joined; "teacher": a teacher's sign-in.
+ * @returns {{kind: "class"|"student"|"teacher", value: string, expires_at: number, names?: string[], school?: string, class?: object}|null}
+ */
 export function getAccess(now = Date.now()) {
   if (beta) return { kind: "beta", value: "beta", expires_at: now + 12 * 3600 * 1000 }; // the TEST version needs no class code
   try {
     const a = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (a && typeof a.value === "string" && a.expires_at > now && (a.kind === "class" || a.kind === "teacher")) return a;
+    if (a && typeof a.value === "string" && a.expires_at > now && ["class", "student", "teacher"].includes(a.kind)) return a;
     if (a) localStorage.removeItem(KEY);
   } catch { /* storage blocked */ }
   return null;
 }
 
-export function setAccess(kind, value, expires_at) {
+export function setAccess(kind, value, expires_at, extra = {}) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ kind, value, expires_at }));
+    localStorage.setItem(KEY, JSON.stringify({ kind, value, expires_at, ...extra }));
   } catch { /* storage blocked: they'll be asked again */ }
 }
 

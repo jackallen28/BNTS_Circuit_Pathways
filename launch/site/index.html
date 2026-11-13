@@ -61,6 +61,7 @@
         <a class="btn" href="pipath/">Open PiPath ▸</a>
         <a class="btn btn-alt" id="teacher-link" href="teacher/" hidden>Teacher page ▸</a>
         <button type="button" class="btn btn-plain" id="leave">Leave this class</button>
+        <button type="button" class="btn btn-plain" id="forget-me" hidden>Take my name off the class</button>
       </div>
     </div>
     <div class="session-grid" id="session-forms">
@@ -68,7 +69,12 @@
         <h3>Students: join with a code</h3>
         <p>Your teacher gives you a class code. Then it's just your first name and your school.</p>
         <label>Class code <input name="code" autocapitalize="characters" spellcheck="false" maxlength="14" placeholder="ABCDE-FGHJK" required></label>
-        <button type="submit" class="btn">Join class ▸</button>
+        <div class="join-names" id="join-names" hidden>
+          <p class="join-class" id="join-class"></p>
+          <label>Your first name <span class="small">(sharing a kit? up to 4, like "Mia, Sam")</span> <input name="names" autocomplete="off" spellcheck="false" maxlength="130" placeholder="First name only"></label>
+          <label>Your school <input name="school" autocomplete="off" maxlength="60"></label>
+        </div>
+        <button type="submit" class="btn" id="join-btn">Join class ▸</button>
         <p class="note" role="status" aria-live="polite"></p>
       </form>
       <form class="card" id="teacher-form" autocomplete="off">
@@ -79,7 +85,7 @@
         <p class="note" role="status" aria-live="polite"></p>
       </form>
     </div>
-    <p class="small privacy">Only a first name and a school are asked for, and they stay in your own saved file in this browser. They are never sent to or kept on our server.</p>
+    <p class="small privacy" id="privacy">Only a first name and a school are asked for, and they stay in your own saved file in this browser. They are never sent to or kept on our server.</p>
   </div>
 
 <div class="shared reveal">

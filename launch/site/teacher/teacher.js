@@ -5,7 +5,7 @@
 
 import { getAccess, clearAccess, postJSON } from "/shared/access.js";
 import { writeZip, readZip } from "/shared/local/zip.js";
-import { readSaveFile } from "/shared/local/savefile.js";
+import { readSaveFile, writeSaveFile, saveFileName } from "/shared/local/savefile.js";
 import { joinNames } from "/shared/local/validate.js";
 
 const $ = (s) => document.querySelector(s);
@@ -221,3 +221,199 @@ $("#save-all").addEventListener("click", () => {
 });
 
 showCode();
+
+
+// ---- saved classes (the Cloudflare site keeps classes: first names, school and work, until the class ends)
+const auth = { Authorization: `Bearer ${access?.value ?? ""}` };
+const day = 24 * 3600 * 1000;
+const isoDay = (ms) => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const endOfDay = (iso) => new Date(`${iso}T23:59:00`).getTime();
+let openCode = null;
+let openWork = null;
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method, credentials: "omit",
+    headers: { ...auth, ...(method === "GET" ? {} : { "X-Circuit-Pathways": "1" }), ...(body ? { "Content-Type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) { clearAccess(); location.replace("/"); throw new Error("signed out"); }
+  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message ?? "That didn't work. Try again.");
+  return data;
+}
+
+function cell(tr, text) {
+  const td = document.createElement("td");
+  if (text instanceof Node) td.append(text);
+  else td.textContent = text;
+  tr.append(td);
+  return td;
+}
+
+function button(text, onclick, cls = "btn btn-plain") {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = cls;
+  b.textContent = text;
+  b.addEventListener("click", onclick);
+  return b;
+}
+
+async function loadClasses() {
+  const { classes } = await api("GET", "/api/teacher/classes");
+  const table = $("#c-table");
+  table.hidden = classes.length === 0;
+  table.querySelector("tbody").replaceChildren(...classes.map((c) => {
+    const tr = document.createElement("tr");
+    cell(tr, c.name);
+    cell(tr, c.code);
+    cell(tr, fmt(c.ends_at));
+    cell(tr, String(c.students));
+    const td = cell(tr, "");
+    td.append(button("Open", () => openClass(c.code)));
+    return tr;
+  }));
+  return classes;
+}
+
+async function openClass(code) {
+  openCode = code;
+  openWork = null;
+  $("#r-work").hidden = true;
+  const { class: c, students: list } = await api("GET", `/api/teacher/class/${code}`);
+  $("#roster").hidden = false;
+  $("#r-title").textContent = `${c.name} (${c.school}): ${list.length} student${list.length === 1 ? "" : "s"}`;
+  $("#r-code").textContent = c.code;
+  $("#r-ends").value = isoDay(c.ends_at);
+  say("#r-note", `Ends ${fmt(c.ends_at)}. After that the class, the names and all the work are deleted.`);
+  $("#r-table").querySelector("tbody").replaceChildren(...list.map((st) => {
+    const tr = document.createElement("tr");
+    cell(tr, joinNames(st.names));
+    cell(tr, st.school);
+    cell(tr, new Date(st.joined_at).toLocaleDateString("en-AU"));
+    cell(tr, st.last_work ? new Date(st.last_work).toLocaleString("en-AU") : "Nothing yet");
+    cell(tr, String(st.items));
+    const td = cell(tr, "");
+    td.append(button("See work", () => showWork(st.id)), " ", button("Remove", async () => {
+      if (!confirm(`Take ${joinNames(st.names)} and their work off this class?`)) return;
+      await api("DELETE", `/api/teacher/class/${code}/students/${st.id}`);
+      await openClass(code);
+      await loadClasses();
+    }));
+    return tr;
+  }));
+}
+
+async function classWork() {
+  openWork ??= await api("GET", `/api/teacher/class/${openCode}/work`);
+  return openWork;
+}
+
+const ext = (app) => (app === "pipath" ? "py" : "ino");
+
+async function showWork(id) {
+  const { students: list } = await classWork();
+  const st = list.find((x) => x.id === id);
+  const box = $("#r-work");
+  box.hidden = false;
+  const h = document.createElement("h3");
+  h.textContent = `${joinNames(st.names)}'s work`;
+  const parts = [h];
+  const sketches = st.work.filter((w) => w.kind === "sketch").sort((a, b) => b.updated_at - a.updated_at);
+  if (!sketches.length) {
+    const p = document.createElement("p");
+    p.textContent = "No code saved yet.";
+    parts.push(p);
+  }
+  for (const w of sketches) {
+    const h4 = document.createElement("h4");
+    h4.textContent = `${w.app === "pipath" ? "PiPath" : "ArduinoPath"}: ${w.item} (saved ${new Date(w.updated_at).toLocaleString("en-AU")})`;
+    const pre = document.createElement("pre");
+    pre.textContent = w.body;
+    parts.push(h4, pre);
+  }
+  box.replaceChildren(...parts);
+  box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/** Each student's synced work as save files (.circuit / .pipath), the same as students save themselves. */
+async function saveFilesFor() {
+  const { students: list } = await classWork();
+  const out = [];
+  for (const st of list) {
+    for (const app of ["arduinopath", "pipath"]) {
+      const mine = st.work.filter((w) => w.app === app);
+      if (!mine.length) continue;
+      const settings = mine.find((w) => w.kind === "settings");
+      const bytes = writeSaveFile({
+        profile: { names: st.names, school: st.school, settings: settings ? JSON.parse(settings.body) : {} },
+        sketches: mine.filter((w) => w.kind === "sketch").map((w) => ({ project_id: w.item, code: w.body, updated_at: w.updated_at })),
+        progress: mine.filter((w) => w.kind === "progress").map((w) => ({ project_id: w.item, data: JSON.parse(w.body), updated_at: w.updated_at })),
+        format: app === "pipath" ? "pipath-save" : "arduinopath-save",
+      });
+      out.push({ name: saveFileName(st.names, new Date(), app === "pipath" ? "PiPath" : "ArduinoPath", app === "pipath" ? "pipath" : "circuit"), data: bytes, st, app, mine });
+    }
+  }
+  return out;
+}
+
+async function initSavedClasses() {
+  let info = {};
+  try { info = await (await fetch("/api/info", { credentials: "omit" })).json(); } catch { /* the Go site */ }
+  if (!info.classes) return;
+  $("#classes-card").hidden = false;
+  $("#code-card").hidden = true;
+  $("#h-file").textContent = "2. Class file and student work";
+  $("#c-ends").value = isoDay(Date.now() + 70 * day);
+  $("#c-ends").min = isoDay(Date.now() + day);
+  $("#c-ends").max = isoDay(Date.now() + 399 * day);
+  $("#r-ends").min = $("#c-ends").min;
+  $("#r-ends").max = $("#c-ends").max;
+  $("#c-make").addEventListener("click", async () => {
+    try {
+      const c = await api("POST", "/api/teacher/class", { name: $("#c-name").value, school: $("#c-school").value, ends_at: endOfDay($("#c-ends").value) });
+      say("#c-note", `Made ${c.name}. Its code is ${c.code}.`, "good");
+      $("#c-name").value = "";
+      await loadClasses();
+      await openClass(c.code);
+    } catch (e) { say("#c-note", e.message, "bad"); }
+  });
+  $("#r-refresh").addEventListener("click", () => openClass(openCode));
+  $("#r-copy").addEventListener("click", () => navigator.clipboard.writeText($("#r-code").textContent).catch(() => {}));
+  $("#r-end").addEventListener("click", async () => {
+    try {
+      await api("POST", `/api/teacher/class/${openCode}/end`, { ends_at: endOfDay($("#r-ends").value) });
+      await openClass(openCode);
+      await loadClasses();
+    } catch (e) { say("#r-note", e.message, "bad"); }
+  });
+  $("#r-delete").addEventListener("click", async () => {
+    if (!confirm("Delete this class now, with every student's name and work in it? This can't be undone. (Download their work first if you want to keep it.)")) return;
+    await api("DELETE", `/api/teacher/class/${openCode}`);
+    $("#roster").hidden = true;
+    say("#c-note", "The class, its names and its work have been deleted.", "good");
+    await loadClasses();
+  });
+  $("#r-zip").addEventListener("click", async () => {
+    const files = [];
+    for (const f of await saveFilesFor()) {
+      const folder = f.name.replace(/\.(circuit|pipath)$/, "");
+      files.push({ name: f.name, data: f.data });
+      for (const w of f.mine.filter((x) => x.kind === "sketch")) files.push({ name: `${folder}/${w.item}.${ext(f.app)}`, data: w.body });
+    }
+    if (!files.length) return say("#r-note", "Nobody has saved any work yet.");
+    download(writeZip(files), `${safe($("#r-title").textContent.split(" (")[0]) || "Class"}_work_${new Date().toISOString().slice(0, 10)}.zip`, "application/zip");
+  });
+  $("#r-files").addEventListener("click", async () => {
+    let n = 0;
+    for (const f of await saveFilesFor()) { await addStudentFile(f.name, f.data); n++; }
+    students.sort((a, b) => joinNames(a.names).localeCompare(joinNames(b.names)));
+    drawStudents();
+    $("#label").value = $("#r-title").textContent.split(" (")[0];
+    say("#r-note", n ? `Added ${n} save file${n === 1 ? "" : "s"} to the class file below. Press Save class file to keep a copy.` : "Nobody has saved any work yet.", n ? "good" : "");
+  });
+  await loadClasses();
+}
+
+initSavedClasses().catch((e) => say("#c-note", e.message, "bad"));

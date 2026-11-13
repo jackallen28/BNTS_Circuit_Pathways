@@ -6,6 +6,7 @@
 import { beta } from "../../shared/beta.js";
 import { createLocalApi, tabSession, LocalError } from "/shared/local/localapi.js";
 import { openStore } from "/shared/local/store.js";
+import { createCloud } from "/shared/local/cloud.js";
 import { getAccess, postJSON } from "/shared/access.js";
 
 export class ApiError extends Error {
@@ -46,7 +47,7 @@ const catalogue = () => (cataloguePromise ??= getJSON("data/catalogue.json").cat
 
 const storePromise = openStore();
 let localPromise;
-const local = () => (localPromise ??= storePromise.then((store) => createLocalApi({ store, catalogue, session: tabSession(), version: "web" })));
+const local = () => (localPromise ??= storePromise.then((store) => createLocalApi({ store, catalogue, session: tabSession(), version: "web", cloud: beta ? null : createCloud() })));
 
 /** True if this browser won't keep the student's work between visits (a private window, say). */
 export async function storageIsTemporary() {

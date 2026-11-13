@@ -9,6 +9,13 @@ import { getAccess } from "/shared/access.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// The Cloudflare site relays over WebSockets; the Go site over a stream of events. /api/info says which.
+let relayKind;
+async function relay() {
+  relayKind ??= fetch("/api/info", { credentials: "omit" }).then((r) => r.json()).then((i) => (i.relay === "ws" ? "ws" : "sse")).catch(() => "sse");
+  return relayKind;
+}
+
 export class PiRemote extends EventTarget {
   constructor() {
     super();
@@ -47,6 +54,7 @@ export class PiRemote extends EventTarget {
     this.code = code.trim();
     this.abort = new AbortController();
     this._setState("connecting");
+    if ((await relay()) === "ws") return this._connectWS(access.value);
     const res = await fetch(`/api/pi/events?code=${encodeURIComponent(this.code)}`, {
       headers: { "X-Access": access.value }, signal: this.abort.signal, credentials: "omit",
     }).catch(() => { throw new Error("Circuit Pathways can't be reached. Check your internet connection."); });
@@ -61,6 +69,40 @@ export class PiRemote extends EventTarget {
       const on = (e) => { if (e.detail.state === "connected" || e.detail.state === "pi-offline") done(); };
       this.addEventListener("status", on);
     });
+  }
+
+  _connectWS(token) {
+    const signal = this.abort.signal;
+    const url = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/pi/ws?code=${encodeURIComponent(this.code)}`;
+    const ws = new WebSocket(url, ["cp-access", token]);
+    this.ws = ws;
+    signal.addEventListener("abort", () => ws.close());
+    let opened = false;
+    const ready = new Promise((resolve, reject) => {
+      const on = (e) => {
+        if (e.detail.state === "connected" || e.detail.state === "pi-offline") { this.removeEventListener("status", on); resolve(); }
+      };
+      this.addEventListener("status", on);
+      ws.onopen = () => { opened = true; };
+      ws.onerror = () => {
+        if (!opened) {
+          this.removeEventListener("status", on);
+          this._setState("idle");
+          reject(Object.assign(new Error("Couldn't link to that Pi. Check you've joined your class on the home page, then try again."), { code: "no_link" }));
+        }
+      };
+    });
+    ws.onmessage = (e) => {
+      try { this._onEvent(JSON.parse(e.data)); } catch { /* not for us */ }
+    };
+    ws.onclose = async () => {
+      if (this.ws !== ws || signal.aborted || this.state === "closed" || !opened) return;
+      this._setState("connecting", { reconnecting: true });
+      if (this.job) this._emit("output", { stream: "err", text: "[The connection blinked. Some output may be missing.]\n" });
+      await sleep(1500);
+      if (!signal.aborted && this.state === "connecting") this.connect(this.code, { resume: true }).catch((err) => this._setState("closed", { reason: err.message }));
+    };
+    return ready;
   }
 
   async _read(body) {

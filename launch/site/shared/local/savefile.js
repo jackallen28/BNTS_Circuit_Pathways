@@ -3,7 +3,7 @@
 // between them. Never break it: bump the version and keep reading old ones.
 //
 //   manifest.json   {"format": "arduinopath-save", "version": 1, ...}
-//   profile.json    names, school, settings
+//   profile.json    names, school, settings, and (optional) class_link: the student's link to their class
 //   progress.json   [{project_id, data, updated_at}]
 //   sketches.json   [{project_id, updated_at}]
 //   sketches/<id>.ino
@@ -29,7 +29,7 @@ const dec = new TextDecoder();
 export function writeSaveFile({ profile, sketches, progress, appVersion = "web", format = FORMAT }, now = Date.now()) {
   const files = [
     { name: "manifest.json", data: JSON.stringify({ format, version: VERSION, exported_at: now, app_version: appVersion }, null, 2) + "\n" },
-    { name: "profile.json", data: JSON.stringify({ names: profile.names, school: profile.school, settings: profile.settings }, null, 2) + "\n" },
+    { name: "profile.json", data: JSON.stringify({ names: profile.names, school: profile.school, settings: profile.settings, ...(profile.class_link ? { class_link: profile.class_link } : {}) }, null, 2) + "\n" },
     { name: "progress.json", data: JSON.stringify(progress ?? [], null, 2) + "\n" },
     { name: "sketches.json", data: JSON.stringify((sketches ?? []).map((s) => ({ project_id: s.project_id, updated_at: s.updated_at })), null, 2) + "\n" },
     ...(sketches ?? []).map((s) => ({ name: `sketches/${s.project_id}.ino`, data: s.code })),
@@ -86,7 +86,11 @@ export async function readSaveFile(bytes, now = Date.now(), { formats = [FORMAT,
   }
   return {
     manifest,
-    profile: { names: Array.isArray(profile.names) ? profile.names.map(String) : [], school: String(profile.school ?? ""), settings: profile.settings },
+    profile: {
+      names: Array.isArray(profile.names) ? profile.names.map(String) : [], school: String(profile.school ?? ""), settings: profile.settings,
+      // the student's link to their class on the Cloudflare site (optional; older files don't have it)
+      class_link: typeof profile.class_link === "string" && /^s2\.[0-9a-f]{32}\.[0-9a-f]{32}$/.test(profile.class_link) ? profile.class_link : null,
+    },
     sketches,
     progress: outProgress,
   };

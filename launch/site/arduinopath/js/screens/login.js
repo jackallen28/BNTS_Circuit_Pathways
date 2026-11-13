@@ -2,6 +2,7 @@
 // or make a profile (first names and school). ArduinoPath runs on this
 // laptop, so there's no password. "Wipe this browser" opens the WIPE page.
 
+import { classLink } from "/shared/local/cloud.js";
 import { beta } from "../../../shared/beta.js";
 import { api } from "../api.js";
 import { h, icon, joinNames, clear, fill } from "../dom.js";
@@ -95,8 +96,10 @@ export function avatar(names) {
 
 /** The "I'm new here" page: first names (up to 4, for students sharing a kit) and school. */
 function newProfileWizard(stage, { first, schools, onCancel, onCreated }) {
-  const names = [""];
-  let school = schools.length === 1 ? schools[0] : "";
+  // a student who joined a class on the home page: their names and school are already known
+  const link = classLink();
+  const names = link?.names?.length ? [...link.names] : [""];
+  let school = link?.school || (schools.length === 1 ? schools[0] : "");
   const pageHolder = h("div", { class: "wizard-page" });
   const buttons = h("div", { class: "dialog-buttons" });
   const win = h("section", { class: "window wizard", "aria-labelledby": "wizard-title" },

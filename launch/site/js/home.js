@@ -26,15 +26,29 @@ $$(".reveal").forEach((el) => revealer.observe(el));
 // ---- classes
 const fmtDate = (ms) => new Date(ms).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
 
+// The Cloudflare site keeps classes (first names and school, and students' work), so joining asks for
+// names; the Go site's class codes need none. /api/info says which.
+let savedClasses = false;
+fetch("/api/info", { credentials: "omit" }).then((r) => r.json()).then((info) => {
+  savedClasses = info.classes === true;
+  if (savedClasses) {
+    $("#privacy").textContent = "When you join a class, only your first name(s) and school are kept, with your work, so your teacher can see it and you can carry on on another computer. It's all deleted when the class ends. Nothing else about you is kept.";
+  }
+}).catch(() => {});
+
 function showState() {
   const a = getAccess();
   $("#session-forms").hidden = Boolean(a);
   $("#session-in").hidden = !a;
   $("#teacher-link").hidden = a?.kind !== "teacher";
+  $("#forget-me").hidden = a?.kind !== "student";
   if (a) {
+    const until = `until the end of ${fmtDate(a.expires_at - 12 * 3600 * 1000)}`;
     $("#session-in-text").textContent = a.kind === "teacher"
       ? `You're signed in as a teacher until ${new Date(a.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}.`
-      : `You're in class ${a.value}, until the end of ${fmtDate(a.expires_at - 12 * 3600 * 1000)}.`;
+      : a.kind === "student"
+        ? `You're in ${a.class?.name ?? "your class"} (${a.class?.code ?? ""}) as ${(a.names ?? []).join(" and ")}, ${until}. Your work is saved with your class.`
+        : `You're in class ${a.value}, ${until}.`;
   }
   $("#need-class").hidden = new URLSearchParams(location.search).get("need") !== "class" || Boolean(a);
 }
@@ -59,17 +73,51 @@ async function submit(form, fn) {
   }
 }
 
+/** "Mia, Sam" or "Mia and Sam" -> ["Mia", "Sam"] */
+const splitNames = (s) => s.split(/\s*(?:,|&|\band\b)\s*/i).map((x) => x.trim()).filter(Boolean);
+
 $("#join-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const form = e.currentTarget;
+  const askingNames = !$("#join-names").hidden;
   submit(form, async () => {
     const code = form.code.value;
-    const res = await postJSON("/api/class/join", { code });
-    const tidy = code.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/[IL]/g, "1").replace(/O/g, "0");
-    setAccess("class", `${tidy.slice(0, 5)}-${tidy.slice(5)}`, res.expires_at);
+    if (!askingNames) {
+      const res = await postJSON("/api/class/join", { code });
+      if (res.needs_names) {
+        // a saved class: now the student's first name(s) and school
+        $("#join-names").hidden = false;
+        $("#join-class").textContent = `Class: ${res.class.name} (${res.class.school})`;
+        form.school.value = res.class.school;
+        form.code.readOnly = true;
+        $("#join-btn").textContent = "Join ▸";
+        form.names.required = true;
+        form.names.focus();
+        return;
+      }
+      const tidy = code.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/[IL]/g, "1").replace(/O/g, "0");
+      setAccess("class", `${tidy.slice(0, 5)}-${tidy.slice(5)}`, res.expires_at);
+    } else {
+      const names = splitNames(form.names.value);
+      const res = await postJSON("/api/class/join", { code, names, school: form.school.value });
+      setAccess("student", res.token, res.expires_at, { names: res.student.names, school: res.student.school, class: res.class });
+    }
     form.reset();
+    form.code.readOnly = false;
+    form.names.required = false;
+    $("#join-names").hidden = true;
+    $("#join-btn").textContent = "Join class ▸";
     showState();
   });
+});
+
+$("#forget-me").addEventListener("click", async () => {
+  const a = getAccess();
+  if (a?.kind !== "student") return;
+  if (!confirm("Take your name and your saved work off this class? Your work stays in this browser.")) return;
+  await fetch("/api/student/me", { method: "DELETE", headers: { "X-Circuit-Pathways": "1", Authorization: `Bearer ${a.value}` }, credentials: "omit" }).catch(() => {});
+  clearAccess();
+  showState();
 });
 
 $("#teacher-form").addEventListener("submit", (e) => {

@@ -26,3 +26,10 @@
 .note.bad { color: #ffb4a8; }
 .note.good { color: #9ff0c0; }
 .sr { position: absolute; left: -999px; }
+.roster { margin-top: 18px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.18); }
+.code-sm { font: 800 22px ui-monospace, Consolas, monospace; letter-spacing: .1em; user-select: all; }
+.btn.danger { background: linear-gradient(180deg, #ff9a8a, #d9473a 52%, #9a2218); }
+.trow input[type=date] { font: inherit; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); background: rgba(10,20,40,.55); color: #fff; color-scheme: dark; }
+.work-view { margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,.3); }
+.work-view pre { max-height: 360px; overflow: auto; padding: 10px; border-radius: 8px; background: #0b1020; color: #e6f1ff; font: 13px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+.work-view h4 { margin: 14px 0 4px; }

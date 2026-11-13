@@ -21,7 +21,41 @@
 </header>
 
 <main id="main" class="tmain">
-  <section class="tcard" aria-labelledby="h-code">
+  <section class="tcard" aria-labelledby="h-classes" id="classes-card" hidden>
+    <h2 id="h-classes">1. My classes</h2>
+    <p>Make a class and give students its code. They type it on the home page with their <b>first name(s)</b> and <b>school</b>: that is all that is kept about them, with their work, so you see everyone's work here. When the class ends, the class, the names and the work are deleted.</p>
+    <div class="trow">
+      <label>Class name <input id="c-name" maxlength="40" placeholder="e.g. 7B Thursday (no student names)"></label>
+      <label>School <input id="c-school" maxlength="60" value="Banyule Nillumbik Tech School"></label>
+      <label>Ends (everything is deleted after this day) <input id="c-ends" type="date"></label>
+      <button type="button" class="btn" id="c-make">Make class ▸</button>
+    </div>
+    <p class="note" id="c-note" role="status"></p>
+    <div class="twrap"><table class="ttable" id="c-table" hidden>
+      <thead><tr><th>Class</th><th>Code</th><th>Ends</th><th>Students</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div id="roster" class="roster" hidden>
+      <h3 id="r-title"></h3>
+      <p class="code-line">Class code: <b class="code-sm" id="r-code"></b> <button type="button" class="btn btn-plain" id="r-copy">Copy</button></p>
+      <div class="trow">
+        <button type="button" class="btn" id="r-refresh">Refresh</button>
+        <button type="button" class="btn btn-plain" id="r-zip">Download everyone's work (.zip)</button>
+        <button type="button" class="btn btn-plain" id="r-files">Put everyone's work in the class file below</button>
+        <label>New end date <input id="r-ends" type="date"></label>
+        <button type="button" class="btn btn-plain" id="r-end">Change end date</button>
+        <button type="button" class="btn btn-plain danger" id="r-delete">Delete this class now</button>
+      </div>
+      <p class="note" id="r-note" role="status"></p>
+      <div class="twrap"><table class="ttable" id="r-table">
+        <thead><tr><th>First name(s)</th><th>School</th><th>Joined</th><th>Last saved work</th><th>Pieces of work</th><th><span class="sr">Actions</span></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div id="r-work" class="work-view" hidden></div>
+    </div>
+  </section>
+
+  <section class="tcard" aria-labelledby="h-code" id="code-card">
     <h2 id="h-code">1. Make a class code</h2>
     <p>Give this code to your students. They type it on the Circuit Pathways home page, then use their own first name and school. Nothing about your class is kept on our server: the code works because of how it is made.</p>
     <div class="trow">
