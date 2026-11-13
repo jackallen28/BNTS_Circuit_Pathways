@@ -18,6 +18,7 @@
 .join-names[hidden] { display: none; }
 .join-class { font-weight: 700; color: #fff !important; }
 .session .privacy { margin-top: 18px; }
+.session .on-pi { font-weight: 600; }
 @media (max-width: 720px) { .session-grid { grid-template-columns: 1fr; } }
 .session-msg { margin: 0 auto 18px; max-width: 560px; padding: 12px 16px; border-radius: 12px; background: rgba(255,213,74,.16); border: 1px solid rgba(255,213,74,.5); }
 .session-in { margin: 0 auto 22px; max-width: 720px; padding: 18px 20px; border-radius: 18px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.07); }

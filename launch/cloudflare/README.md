@@ -70,6 +70,19 @@ Pis link over WebSockets here. Pi app 0.2.0+ does this by itself, and still work
 Re-run each Pi's installer (made with `launch -pi-refresh`) to update older Pis. Set it to this
 site's address: `sudo pilink server https://your-site`.
 
+**The Raspberry Pi version** (students using a Pi as their computer): the installer also puts
+**Circuit Pathways**, **PiPath** and **ArduinoPath** in the Pi menu (Education) and on the desktop.
+They open this site in Chromium as an app window with `?pi=<this Pi's ID>`, so:
+
+- PiPath runs students' programs on that Pi straight away (Run on: My Raspberry Pi), with no ID to type.
+- Work is saved in Chromium on the Pi, like on a laptop. Once the student joins a class (class code,
+  first name(s), school) it also syncs to the class in D1, so it's the same work on the Pi, a laptop
+  or at home. Save files (`.pipath`, `.circuit`) remember the class, so opening one on another
+  device links that device too.
+- ArduinoPath uploads to boards from the Pi with Web Serial (Linux has the USB drivers built in).
+
+`CP_DESKTOP=no` skips the shortcuts. `circuitpathways pipath` opens PiPath from a terminal.
+
 ## Develop and test
 
 ```bash

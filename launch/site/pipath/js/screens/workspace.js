@@ -12,6 +12,7 @@ import { messageBox, dialog } from "../widgets/window.js";
 import { getRunner } from "../runtime/shared.js";
 import { beta } from "../../../shared/beta.js";
 import { getPi, piReady, supportFor, piSummary, savedPiId } from "../runtime/pi.js";
+import { thisPi } from "/shared/thispi.js";
 import { linkPiDialog } from "../dialogs/pi.js";
 import {
   LEVELS, LEVEL_INFO, hintRules, goalText, canSkip, starsFor, newLessonProgress, projectKey, normaliseLevel,
@@ -46,7 +47,9 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   let runner = null;
   let running = false;
   let runKind = "run";
-  let where = !beta && settings().run_where === "pi" ? "pi" : "sim"; // sim: the Simulator in this browser. pi: the student's own Raspberry Pi.
+  // sim: the Simulator in this browser. pi: the student's own Raspberry Pi (on a Pi
+  // opened from its own shortcut, that's where programs run unless the student chose otherwise).
+  let where = !beta && (settings().run_where === "pi" || (!settings().run_where && thisPi())) ? "pi" : "sim";
   let piRun = false; // a program is running on the Pi right now
   const pi = getPi();
   let failedRuns = 0; // this step

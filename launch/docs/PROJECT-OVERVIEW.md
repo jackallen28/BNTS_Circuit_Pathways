@@ -26,6 +26,22 @@ The teacher's priorities, which everything must respect:
 6. **Safety text** on every wiring screen (unplug before changing wires, never 5V on an ESP/Pi pin, resistor with LEDs).
 7. FidgetCAD is **out of scope**. Ignore anything about it.
 
+### Added in 2026 (Cloudflare and kits)
+- **Cloudflare** (`cloudflare/`, its README): the site as a Worker with static assets, saved classes in D1, the Pi relay
+  as a Durable Object, and compiles passed to `COMPILE_URL`. The Go server still runs the same site on Render.
+- **Grove kits** (`site/shared/grove/grove.json`, `grove.js`): Base Shield / Base Hat ports and modules, Grove
+  projects in both apps (a `grove` tier) with plug-in steps instead of breadboard wiring, and Grove in Free Play.
+- **Web Page Designer** (ArduinoPath, ESP boards: `js/webpage.js`, `js/dialogs/webpage.js`): students design a
+  phone web page and get a working WebServer sketch; the simulator's phone panel shows it.
+- **USB the browser way** (`js/usbserial.js`, `js/dialogs/boardhelp.js`): a website can't install drivers, so when
+  Web Serial's box doesn't list the board, "Can't see your board?" gives tips for that kind of computer and offers
+  the USB way: WebUSB drivers for CH340, CP210x, FTDI and CDC-ACM chips, shaped like Web Serial's SerialPort.
+  Chrome on Android (WebUSB, no Web Serial) uses it straight away. On Windows the normal way is the one to use:
+  Windows Update adds the CH340 / CP210x drivers, and WebUSB can't claim a chip that has a driver.
+- **The Raspberry Pi version** (`internal/pilink/install.sh.tmpl`, `site/shared/thispi.js`): the Pi installer adds
+  Pi menu and desktop shortcuts that open the site with `?pi=<ID>`, so PiPath on that Pi runs programs on it. Work is
+  saved on the Pi and synced to the student's class.
+
 ## 2. Repository layout
 
 ```
@@ -69,7 +85,9 @@ compare table, and two forms:
 Signed-in teachers can: make a **class code** (1 day to a year); name the class; **save/open a class file**
 (`.circuitclass`, a zip holding the class setup plus students' handed-in `.circuit` / `.pipath` files); add student
 files and see who has done what. The class name, the class file and all student work stay on the **teacher's
-computer**, handled only in the browser. The server stores nothing about classes.
+computer**, handled only in the browser. The Go server stores nothing about classes. **On Cloudflare** (`cloudflare/`),
+classes are saved in D1 instead: students join with the class code + first name(s) + school, their work syncs to the
+class, and the teacher page shows the roster and work. Everything is deleted after the class's end date.
 
 ### PiPath (`site/pipath/`) - Windows 95 look
 - Vanilla ES modules and DOM helpers only (`js/dom.js` `h()`), CSSOM for dynamic styles (CSP forbids `style=""`).

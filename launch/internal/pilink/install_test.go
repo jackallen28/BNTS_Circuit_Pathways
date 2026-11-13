@@ -32,8 +32,8 @@ func TestInstallerForOnePi(t *testing.T) {
 	if strings.Contains(script, PlaceholderServer) || strings.Contains(script, "<%") {
 		t.Error("the installer still has placeholders in it")
 	}
-	if strings.Count(script, "#!/usr/bin/env bash") != 2 {
-		t.Error("expected the installer and the pilink helper")
+	if strings.Count(script, "#!/usr/bin/env bash") != 3 {
+		t.Error("expected the installer, the pilink helper and the circuitpathways launcher")
 	}
 }
 
@@ -78,6 +78,34 @@ func TestInstallerRunsAndMakesWorkingFiles(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(root, f)); err != nil {
 			t.Errorf("missing %s", f)
 		}
+	}
+	// The Raspberry Pi version: shortcuts that open the site in Chromium, linked to this Pi.
+	for _, f := range []string{"etc/circuitpathways-pi.site", "usr/local/bin/circuitpathways", "usr/share/applications/circuitpathways.desktop",
+		"usr/share/applications/circuitpathways-pipath.desktop", "usr/share/applications/circuitpathways-arduinopath.desktop", "usr/share/icons/hicolor/scalable/apps/circuitpathways.svg"} {
+		if _, err := os.Stat(filepath.Join(root, f)); err != nil {
+			t.Errorf("missing %s", f)
+		}
+	}
+	desk, _ := os.ReadFile(filepath.Join(root, "usr/share/applications/circuitpathways-pipath.desktop"))
+	if !strings.Contains(string(desk), "Exec=/usr/local/bin/circuitpathways pipath") || !strings.Contains(string(desk), "Type=Application") {
+		t.Errorf("PiPath shortcut:\n%s", desk)
+	}
+	if site, _ := os.ReadFile(filepath.Join(root, "etc/circuitpathways-pi.site")); string(site) != "https://school.example.org\n" {
+		t.Errorf("site file: %q", site)
+	}
+	if info, _ := os.Stat(filepath.Join(root, "etc/circuitpathways-pi.site")); info.Mode().Perm()&0o004 == 0 {
+		t.Error("the shortcuts' site file must be readable by students (it holds no key)")
+	}
+	// the launcher opens Chromium as an app window at the site, with this Pi's ID
+	bin := filepath.Join(dir, "bin")
+	os.MkdirAll(bin, 0o755)
+	os.WriteFile(filepath.Join(bin, "chromium-browser"), []byte("#!/bin/sh\necho \"$@\"\n"), 0o755)
+	launch := exec.Command("bash", filepath.Join(root, "usr/local/bin/circuitpathways"), "pipath")
+	launch.Env = append(os.Environ(), "CP_ETC="+filepath.Join(root, "etc"), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	got, err := launch.CombinedOutput()
+	id, _ := os.ReadFile(filepath.Join(root, "etc/circuitpathways-pi.id"))
+	if want := "--app=https://school.example.org/pipath/?pi=" + strings.TrimSpace(string(id)); err != nil || strings.TrimSpace(string(got)) != want {
+		t.Errorf("launcher: %v %q, want %q", err, got, want)
 	}
 	conf, _ := os.ReadFile(filepath.Join(root, "etc/circuitpathways-pi.conf"))
 	if !strings.Contains(string(conf), "KEY="+key) || !strings.Contains(string(conf), "SERVER=https://school.example.org") {

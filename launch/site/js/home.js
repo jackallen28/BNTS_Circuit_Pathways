@@ -3,6 +3,10 @@
 
 import { getAccess, setAccess, clearAccess, postJSON } from "/shared/access.js";
 import { beta, showTestTag } from "/shared/beta.js";
+import { takePiFromUrl, thisPi } from "/shared/thispi.js";
+
+// Opened from a Raspberry Pi's own shortcut (?pi=...): remember this Pi.
+takePiFromUrl();
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -137,6 +141,10 @@ $("#leave").addEventListener("click", () => {
 });
 
 showState();
+if (thisPi() && !beta) {
+  $("#on-pi").textContent = `This is the Raspberry Pi ${thisPi()}. When you choose "My Raspberry Pi" in PiPath, your programs run on it. Your work is saved on this Pi, and with your class once you've joined one, so you can carry on on any computer.`;
+  $("#on-pi").hidden = false;
+}
 if (beta) {
   // The TEST version: the same home page, but no class codes or teacher sign-in.
   showTestTag();

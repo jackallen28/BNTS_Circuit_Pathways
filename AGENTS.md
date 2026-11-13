@@ -1,10 +1,14 @@
 # AGENTS.md: instructions for AI coding agents (Codex, Claude Code, etc.)
 
-Project: **Circuit Pathways** (PiPath + ArduinoPath), a no-AI coding tutor for secondary students, hosted on Render.
+Project: **Circuit Pathways** (PiPath + ArduinoPath), a no-AI coding tutor for secondary students, hosted on Render or
+Cloudflare (`launch/cloudflare/README.md`).
 **Read `launch/docs/PROJECT-OVERVIEW.md` first.** Work in `launch/`. `development/` is the parked earlier version.
 
 ## Non-negotiable rules
-1. **No student data on the server.** Only a first name(s) + school, kept in the browser and in the student's own save files.
+1. **Keep student data to the minimum.** Only first name(s) + school are ever asked. On the Go/Render site they stay in the
+   browser and the student's own save files. On the Cloudflare site (`launch/cloudflare/`), a student who joins a class
+   has their first name(s), school and work kept with that class in D1, and all of it is deleted after the class's end
+   date (daily clean-up), or sooner by the teacher or the student. Nothing else about students, ever.
 2. **No AI** features, model calls, telemetry, analytics, cookies, accounts, CDN scripts/fonts. Vendor third-party code with its licence.
 3. **Strict CSP:** under `site/arduinopath/` and `site/pipath/` there are no inline styles (`style=""`) and no inline scripts. Use CSS files, and
    CSSOM (`el.style.x = ...`) for dynamic values. Plain ES modules, **no build step**.

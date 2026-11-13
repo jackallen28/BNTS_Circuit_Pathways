@@ -4,6 +4,9 @@
 import { showTestTag } from "../../shared/beta.js";
 import { api, onLoggedOut, storageIsTemporary } from "./api.js";
 import { getAccess } from "/shared/access.js";
+import { takePiFromUrl } from "/shared/thispi.js";
+
+takePiFromUrl(); // opened from a Raspberry Pi's own shortcut
 import { h, clear, loadSprites } from "./dom.js";
 import { state } from "./state.js";
 import { messageBox } from "./widgets/window.js";

@@ -186,3 +186,27 @@ test("the start-up message names the file that went wrong", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "PiPath didn't start" })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("pre")).toContainText("/pipath/js/state.js -> 404", { timeout: 15_000 });
 });
+
+// The Raspberry Pi version: a student uses the Pi as their computer, opening Circuit
+// Pathways from the shortcut the Pi's installer made (it adds ?pi=<this Pi's ID>).
+test("on the Pi itself, opened from its shortcut, PiPath runs programs on that Pi with no ID to type", async ({ page, baseURL }) => {
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(e.message));
+  await startPi(baseURL);
+  await page.goto(`/?pi=${piKey.display.replace("-", "")}`);
+  await expect(page.locator("#on-pi")).toContainText(`This is the Raspberry Pi ${piKey.display}`);
+  expect(page.url()).not.toContain("pi=");
+
+  await newStudent(page, "Pia");
+  await page.locator(".card.free").click();
+  await expect(page.locator("#where")).toHaveValue("pi");
+  await page.locator("#code").fill('print("hello from this Pi")\n');
+  await page.locator("#run").click();
+  await expect(page.locator(".console-out")).toContainText("hello from this Pi", { timeout: 30_000 });
+  await expect(page.locator("#pi-chip")).toContainText("is ready");
+  // a student who would rather use the Simulator can still choose it, and it's kept
+  await page.locator("#where").selectOption("sim");
+  await page.reload();
+  await expect(page.locator("#where")).toHaveValue("sim");
+  expect(problems).toEqual([]);
+});

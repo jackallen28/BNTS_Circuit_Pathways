@@ -111,6 +111,11 @@ For each Pi (Raspberry Pi OS, on the internet):
    with a 330 ohm resistor and run `from gpiozero import LED` / `LED(17).blink()`; or use the Pi Link page
    (`/pipath/remote/`) and press **Blink an LED**.
 
+**Students using the Pi as their computer** (the Raspberry Pi version): the installer also adds **Circuit
+Pathways**, **PiPath** and **ArduinoPath** to the Pi menu (Education) and the desktop. They open the site in Chromium
+already linked to that Pi, so PiPath runs programs on it with no ID to type. Work is saved on the Pi, and with the
+student's class once they join it (Cloudflare site), so they can carry on on a laptop or at home.
+
 Handy commands on a Pi: `pilink show` (the ID), `pilink status`, `pilink log`, `sudo pilink restart`,
 `sudo pilink run on|off`, `sudo pilink server https://new-address`, `sudo pilink uninstall`.
 

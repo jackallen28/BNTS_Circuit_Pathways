@@ -4,6 +4,9 @@ import { state } from "./state.js";
 import { api, catalog, config, storageIsTemporary } from "./api.js";
 import { showTestTag } from "../../shared/beta.js";
 import { getAccess } from "/shared/access.js";
+import { takePiFromUrl } from "/shared/thispi.js";
+
+takePiFromUrl(); // opened from a Raspberry Pi's own shortcut
 import { loginScreen } from "./screens/login.js";
 import { setupScreen } from "./screens/setup.js";
 import { pickerScreen } from "./screens/picker.js";
