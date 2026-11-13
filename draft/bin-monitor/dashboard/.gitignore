@@ -1,0 +1,17 @@
+# Generated previews are copied to the parent folder for review.
+.animation-frames/
+desktop.png
+mobile.png
+wifi-preview.png
+wifi-mobile-preview.png
+dashboard-open.png
+dashboard-closed.png
+dashboard-mobile.png
+lid-animation.gif
+__pycache__/
+
+.paper-fill-frames/
+paper-empty.png
+paper-half.png
+paper-full.png
+fill-animation.gif
