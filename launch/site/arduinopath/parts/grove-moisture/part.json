@@ -1,0 +1,114 @@
+{
+  "type": "grove-moisture",
+  "title": "Grove Moisture Sensor",
+  "art": "circuitpathways",
+  "licence": "Drawn for Circuit Pathways (tools/grove_art.mjs)",
+  "behaviour": "soil-moisture",
+  "unit": "0.01in",
+  "legs": [
+    {
+      "id": "sig",
+      "name": "yellow wire: signal (SIG)",
+      "grove": "sig"
+    },
+    {
+      "id": "nc",
+      "name": "white wire: second signal (not used)",
+      "grove": "sig2"
+    },
+    {
+      "id": "vcc",
+      "name": "red wire: power (VCC)",
+      "grove": "vcc"
+    },
+    {
+      "id": "gnd",
+      "name": "black wire: GND",
+      "grove": "gnd"
+    }
+  ],
+  "footprint": null,
+  "moisture_rises": true,
+  "test_as": "grove-analog",
+  "grove": {
+    "ports": [
+      "analog"
+    ],
+    "socket": [
+      {
+        "leg": "sig",
+        "x": 28,
+        "y": 13,
+        "colour": "#f5c400"
+      },
+      {
+        "leg": "nc",
+        "x": 36,
+        "y": 13,
+        "colour": "#f4f4f4"
+      },
+      {
+        "leg": "vcc",
+        "x": 44,
+        "y": 13,
+        "colour": "#d8262d"
+      },
+      {
+        "leg": "gnd",
+        "x": 52,
+        "y": 13,
+        "colour": "#1b1b1b"
+      }
+    ]
+  },
+  "breadboard": {
+    "file": "breadboard.svg",
+    "width": 80,
+    "height": 160,
+    "connectors": {
+      "sig": {
+        "x": 28,
+        "y": 13
+      },
+      "nc": {
+        "x": 36,
+        "y": 13
+      },
+      "vcc": {
+        "x": 44,
+        "y": 13
+      },
+      "gnd": {
+        "x": 52,
+        "y": 13
+      }
+    }
+  },
+  "schematic": {
+    "file": "schematic.svg",
+    "width": 90,
+    "height": 54,
+    "connectors": {
+      "sig": {
+        "x": 0,
+        "y": 10,
+        "dir": "left"
+      },
+      "nc": {
+        "x": 0,
+        "y": 21,
+        "dir": "left"
+      },
+      "vcc": {
+        "x": 0,
+        "y": 32,
+        "dir": "left"
+      },
+      "gnd": {
+        "x": 0,
+        "y": 43,
+        "dir": "left"
+      }
+    }
+  }
+}

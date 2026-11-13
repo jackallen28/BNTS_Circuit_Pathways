@@ -2,6 +2,7 @@
   "$schema": "schema/tiers.schema.json",
   "tiers": [
     { "id": "getting-started", "name": "Getting Started", "blurb": "Your first circuits: LEDs, buttons and the Serial Monitor.", "good_first": true },
+    { "id": "grove", "name": "Grove Kits", "blurb": "Plug-in modules, one cable each: no breadboard and no loose wires." },
     { "id": "sensors-sound", "name": "Sensors & Sound", "blurb": "Read the world with sensors and make some noise." },
     { "id": "displays-lights", "name": "Displays & Lights", "blurb": "Screens, colour lights and number displays." },
     { "id": "games", "name": "Games", "blurb": "Build games to play with your friends." },

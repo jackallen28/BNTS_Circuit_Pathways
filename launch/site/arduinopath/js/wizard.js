@@ -22,6 +22,8 @@ import { upload, openSerial, guessPort, portLabel, sortPorts, rememberedPort, re
 import { explain } from "./coach.js";
 import { state } from "./state.js";
 
+const GROVE_SAFETY = "Unplug the USB cable before you plug in or unplug a module, and plug it back in when you're done. " +
+  "Grove plugs only fit one way: never force one. Keep the shield's switch on 5V for an Uno or Mega.";
 const SAFETY = "Unplug the USB cable before you change any wires, and plug it back in when you're done. " +
   "ESP boards use 3.3V: never connect 5V to one of their pins. LEDs always need a resistor.";
 
@@ -163,7 +165,7 @@ export function openWiringWizard({ project, board, pins, onDone = () => {}, onCl
         h("div", { class: "wiz-text" },
           fix,
           ...String(fillWiringText(ws.text || "", board, resolve)).split(/\n+/).map((t) => h("p", { text: t })),
-          h("div", { class: "wiz-safety", role: "note" }, h("strong", { text: "⚠ Safety:" }), h("span", { text: SAFETY })))));
+          h("div", { class: "wiz-safety", role: "note" }, h("strong", { text: "⚠ Safety:" }), h("span", { text: circuit.grove ? GROVE_SAFETY : SAFETY })))));
     const opts = { board, circuit, parts: catalogue, pins: resolve, step: p.step, showAll, names: info, controls: false };
     const view = schematic ? drawSchematic(host, opts) : drawBreadboard(host, opts);
     host.classList.add("cp-host");

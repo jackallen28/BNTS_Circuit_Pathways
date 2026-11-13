@@ -131,7 +131,7 @@ for (const project of projects()) {
     assert.ok(project.circuit, "has a circuit");
     assert.ok(project.wiring_steps?.length, "has wiring steps");
     const maxStep = Math.max(0, ...[...project.circuit.parts, ...project.circuit.wires].map((x) => x.step || 0));
-    assert.equal(maxStep, project.circuit.breadboard === "none" ? 0 : project.wiring_steps.length, "one wiring screen per step");
+    assert.equal(maxStep, project.circuit.breadboard === "none" && !project.circuit.grove ? 0 : project.wiring_steps.length, "one wiring screen per step");
     for (const board of allBoards.filter((b) => supports(project, b))) {
       const resolve = defaultResolvePin(board, pinOverrides(project.pins, board));
       const problems = validateCircuit(project.circuit, board, parts, resolve).filter((p) => p.level === "error");

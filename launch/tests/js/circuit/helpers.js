@@ -1,5 +1,6 @@
 // Loads the real parts library and content for the circuit tests.
 import { readFileSync, readdirSync } from "node:fs";
+import { withGrove } from "../../../site/shared/grove/grove.js";
 
 const root = new URL("../../../", import.meta.url);
 export const readJSON = (path) => JSON.parse(readFileSync(new URL(path, root), "utf8"));
@@ -19,9 +20,12 @@ export function boards() {
     .map((f) => readJSON(`content/boards/${f}`));
 }
 
-export function projects() {
+/** Every project, with Grove projects' circuits and wiring steps made from their modules (as the app does). */
+export function projects({ raw = false } = {}) {
+  const grove = readJSON("site/shared/grove/grove.json");
   return readdirSync(new URL("content/projects/", root)).filter((f) => f.endsWith(".json"))
-    .map((f) => readJSON(`content/projects/${f}`));
+    .map((f) => readJSON(`content/projects/${f}`))
+    .map((p) => (raw ? p : withGrove(p, grove)));
 }
 
 /** Does a project list this board (by id or keyword)? */

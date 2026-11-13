@@ -375,7 +375,7 @@ export function validateCircuit(circuit, board, parts, resolvePin) {
         if (other) err("shared-hole", `Hole ${hole} has two legs in it: ${other} and ${p.id}:${leg}.`, { part: p.id, leg });
         else holeUse.set(hole, `${p.id}:${leg}`);
       }
-    } else if (!p.offboard) {
+    } else if (!p.offboard && !p.grove) { // (the drawing places Grove modules round their shield)
       err("no-place", `Part "${p.id}" needs an "at" hole or an "offboard" position.`, { part: p.id });
     }
   }

@@ -149,9 +149,45 @@ export function wirePath(a, b) {
  *   wires: Array<{wire: object, index: number, a: object, b: object, color: string, d: string}>,
  *   bounds: object, problems: string[]}}
  */
+/**
+ * A Grove shield drawn over the board: where each port's socket is (digital ports along the top,
+ * analog along the bottom, the rest down the right).
+ * @returns {{ box: object, ports: Record<string, {x, y, w, h, kind}> }}
+ */
+export function groveShieldLayout(boardBox, portList) {
+  const pad = 10;
+  const box = { x: boardBox.x + pad / 2, y: boardBox.y + pad / 2, w: boardBox.w - pad, h: boardBox.h - pad };
+  const rows = { top: portList.filter((p) => p.kind === "digital" || p.kind === "pwm"), bottom: portList.filter((p) => p.kind === "analog"), side: portList.filter((p) => p.kind === "i2c" || p.kind === "uart") };
+  const sw = Math.min(30, (box.w - 70) / Math.max(rows.top.length, rows.bottom.length, 1) - 4);
+  const sh = sw * 0.42;
+  const ports = {};
+  const row = (list, y) => list.forEach((p, i) => { ports[p.id] = { x: box.x + 18 + i * (sw + 4), y, w: sw, h: sh, kind: p.kind }; });
+  row(rows.top, box.y + 22);
+  row(rows.bottom, box.y + box.h - sh - 22);
+  rows.side.forEach((p, i) => { ports[p.id] = { x: box.x + box.w - sw - 12, y: box.y + box.h / 2 - 30 + i * (sh + 8), w: sw, h: sh, kind: p.kind }; });
+  return { box, ports };
+}
+
+/** The four wires of a Grove cable, from a module's socket to a port, as SVG paths (yellow, white, red, black). */
+export function groveCablePaths(a, b, spacing = 2.2) {
+  const dy = b.y - a.y, dx = b.x - a.x;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len; // across the cable
+  return [-1.5, -0.5, 0.5, 1.5].map((k) => {
+    const o = k * spacing;
+    const ax = a.x + nx * o, ay = a.y + ny * o, bx = b.x + nx * o, by = b.y + ny * o;
+    const sag = Math.min(len * 0.35, 70);
+    return `M${ax.toFixed(1)} ${ay.toFixed(1)} C${(ax + (a.dir?.[0] ?? 0) * sag).toFixed(1)} ${(ay + (a.dir?.[1] ?? 0) * sag).toFixed(1)} ` +
+      `${(bx + (b.dir?.[0] ?? 0) * sag).toFixed(1)} ${(by + (b.dir?.[1] ?? 0) * sag).toFixed(1)} ${bx.toFixed(1)} ${by.toFixed(1)}`;
+  });
+}
+
 export function layoutCircuit({ board, circuit, parts, pins }) {
   const resolve = typeof pins === "function" ? pins : defaultResolvePin(board, pins || {});
-  const { parts: active, wires } = activeItems(circuit, board);
+  const { parts: active0, wires: wires0 } = activeItems(circuit, board);
+  // Grove: the electrical wires are hidden (the cables are drawn instead), and modules sit round the board
+  const wires = wires0.filter((w) => !w.hidden);
+  let active = active0;
   const problems = [];
   const breadboard = circuit?.breadboard === "none" ? null : parts.breadboard;
   const boardArt = parts.boards?.[board.id] || null;
@@ -162,6 +198,26 @@ export function layoutCircuit({ board, circuit, parts, pins }) {
     const m = boardPlace(boardArt, breadboard);
     boardLayout = { matrix: m, box: boxOf(m, boardArt.breadboard.width, boardArt.breadboard.height) };
     bounds = union(bounds, boardLayout.box);
+  }
+  let groveLayout = null;
+  if (circuit?.grove && boardLayout) {
+    groveLayout = { shield: circuit.grove.shield, name: circuit.grove.name ?? "Grove shield", ...groveShieldLayout(boardLayout.box, circuit.grove.ports ?? []), cables: [] };
+    // modules above the board for digital ports, below for analog, to the right for the rest, near their port
+    const portOf = new Map(circuit.grove.cables.map((c) => [c.part, c.port]));
+    const lanes = { top: boardLayout.box.x, bottom: boardLayout.box.x, side: boardLayout.box.y };
+    active = active0.map((part) => {
+      if (!part.grove || part.offboard) return part;
+      const def = parts.types?.[part.type];
+      const port = groveLayout.ports[portOf.get(part.id)];
+      if (!def || !port) return part;
+      const w = def.breadboard.width, h = def.breadboard.height;
+      let x, y;
+      if (port.kind === "analog") { x = Math.max(lanes.bottom, port.x - w / 2); y = boardLayout.box.y + boardLayout.box.h + 70; lanes.bottom = x + w + 16; }
+      else if (port.kind === "i2c" || port.kind === "uart") { x = boardLayout.box.x + boardLayout.box.w + 70; y = Math.max(lanes.side, port.y - h / 2); lanes.side = y + h + 16; }
+      else { x = Math.max(lanes.top, port.x - w / 2); y = boardLayout.box.y - h - 70; lanes.top = x + w + 16; }
+      return { ...part, offboard: { x, y } };
+    });
+    bounds = union(bounds, groveLayout.box);
   }
   const placed = [];
   const byId = new Map();
@@ -245,10 +301,27 @@ export function layoutCircuit({ board, circuit, parts, pins }) {
       }
     }
   });
+  if (groveLayout) {
+    for (const c of circuit.grove.cables) {
+      const item = byId.get(c.part);
+      const port = groveLayout.ports[c.port];
+      const sock = item?.def.grove?.socket;
+      if (!item || !port || !sock) { problems.push(`Grove cable for ${c.part} has an unknown end`); continue; }
+      const mid = sock.reduce((acc, p) => ({ x: acc.x + p.x / sock.length, y: acc.y + p.y / sock.length }), { x: 0, y: 0 });
+      const a = apply(item.matrix, mid.x, mid.y);
+      const cy = item.box.y + item.box.h / 2;
+      a.dir = a.y > cy ? [0, 1] : [0, -1];
+      const b = { x: port.x + port.w / 2, y: port.kind === "analog" ? port.y + port.h : port.kind === "digital" || port.kind === "pwm" ? port.y : port.y + port.h / 2 };
+      b.dir = port.kind === "analog" ? [0, 1] : port.kind === "digital" || port.kind === "pwm" ? [0, -1] : [1, 0];
+      if (port.kind === "i2c" || port.kind === "uart") b.x = port.x + port.w;
+      groveLayout.cables.push({ ...c, a, b, paths: groveCablePaths(a, b) });
+      bounds = union(bounds, { x: Math.min(a.x, b.x) - 20, y: Math.min(a.y, b.y) - 20, w: Math.abs(a.x - b.x) + 40, h: Math.abs(a.y - b.y) + 40 });
+    }
+  }
   bounds = bounds || { x: 0, y: 0, w: 100, h: 100 };
   const m = 14;
   bounds = { x: bounds.x - m, y: bounds.y - m, w: bounds.w + 2 * m, h: bounds.h + 2 * m };
-  return { breadboard, board: boardLayout, parts: placed, wires: laid, bounds, problems };
+  return { breadboard, board: boardLayout, parts: placed, wires: laid, bounds, problems, grove: groveLayout };
 }
 
 /**

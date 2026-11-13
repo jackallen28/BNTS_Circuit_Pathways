@@ -35,6 +35,7 @@ function describe(board, circuit, names) {
     return n > 1 ? `${n} ${nm.plural}` : `${/^[aeiou]/i.test(nm.name) ? "an" : "a"} ${nm.name}`;
   });
   const list = items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items.at(-1)}` : items[0];
+  if (circuit?.grove) return `${board.name || board.id} with a ${circuit.grove.name ?? "Grove shield"}${list ? `, and ${list} plugged in with Grove cables` : ""}`;
   return `${board.name || board.id}${list ? ` wired to ${list}` : ""} on a breadboard`;
 }
 
@@ -238,7 +239,7 @@ const STATE_KEYS = {
 // ---------- controls ----------
 
 const CONTROL_DEFAULTS = {
-  ldr: { light: 0.5 }, "hc-sr04": { distance: 100 }, dht: { t: 22, h: 45 }, "soil-moisture": { moisture: 0.5 },
+  ldr: { light: 0.5 }, "hc-sr04": { distance: 100 }, "grove-ultrasonic": { distance: 100 }, dht: { t: 22, h: 45 }, "soil-moisture": { moisture: 0.5 },
   potentiometer: { position: 0.5 }, joystick: { x: 0.5, y: 0.5, press: false }, button: { press: false },
   pir: { motion: false },
 };
@@ -317,6 +318,20 @@ export function drawBreadboard(container, opts) {
 
   const items = []; // {step, el, kind, id}
   const setters = new Map(); // partId → fn(value)
+  if (layout.grove) {
+    // the Grove shield over the board, with its ports; the port in use in this step is picked out
+    const gl = layout.grove;
+    const sg = svgEl("g", { class: "cp-grove-shield" },
+      svgEl("rect", { x: gl.box.x, y: gl.box.y, width: gl.box.w, height: gl.box.h, rx: 8, fill: "#0e3f5c", "fill-opacity": 0.92, stroke: "#07263a", "stroke-width": 2 }),
+      svgEl("text", { x: gl.box.x + gl.box.w / 2, y: gl.box.y + gl.box.h / 2 + 4, "font-family": "Arial, Helvetica, sans-serif", "font-size": 13, "font-weight": "bold", fill: "#cfe8f5", "text-anchor": "middle" }, gl.name));
+    for (const [id, pt] of Object.entries(gl.ports)) {
+      const used = gl.cables.some((c) => c.port === id);
+      sg.append(
+        svgEl("rect", { x: pt.x, y: pt.y, width: pt.w, height: pt.h, rx: 1.5, fill: used ? "#ffffff" : "#e9ece9", stroke: "#8f948f", "stroke-width": 0.8, "data-port": id }),
+        svgEl("text", { x: pt.x + pt.w / 2, y: pt.kind === "analog" ? pt.y - 3 : pt.y + pt.h + 9, "font-family": "Arial, Helvetica, sans-serif", "font-size": 7.5, "font-weight": "bold", fill: "#ffffff", "text-anchor": "middle" }, id));
+    }
+    bbLayer.append(sg);
+  }
   for (const item of layout.parts) {
     const { part, def, matrix } = item;
     const g = svgEl("g", { class: `cp-part cp-${def.behaviour}`, "data-part": part.id, transform: matrixAttr(matrix) });
@@ -338,6 +353,19 @@ export function drawBreadboard(container, opts) {
     );
     wireLayer.append(g);
     items.push({ step: w.wire.step, el: g, kind: "wire", id: w.index });
+  }
+
+  if (layout.grove) {
+    const colours = ["#f5c400", "#f4f4f4", "#d8262d", "#1b1b1b"];
+    for (const c of layout.grove.cables) {
+      const g = svgEl("g", { class: "cp-wire cp-grove-cable", "data-cable": c.part });
+      c.paths.forEach((d, i) => g.append(
+        svgEl("path", { d, fill: "none", stroke: shade(colours[i], 0.55), "stroke-width": 2.6, "stroke-linecap": "round" }),
+        svgEl("path", { d, fill: "none", stroke: colours[i], "stroke-width": 1.8, "stroke-linecap": "round" })));
+      g.append(svgEl("rect", { x: c.b.x - 6, y: c.b.y - 4, width: 12, height: 8, rx: 1.5, fill: "#fafafa", stroke: "#888", "stroke-width": 0.7 }));
+      wireLayer.append(g);
+      items.push({ step: c.step, el: g, kind: "wire", id: `grove:${c.part}` });
+    }
   }
 
   root.append(svg);
@@ -494,7 +522,8 @@ export function drawBreadboard(container, opts) {
           addChip("Light level", s.el);
           break;
         }
-        case "hc-sr04": {
+        case "hc-sr04":
+        case "grove-ultrasonic": {
           const s = slider({ label: "Distance", min: 2, max: 400, step: 1, value: 100, unit: " cm", onInput: (v) => emit(part.id, "distance", v) });
           addChip("Something in front", s.el);
           break;

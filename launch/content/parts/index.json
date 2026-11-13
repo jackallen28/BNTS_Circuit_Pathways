@@ -177,6 +177,86 @@
       "what": "A NeoPixel strip is a line of 8 colour LEDs. Your code can set every one to its own colour.",
       "legs": "Use the pins at the DIN end: 4-7VDC (power), DIN (data in) and GND. The other end joins another strip.",
       "did_you_know": "Light shows at concerts often use long strips of LEDs like these."
+    },
+    "grove-led": {
+      "name": "Grove LED",
+      "plural": "Grove LEDs",
+      "group": "output",
+      "what": "A Grove LED is a small light on its own board. It already has its resistor, so it just plugs in.",
+      "legs": "No legs to worry about: the Grove cable only fits one way. The LED in the socket has a long leg (+); if you ever swap the LED, the long leg goes in the hole marked +.",
+      "did_you_know": "You can swap the LED in a Grove LED socket for any colour of 5mm LED."
+    },
+    "grove-button": {
+      "name": "Grove Button",
+      "plural": "Grove Buttons",
+      "group": "input",
+      "what": "A button you press. While it's pressed, its signal is HIGH. When you let go, it's LOW.",
+      "legs": "No legs: plug a Grove cable into it. Unlike a breadboard button, a Grove button reads HIGH when pressed (it has its own resistor), so use INPUT, not INPUT_PULLUP.",
+      "did_you_know": "Inside the button, a tiny metal dome clicks down and joins two contacts together."
+    },
+    "grove-micro-switch": {
+      "name": "Grove Micro Switch",
+      "plural": "Grove Micro Switches",
+      "group": "input",
+      "what": "A micro switch has a long metal lever. When something pushes the lever (like a bin lid closing), the switch clicks and its signal goes HIGH.",
+      "legs": "No legs: plug a Grove cable into it. It reads HIGH while the lever is pushed down.",
+      "did_you_know": "Micro switches are in computer mice, microwave doors and lift buttons. They can click millions of times."
+    },
+    "grove-servo": {
+      "name": "Grove Servo",
+      "plural": "Grove Servos",
+      "group": "output",
+      "what": "A servo is a small motor that turns to an angle you choose, from 0 to 180 degrees. It can open a lid or point a dial.",
+      "legs": "The Grove servo has a Grove plug on its cable: plug it straight into a port. On a Raspberry Pi, use the PWM port.",
+      "did_you_know": "A servo checks where it is many times a second and corrects itself, which is why it holds its angle."
+    },
+    "grove-ultrasonic": {
+      "name": "Grove Ultrasonic Ranger",
+      "plural": "Grove Ultrasonic Rangers",
+      "group": "input",
+      "what": "It measures distance with sound you can't hear: it sends out a click and times the echo. It works from about 3 cm to 3.5 m.",
+      "legs": "One Grove cable. It uses a single pin to send the click and listen for the echo (a breadboard HC-SR04 needs two).",
+      "did_you_know": "Bats and dolphins find their way with echoes in the same way."
+    },
+    "grove-rotary": {
+      "name": "Grove Rotary Angle Sensor",
+      "plural": "Grove Rotary Angle Sensors",
+      "group": "input",
+      "what": "A knob (a potentiometer). Turning it changes the number your program reads, from 0 to the top of the scale.",
+      "legs": "One Grove cable into an analog port (A0 to A3 on an Arduino; A0, A2, A4 or A6 on a Pi's Base Hat).",
+      "did_you_know": "Volume knobs on speakers are often potentiometers just like this one."
+    },
+    "grove-light": {
+      "name": "Grove Light Sensor",
+      "plural": "Grove Light Sensors",
+      "group": "input",
+      "what": "It tells your program how bright it is. Brighter light gives a bigger number.",
+      "legs": "One Grove cable into an analog port.",
+      "did_you_know": "Street lights and phone screens use light sensors to switch on or dim by themselves."
+    },
+    "grove-moisture": {
+      "name": "Grove Moisture Sensor",
+      "plural": "Grove Moisture Sensors",
+      "group": "input",
+      "what": "Push its two prongs into soil. Wetter soil gives a bigger number, so you can tell when a plant needs water.",
+      "legs": "One Grove cable into an analog port. Only the prongs go in the soil, never the board or the cable.",
+      "did_you_know": "Water lets a little electricity flow between the prongs. Dry soil hardly lets any through."
+    },
+    "grove-relay": {
+      "name": "Grove Relay",
+      "plural": "Grove Relays",
+      "group": "output",
+      "what": "A relay is a switch your program can flip. It clicks on when its signal is HIGH, and a small light shows it's on.",
+      "legs": "One Grove cable. Only use the screw terminals with a teacher: never connect mains power.",
+      "did_you_know": "A relay uses a tiny electromagnet to pull a switch closed, so a small signal can switch a bigger circuit."
+    },
+    "grove-buzzer": {
+      "name": "Grove Buzzer",
+      "plural": "Grove Buzzers",
+      "group": "output",
+      "what": "A buzzer makes beeps and simple tunes. Your program chooses the note.",
+      "legs": "One Grove cable into a digital port.",
+      "did_you_know": "The buzzer has a thin disc inside that bends back and forth thousands of times a second to make sound."
     }
   }
 }

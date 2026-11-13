@@ -2,6 +2,7 @@
 // project, board and step, run the step's model answer, open the wizard.
 // ?project=&board=&step= choose; ?wizard=1 opens the wizard straight away.
 
+import { withGrove } from "/shared/grove/grove.js";
 import { createRunPanel } from "./widgets/runpanel.js";
 import { openWiringWizard } from "./wizard.js";
 import { expandPins } from "./sim/pins.js";
@@ -20,6 +21,7 @@ async function main() {
 
   async function load() {
     project = await (await fetch(`data/projects/${encodeURIComponent($("project").value)}.json`)).json();
+    if (project.grove) project = withGrove(project, await (await fetch("/shared/grove/grove.json")).json());
     board = boards.find((b) => b.id === $("board").value);
     $("step").replaceChildren(...project.steps.map((s, i) => new Option(`${i + 1}. ${s.title}`, String(i))));
     $("step").value = params.get("step") || "0";

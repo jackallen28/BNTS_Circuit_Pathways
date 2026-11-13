@@ -95,6 +95,8 @@ type ProjectSummary struct {
 	Curriculum    []string  `json:"curriculum,omitempty"`
 	Intro         string    `json:"intro"`
 	StepCount     int       `json:"step_count"`
+	// Kit is "grove" for a Grove project (modules on a shield), empty for a breadboard one.
+	Kit string `json:"kit,omitempty"`
 }
 
 // Project is a whole project: its summary plus the full file.

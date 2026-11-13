@@ -53,7 +53,7 @@ export class Bench {
       if (b === "potentiometer") this.values[p.id] = { position: 0.5 };
       if (b === "ldr") this.values[p.id] = { light: 0.5 };
       if (b === "soil-moisture") this.values[p.id] = { moisture: 0.5 };
-      if (b === "hc-sr04") this.values[p.id] = { distance: 100 };
+      if (b === "hc-sr04" || b === "grove-ultrasonic") this.values[p.id] = { distance: 100 };
       if (b === "dht") this.values[p.id] = { t: 22, h: 45 };
       if (b === "joystick") this.values[p.id] = { x: 0.5, y: 0.5, press: false };
       if (b === "button") this.values[p.id] = { press: false };
@@ -112,7 +112,13 @@ export class Bench {
     };
     return this.active.map((p) => {
       const pins = {};
-      const map = keys[p.type];
+      const def = this.parts.types[p.type];
+      const map = keys[p.type] ?? (def.grove ? keys[def.test_as] : null);
+      // a Grove module's signal is its yellow wire (its first leg)
+      if (def.grove) {
+        const code = this.reach(p.id, def.legs[0].id, { throughResistors: false }).pins[0];
+        if (code != null) pins.signal = code;
+      }
       if (map) {
         for (const [key, leg] of Object.entries(map)) {
           const code = this.reach(p.id, leg).pins[0];
@@ -126,7 +132,7 @@ export class Bench {
           if (code != null) { pins.signal = code; break; }
         }
       }
-      return { id: p.id, type: p.type, label: p.label || this.parts.types[p.type].title || p.type, options: p.options, pins };
+      return { id: p.id, type: p.type, test_as: def.test_as, label: p.label || def.title || p.type, options: p.options, pins };
     });
   }
 
@@ -260,11 +266,13 @@ export class Bench {
       case "button": {
         // The side with a pin gets whatever the other side has while pressed.
         const sw = this.parts.types[part.type].switch?.[0] || ["1a", "2a"];
+        // a Grove button has its own pull-down resistor: LOW when it isn't pressed (idle: 0)
+        const idle = this.parts.types[part.type].idle ?? null;
         const out = { digital: {} };
         for (const [a, z] of [[sw[0], sw[1]], [sw[1], sw[0]]]) {
           for (const code of this.reach(id, a, { throughResistors: false }).pins) {
             const n = this.numberOf.get(code);
-            if (!v.press) { out.digital[n] = null; continue; }
+            if (!v.press) { out.digital[n] = idle; continue; }
             const other = supplyFrac(z);
             out.digital[n] = other == null ? null : other;
           }
@@ -289,7 +297,10 @@ export class Bench {
         return {};
       }
       // Soil sensors read higher when the soil is drier (about 900 dry, 300 in water on a 10-bit pin).
-      case "soil-moisture": return analog("sig", 0.88 - 0.6 * (v.moisture ?? 0.5));
+      case "soil-moisture":
+        // (the Grove moisture sensor is the other way round: wetter soil reads higher)
+        if (this.parts.types[part.type].moisture_rises) return analog("sig", 0.05 + 0.8 * (v.moisture ?? 0.5));
+        return analog("sig", 0.88 - 0.6 * (v.moisture ?? 0.5));
       case "joystick": {
         const out = { ...analog("vrx", v.x ?? 0.5) };
         const y = analog("vry", v.y ?? 0.5).analog || {};
@@ -300,6 +311,10 @@ export class Bench {
       }
       case "hc-sr04": {
         const n = this.pinOf(id, "echo");
+        return n == null ? {} : { pulse: { [n]: Math.round((v.distance ?? 100) * 58) } };
+      }
+      case "grove-ultrasonic": { // one pin both sends the click and hears the echo
+        const n = this.pinOf(id, "sig");
         return n == null ? {} : { pulse: { [n]: Math.round((v.distance ?? 100) * 58) } };
       }
       case "dht": {

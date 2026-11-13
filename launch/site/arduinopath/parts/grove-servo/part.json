@@ -1,0 +1,114 @@
+{
+  "type": "grove-servo",
+  "title": "Grove Servo",
+  "art": "circuitpathways",
+  "licence": "Drawn for Circuit Pathways (tools/grove_art.mjs)",
+  "behaviour": "servo",
+  "unit": "0.01in",
+  "legs": [
+    {
+      "id": "signal",
+      "name": "yellow wire: signal (SIG)",
+      "grove": "sig"
+    },
+    {
+      "id": "nc",
+      "name": "white wire: second signal (not used)",
+      "grove": "sig2"
+    },
+    {
+      "id": "power",
+      "name": "red wire: power (VCC)",
+      "grove": "vcc"
+    },
+    {
+      "id": "gnd",
+      "name": "black wire: GND",
+      "grove": "gnd"
+    }
+  ],
+  "footprint": null,
+  "test_as": "servo",
+  "grove": {
+    "ports": [
+      "digital",
+      "pwm"
+    ],
+    "socket": [
+      {
+        "leg": "signal",
+        "x": 96,
+        "y": 70,
+        "colour": "#f5c400"
+      },
+      {
+        "leg": "nc",
+        "x": 104,
+        "y": 70,
+        "colour": "#f4f4f4"
+      },
+      {
+        "leg": "power",
+        "x": 112,
+        "y": 70,
+        "colour": "#d8262d"
+      },
+      {
+        "leg": "gnd",
+        "x": 120,
+        "y": 70,
+        "colour": "#1b1b1b"
+      }
+    ]
+  },
+  "breadboard": {
+    "file": "breadboard.svg",
+    "width": 130,
+    "height": 80,
+    "connectors": {
+      "signal": {
+        "x": 96,
+        "y": 70
+      },
+      "nc": {
+        "x": 104,
+        "y": 70
+      },
+      "power": {
+        "x": 112,
+        "y": 70
+      },
+      "gnd": {
+        "x": 120,
+        "y": 70
+      }
+    }
+  },
+  "schematic": {
+    "file": "schematic.svg",
+    "width": 90,
+    "height": 54,
+    "connectors": {
+      "signal": {
+        "x": 0,
+        "y": 10,
+        "dir": "left"
+      },
+      "nc": {
+        "x": 0,
+        "y": 21,
+        "dir": "left"
+      },
+      "power": {
+        "x": 0,
+        "y": 32,
+        "dir": "left"
+      },
+      "gnd": {
+        "x": 0,
+        "y": 43,
+        "dir": "left"
+      }
+    }
+  }
+}

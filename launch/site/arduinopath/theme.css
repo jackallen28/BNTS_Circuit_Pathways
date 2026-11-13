@@ -121,6 +121,7 @@
   --tier-games: #d23a6a;
   --tier-wifi-iot: #0d8fb5;
   --tier-challenge: #5a5a66;
+  --tier-grove: #1f5fa8;
 }
 
 /* ---------- Base ---------- */
@@ -525,6 +526,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--bnts-teal-2); 
 .tier-games { --badge: var(--tier-games); }
 .tier-wifi-iot { --badge: var(--tier-wifi-iot); }
 .tier-challenge { --badge: var(--tier-challenge); }
+.tier-grove { --badge: var(--tier-grove); }
 
 .note {
   display: flex;

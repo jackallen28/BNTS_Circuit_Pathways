@@ -3,6 +3,7 @@
 // is loaded from the website, and only /api/compile talks to the server,
 // to turn a sketch into a program for the board. The server keeps nothing.
 
+import { withGrove } from "/shared/grove/grove.js";
 import { beta } from "../../shared/beta.js";
 import { createLocalApi, tabSession, LocalError } from "/shared/local/localapi.js";
 import { openStore } from "/shared/local/store.js";
@@ -41,6 +42,9 @@ async function getJSON(path) {
   if (!res.ok) throw new ApiError(res.status, { error: "not_found", message: "That isn't here." });
   return res.json();
 }
+
+let grovePromise;
+const groveData = () => (grovePromise ??= getJSON("/shared/grove/grove.json").catch((e) => { grovePromise = null; throw e; }));
 
 let cataloguePromise;
 const catalogue = () => (cataloguePromise ??= getJSON("data/catalogue.json").catch((e) => { cataloguePromise = null; throw e; }));
@@ -83,7 +87,12 @@ async function compile(code, board, variant) {
 export const api = {
   info: () => call("info"),
   catalogue,
-  project: (id) => getJSON(`data/projects/${encodeURIComponent(id)}.json`),
+  // a Grove project's circuit and wiring steps are made from its modules (site/shared/grove/grove.js)
+  project: async (id) => {
+    const p = await getJSON(`data/projects/${encodeURIComponent(id)}.json`);
+    return p.grove ? withGrove(p, await groveData()) : p;
+  },
+  grove: () => groveData(),
   ping: () => call("ping"),
   students: () => call("students"),
   createStudent: (profile) => call("createStudent", profile),

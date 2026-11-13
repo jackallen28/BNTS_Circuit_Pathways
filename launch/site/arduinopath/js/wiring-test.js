@@ -37,6 +37,22 @@ const TESTS = {
     outputs: [0, 90, 180, 90].flatMap((a) => [`servo_${cid(p.id)}.write(${a});`, `Serial.println(F("TEST:${p.id}:${a}"));`, "delay(400);"]),
   }),
   button: (p) => p.pins.signal && reading(p, `pinMode(${p.pins.signal}, INPUT_PULLUP);`, `digitalRead(${p.pins.signal})`, 0),
+  // Grove: a button or micro switch reads HIGH when pressed (it has its own resistor)
+  "grove-button": (p) => p.pins.signal && reading(p, `pinMode(${p.pins.signal}, INPUT);`, `digitalRead(${p.pins.signal})`, 0),
+  "grove-analog": (p) => p.pins.signal && reading(p, "", `analogRead(${p.pins.signal})`, 12),
+  "grove-ultrasonic": (p) => p.pins.signal && ({
+    globals: [`unsigned long at_${cid(p.id)} = 0;`],
+    loop: [
+      `if (millis() - at_${cid(p.id)} > 400) {`,
+      `  at_${cid(p.id)} = millis();`,
+      `  pinMode(${p.pins.signal}, OUTPUT); digitalWrite(${p.pins.signal}, LOW); delayMicroseconds(2);`,
+      `  digitalWrite(${p.pins.signal}, HIGH); delayMicroseconds(5); digitalWrite(${p.pins.signal}, LOW);`,
+      `  pinMode(${p.pins.signal}, INPUT);`,
+      `  long us = pulseIn(${p.pins.signal}, HIGH, 30000UL);`,
+      `  Serial.print(F("READ:${p.id}:")); Serial.println(us / 58);`,
+      "}",
+    ],
+  }),
   pir: (p) => p.pins.signal && reading(p, `pinMode(${p.pins.signal}, INPUT);`, `digitalRead(${p.pins.signal})`, 0),
   potentiometer: (p) => p.pins.wiper && reading(p, "", `analogRead(${p.pins.wiper})`, 12),
   ldr: (p) => p.pins.signal && reading(p, "", `analogRead(${p.pins.signal})`, 12),
@@ -174,6 +190,9 @@ export const KIND = {
   tm1637: "output", "led-matrix": "output", "neopixel-ring": "output", "neopixel-strip": "output",
   button: "input", pir: "input", potentiometer: "input", ldr: "input", "soil-moisture": "input", joystick: "input",
   "hc-sr04": "input", dht: "input", "keypad-4x4": "input", "rfid-rc522": "input",
+  "grove-led": "output", "grove-relay": "output", "grove-buzzer": "output", "grove-servo": "output",
+  "grove-button": "input", "grove-micro-switch": "input", "grove-ultrasonic": "input", "grove-rotary": "input",
+  "grove-light": "input", "grove-moisture": "input",
 };
 
 /** What the wizard asks the student to do for each input. */
@@ -188,6 +207,12 @@ export const PROMPTS = {
   dht: "Wait a few seconds for a reading.",
   "keypad-4x4": "Press any key on the keypad.",
   "rfid-rc522": "Hold a card or tag on the reader.",
+  "grove-button": "Press the Grove button.",
+  "grove-micro-switch": "Push the micro switch's lever down.",
+  "grove-ultrasonic": "Move your hand towards the ranger and away.",
+  "grove-rotary": "Turn the knob.",
+  "grove-light": "Cover the light sensor with your hand.",
+  "grove-moisture": "Touch both prongs with a damp finger.",
 };
 
 /**
@@ -204,7 +229,7 @@ export function testSketch(parts, board) {
   const loop = [];
   const rows = [];
   for (const p of parts) {
-    const make = TESTS[p.type];
+    const make = TESTS[p.type] ?? TESTS[p.test_as];
     const t = make && make({ ...p, pins: p.pins ?? {} });
     if (!t) continue;
     for (const i of t.includes ?? []) if (!includes.includes(i) || i.startsWith("#if") || i.startsWith("#e")) includes.push(i);

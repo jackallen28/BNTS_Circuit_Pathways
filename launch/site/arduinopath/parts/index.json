@@ -31,6 +31,16 @@
     "tm1637",
     "led-matrix",
     "neopixel-ring",
-    "neopixel-strip"
+    "neopixel-strip",
+    "grove-led",
+    "grove-button",
+    "grove-micro-switch",
+    "grove-servo",
+    "grove-ultrasonic",
+    "grove-rotary",
+    "grove-light",
+    "grove-moisture",
+    "grove-relay",
+    "grove-buzzer"
   ]
 }

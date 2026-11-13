@@ -125,6 +125,7 @@ export function pickerScreen(root, { openSettings, logOut, openProject }) {
     if (p.board_count > 1) notes.push(h("span", { class: "card-note" }, icon("users"), `Needs ${p.board_count} boards: team up with a friend`));
     if (p.needs_internet) notes.push(h("span", { class: "card-note" }, icon("wifi"), "Needs the internet"));
     if (missing.length) notes.push(h("span", { class: "card-note warn" }, icon("warn"), `Needs a part not in your kit: ${missing.map((m) => partName(m.type)).join(", ")}`));
+    if (p.kit === "grove") notes.push(h("span", { class: "card-note" }, icon("parts"), "Grove kit: a Base Shield and Grove modules (no breadboard)"));
 
     let ribbon = null;
     if (p.step_count === 0) ribbon = h("span", { class: "ribbon soon", text: "Coming soon" });

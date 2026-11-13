@@ -24,6 +24,16 @@
     "tm1637": 1,
     "led-matrix": 1,
     "neopixel-ring": 1,
-    "neopixel-strip": 1
+    "neopixel-strip": 1,
+    "grove-led": 3,
+    "grove-button": 3,
+    "grove-micro-switch": 1,
+    "grove-servo": 1,
+    "grove-ultrasonic": 2,
+    "grove-rotary": 3,
+    "grove-light": 3,
+    "grove-moisture": 1,
+    "grove-relay": 1,
+    "grove-buzzer": 1
   }
 }

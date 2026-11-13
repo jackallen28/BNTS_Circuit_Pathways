@@ -1,0 +1,168 @@
+{
+ "$schema": "../schema/project.schema.json",
+ "tier": "grove",
+ "boards": [
+  "uno",
+  "mega"
+ ],
+ "kit": "grove",
+ "id": "grove-servo-dial",
+ "title": "Grove: Servo Dial",
+ "order": 3,
+ "minutes": 45,
+ "parts": [
+  {
+   "type": "grove-rotary"
+  },
+  {
+   "type": "grove-servo"
+  }
+ ],
+ "concepts": [
+  "analogRead",
+  "map",
+  "Servo"
+ ],
+ "curriculum": [
+  "78-hardware",
+  "78-programming",
+  "78-algorithms"
+ ],
+ "intro": "Turn a Grove knob and a servo follows it, like a remote-controlled dial.",
+ "grove": {
+  "shield": "base-shield",
+  "modules": [
+   {
+    "id": "knob",
+    "type": "grove-rotary",
+    "port": "A0",
+    "role": "POT_PIN"
+   },
+   {
+    "id": "servo",
+    "type": "grove-servo",
+    "port": "D5",
+    "role": "SERVO_PIN"
+   }
+  ]
+ },
+ "steps": [
+  {
+   "title": "Read the knob",
+   "support": "guided",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int knob = analogRead(POT_PIN);\n  Serial.println(knob);\n  delay(200);\n}\n",
+   "text": "The Rotary Angle Sensor is in port **A0**, an **analog** port. `analogRead` gives a number from 0 to `ANALOG_MAX` (1023 on an Uno), depending on how far the knob is turned.\n\n**Your task:** run it, open the Serial Monitor and turn the knob all the way each way.",
+   "hints": [
+    "Drag the knob in the simulator.",
+    "One end gives 0, the other gives the biggest number.",
+    "Turn it slowly and watch the numbers change smoothly."
+   ],
+   "checks": [
+    {
+     "type": "serial_regex",
+     "label": "Turned one way: 0",
+     "pattern": "(^|\\n)0\\r?\\n"
+    },
+    {
+     "type": "serial_regex",
+     "label": "Turned the other way: a big number",
+     "pattern": "(^|\\n)(10\\d\\d|[1-4]\\d\\d\\d)\\r?\\n"
+    },
+    {
+     "type": "confirm",
+     "label": "The number changes when I turn the knob"
+    }
+   ],
+   "success": "The knob gives your program a number it can use.",
+   "demo": "{{pins}}\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int knob = analogRead(POT_PIN);\n  Serial.println(knob);\n  delay(200);\n}\n",
+   "sim_ms": 1500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "analog": {
+       "POT_PIN": 0
+      }
+     }
+    },
+    {
+     "at_ms": 600,
+     "set": {
+      "analog": {
+       "POT_PIN": "ANALOG_MAX"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "title": "The servo follows",
+   "support": "scaffolded",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\n#include <Servo.h>\n\nServo dial;\n\nvoid setup() {\n  dial.attach(SERVO_PIN);\n}\n\nvoid loop() {\n  int knob = analogRead(POT_PIN);\n  int angle = map(knob, 0, ANALOG_MAX, 0, ___);\n  dial.write(angle);\n  delay(20);\n}\n",
+   "text": "A servo turns from 0 to 180 degrees. `map()` changes the knob's number (0 to `ANALOG_MAX`) into an angle (0 to 180).\n\n**Your task:** fill in the blank with the biggest angle.",
+   "hints": [
+    "The servo's biggest angle is in the text above.",
+    "It's 180.",
+    "The line is `int angle = map(knob, 0, ANALOG_MAX, 0, 180);`"
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "servo_angle",
+     "label": "Knob turned down: 0°",
+     "pin": "SERVO_PIN",
+     "angle": 0,
+     "tolerance": 3
+    },
+    {
+     "type": "servo_angle",
+     "label": "Knob turned up: 180°",
+     "pin": "SERVO_PIN",
+     "angle": 180,
+     "tolerance": 3
+    },
+    {
+     "type": "uses_function",
+     "label": "You used map()",
+     "name": "map"
+    },
+    {
+     "type": "confirm",
+     "label": "The servo follows the knob"
+    }
+   ],
+   "success": "Turn the knob and the servo copies it.",
+   "demo": "{{pins}}\n#include <Servo.h>\n\nServo dial;\n\nvoid setup() {\n  dial.attach(SERVO_PIN);\n}\n\nvoid loop() {\n  int knob = analogRead(POT_PIN);\n  int angle = map(knob, 0, ANALOG_MAX, 0, 180);\n  dial.write(angle);\n  delay(20);\n}\n",
+   "sim_ms": 1500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "analog": {
+       "POT_PIN": 0
+      }
+     }
+    },
+    {
+     "at_ms": 600,
+     "set": {
+      "analog": {
+       "POT_PIN": "ANALOG_MAX"
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "outro": "You turned a Grove knob's number into an angle with **map()** and moved a **servo** with it.",
+ "stretch": [
+  "Make the servo only use 45° to 135°.",
+  "Print the angle on the Serial Monitor too.",
+  "Make the servo move the opposite way to the knob."
+ ]
+}

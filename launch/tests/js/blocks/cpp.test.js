@@ -1,6 +1,7 @@
 // Block coding: every project's starters and model answers turn into blocks
 // and back into C++ that still does the job (the demo passes its checks),
 // keeps its ___ blanks, and doesn't change on a second trip.
+import { withGrove } from "../../../site/shared/grove/grove.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -20,8 +21,9 @@ function checkStep(project, step, board, code) {
   return evaluate((step.checks ?? []).filter(isAutomatic), { code, board, project, result }).filter((c) => !c.ok).map((c) => `check failed: ${c.label}`);
 }
 
+const groveData = JSON.parse(fs.readFileSync(path.join(ROOT, "site/shared/grove/grove.json"), "utf8"));
 const projects = fs.readdirSync(path.join(ROOT, "content/projects")).filter((f) => f.endsWith(".json"))
-  .map((f) => JSON.parse(fs.readFileSync(path.join(ROOT, "content/projects", f), "utf8")));
+  .map((f) => withGrove(JSON.parse(fs.readFileSync(path.join(ROOT, "content/projects", f), "utf8")), groveData));
 const blankCount = (code) => (stripComments(code).match(/\b___\b/g) || []).length;
 const allBlocks = (state) => {
   const out = [];

@@ -30,9 +30,16 @@ export const FIXES = {
   "led-matrix": ["Use the pins at the DIN end, not the DOUT end.", "DIN, CS and CLK must go to the right pins."],
   "neopixel-ring": ["The data wire must go to Data Input (DI), not Data Out.", "It needs 5V and GND."],
   "neopixel-strip": ["The data wire must go to DIN, not DOUT.", "It needs 5V and GND."],
+  ...Object.fromEntries(["grove-led", "grove-relay", "grove-buzzer", "grove-servo", "grove-button", "grove-micro-switch", "grove-ultrasonic", "grove-rotary", "grove-light", "grove-moisture"].map((t) => [t, [
+    "Push the Grove cable firmly into both ends until it clicks.",
+    "Check the cable is in the port the drawing shows (the port's name is printed next to it on the shield).",
+    "Check the Base Shield is pressed all the way onto the board, and its switch is on 5V.",
+    ...(t === "grove-servo" ? ["Some servos need more power than USB gives: if it twitches, ask your teacher."] : []),
+  ]])),
 };
 
-const ANALOG = new Set(["potentiometer", "ldr", "soil-moisture"]);
+const ANALOG = new Set(["potentiometer", "ldr", "soil-moisture", "grove-rotary", "grove-light", "grove-moisture"]);
+const DISTANCE = new Set(["hc-sr04", "grove-ultrasonic"]);
 
 /** Tracks the rows from the test sketch's serial lines. */
 export class TestRows {
@@ -75,7 +82,7 @@ export class TestRows {
   reading(r, value) {
     r.value = value;
     if (ANALOG.has(r.type)) r.level = Math.max(0, Math.min(1, Number(value) / this.analogMax));
-    if (r.type === "hc-sr04") r.level = Math.max(0, Math.min(1, Number(value) / 200));
+    if (DISTANCE.has(r.type)) r.level = Math.max(0, Math.min(1, Number(value) / 200));
     if (r.first == null) { r.first = value; if (!this.instant(r, value)) return; }
     if (this.changedEnough(r, value)) { r.seen = true; r.ok = true; }
   }
@@ -88,7 +95,7 @@ export class TestRows {
   changedEnough(r, value) {
     if (this.instant(r, value)) return true;
     if (ANALOG.has(r.type)) return Math.abs(Number(value) - Number(r.first)) > this.analogMax * 0.08;
-    if (r.type === "hc-sr04") return Math.abs(Number(value) - Number(r.first)) > 4 && Number(value) > 0;
+    if (DISTANCE.has(r.type)) return Math.abs(Number(value) - Number(r.first)) > 4 && Number(value) > 0;
     return value !== r.first;
   }
 

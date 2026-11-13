@@ -1,0 +1,285 @@
+{
+ "$schema": "../schema/project.schema.json",
+ "tier": "grove",
+ "boards": [
+  "uno",
+  "mega"
+ ],
+ "kit": "grove",
+ "id": "grove-smart-bin",
+ "title": "Grove: Smart Bin",
+ "order": 5,
+ "minutes": 90,
+ "parts": [
+  {
+   "type": "grove-ultrasonic"
+  },
+  {
+   "type": "grove-servo"
+  },
+  {
+   "type": "grove-led"
+  },
+  {
+   "type": "grove-micro-switch"
+  }
+ ],
+ "concepts": [
+  "functions",
+  "if",
+  "Servo",
+  "millis"
+ ],
+ "curriculum": [
+  "78-hardware",
+  "78-algorithms",
+  "78-programming",
+  "78-define",
+  "78-evaluate"
+ ],
+ "intro": "Build a bin that opens its lid when your hand comes near, shows a light while it's open, and checks the lid really closed. Each part plugs in with one Grove cable.",
+ "grove": {
+  "shield": "base-shield",
+  "modules": [
+   {
+    "id": "ranger",
+    "type": "grove-ultrasonic",
+    "port": "D7",
+    "role": "RANGER_PIN",
+    "label": "hand sensor"
+   },
+   {
+    "id": "lid",
+    "type": "grove-servo",
+    "port": "D5",
+    "role": "SERVO_PIN",
+    "label": "lid servo"
+   },
+   {
+    "id": "led",
+    "type": "grove-led",
+    "port": "D4",
+    "role": "LED_PIN",
+    "color": "blue",
+    "label": "open light"
+   },
+   {
+    "id": "switch",
+    "type": "grove-micro-switch",
+    "port": "D2",
+    "role": "SWITCH_PIN",
+    "label": "lid-closed switch"
+   }
+  ]
+ },
+ "steps": [
+  {
+   "title": "How far is your hand?",
+   "support": "guided",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\n// Grove Ultrasonic Ranger: one pin sends a click, then listens for its echo.\nlong readCm(int pin) {\n  pinMode(pin, OUTPUT);\n  digitalWrite(pin, LOW);\n  delayMicroseconds(2);\n  digitalWrite(pin, HIGH);\n  delayMicroseconds(5);\n  digitalWrite(pin, LOW);\n  pinMode(pin, INPUT);\n  long us = pulseIn(pin, HIGH, 30000UL);\n  return us / 58;\n}\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  Serial.println(readCm(RANGER_PIN));\n  delay(300);\n}\n",
+   "text": "The Ultrasonic Ranger in port **D7** measures distance with a click and its echo. The `readCm()` **function** does the measuring and gives back centimetres, so `loop()` can just ask for it.\n\n**Your task:** run it, open the Serial Monitor, and move something closer (the distance slider in the simulator).",
+   "hints": [
+    "The distance slider is next to the drawing.",
+    "Closer gives a smaller number.",
+    "Try under 15 cm."
+   ],
+   "checks": [
+    {
+     "type": "serial_regex",
+     "label": "Far away (over 50 cm)",
+     "pattern": "(^|\\n)([5-9]\\d|[1-3]\\d\\d)\\r?\\n"
+    },
+    {
+     "type": "serial_regex",
+     "label": "Close (under 15 cm)",
+     "pattern": "(^|\\n)([0-9]|1[0-4])\\r?\\n"
+    },
+    {
+     "type": "confirm",
+     "label": "The number gets smaller as my hand comes closer"
+    }
+   ],
+   "success": "Your bin can sense a hand.",
+   "demo": "{{pins}}\n// Grove Ultrasonic Ranger: one pin sends a click, then listens for its echo.\nlong readCm(int pin) {\n  pinMode(pin, OUTPUT);\n  digitalWrite(pin, LOW);\n  delayMicroseconds(2);\n  digitalWrite(pin, HIGH);\n  delayMicroseconds(5);\n  digitalWrite(pin, LOW);\n  pinMode(pin, INPUT);\n  long us = pulseIn(pin, HIGH, 30000UL);\n  return us / 58;\n}\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  Serial.println(readCm(RANGER_PIN));\n  delay(300);\n}\n",
+   "sim_ms": 1800,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 5800
+      }
+     }
+    },
+    {
+     "at_ms": 900,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 580
+      }
+     }
+    }
+   ]
+  },
+  {
+   "title": "Open the lid",
+   "support": "scaffolded",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\n#include <Servo.h>\n\nServo lid;\n\n// Grove Ultrasonic Ranger: one pin sends a click, then listens for its echo.\nlong readCm(int pin) {\n  pinMode(pin, OUTPUT);\n  digitalWrite(pin, LOW);\n  delayMicroseconds(2);\n  digitalWrite(pin, HIGH);\n  delayMicroseconds(5);\n  digitalWrite(pin, LOW);\n  pinMode(pin, INPUT);\n  long us = pulseIn(pin, HIGH, 30000UL);\n  return us / 58;\n}\n\nvoid setup() {\n  lid.attach(SERVO_PIN);\n  lid.write(0);\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  long cm = readCm(RANGER_PIN);\n  if (cm > 0 && cm < ___) {\n    lid.write(90);\n    digitalWrite(LED_PIN, HIGH);\n    delay(3000);\n    lid.write(0);\n    digitalWrite(LED_PIN, LOW);\n  }\n  delay(100);\n}\n",
+   "text": "When a hand is close, open the lid (servo to 90°), turn on the light, wait 3 seconds, then close it again.\n\n**Your task:** choose how close counts as \"a hand\" (fill in the blank).",
+   "hints": [
+    "A hand over a bin is usually closer than 15 cm.",
+    "Use 15.",
+    "The line is `if (cm > 0 && cm < 15) {`"
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "servo_angle",
+     "label": "The lid opens (90°)",
+     "pin": "SERVO_PIN",
+     "angle": 90,
+     "tolerance": 3
+    },
+    {
+     "type": "servo_angle",
+     "label": "The lid closes (0°)",
+     "pin": "SERVO_PIN",
+     "angle": 0,
+     "tolerance": 3
+    },
+    {
+     "type": "pin_seen",
+     "label": "The open light comes on",
+     "pin": "LED_PIN",
+     "value": "HIGH"
+    },
+    {
+     "type": "confirm",
+     "label": "The lid opens when my hand comes near"
+    }
+   ],
+   "success": "A hands-free bin! (The cm > 0 part ignores readings where no echo came back.)",
+   "demo": "{{pins}}\n#include <Servo.h>\n\nServo lid;\n\n// Grove Ultrasonic Ranger: one pin sends a click, then listens for its echo.\nlong readCm(int pin) {\n  pinMode(pin, OUTPUT);\n  digitalWrite(pin, LOW);\n  delayMicroseconds(2);\n  digitalWrite(pin, HIGH);\n  delayMicroseconds(5);\n  digitalWrite(pin, LOW);\n  pinMode(pin, INPUT);\n  long us = pulseIn(pin, HIGH, 30000UL);\n  return us / 58;\n}\n\nvoid setup() {\n  lid.attach(SERVO_PIN);\n  lid.write(0);\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  long cm = readCm(RANGER_PIN);\n  if (cm > 0 && cm < 15) {\n    lid.write(90);\n    digitalWrite(LED_PIN, HIGH);\n    delay(3000);\n    lid.write(0);\n    digitalWrite(LED_PIN, LOW);\n  }\n  delay(100);\n}\n",
+   "sim_ms": 4500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 5800
+      }
+     }
+    },
+    {
+     "at_ms": 500,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 580
+      }
+     }
+    },
+    {
+     "at_ms": 1200,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 5800
+      }
+     }
+    }
+   ]
+  },
+  {
+   "title": "Check it closed",
+   "support": "brief",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\n#include <Servo.h>\n\nServo lid;\n\n// Grove Ultrasonic Ranger: one pin sends a click, then listens for its echo.\nlong readCm(int pin) {\n  pinMode(pin, OUTPUT);\n  digitalWrite(pin, LOW);\n  delayMicroseconds(2);\n  digitalWrite(pin, HIGH);\n  delayMicroseconds(5);\n  digitalWrite(pin, LOW);\n  pinMode(pin, INPUT);\n  long us = pulseIn(pin, HIGH, 30000UL);\n  return us / 58;\n}\n\nvoid setup() {\n  lid.attach(SERVO_PIN);\n  lid.write(0);\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  long cm = readCm(RANGER_PIN);\n  if (cm > 0 && cm < 15) {\n    lid.write(90);\n    digitalWrite(LED_PIN, HIGH);\n    delay(3000);\n    lid.write(0);\n    digitalWrite(LED_PIN, LOW);\n  }\n  delay(100);\n}\n",
+   "text": "**Goal:** after closing the lid, wait (up to 2 seconds) for the **micro switch** to be pressed by the lid. Print \"open\" when it opens, \"closed\" when the switch is pressed, or \"lid stuck!\" if it never is. Only turn the light off once it's closed.\n\nThe micro switch in port **D2** reads HIGH when its lever is pushed.",
+   "hints": [
+    "`pinMode(SWITCH_PIN, INPUT);` in setup().",
+    "Wait with `while (digitalRead(SWITCH_PIN) == LOW && millis() - start < 2000) { delay(10); }`",
+    "Afterwards, check `digitalRead(SWITCH_PIN) == HIGH` to choose \"closed\" or \"lid stuck!\"."
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "serial_regex",
+     "label": "It says open",
+     "pattern": "(^|\\n)open\\r?\\n"
+    },
+    {
+     "type": "serial_regex",
+     "label": "It says closed when the switch is pressed",
+     "pattern": "(^|\\n)closed\\r?\\n"
+    },
+    {
+     "type": "uses_function",
+     "label": "You used millis() for the time limit",
+     "name": "millis"
+    },
+    {
+     "type": "confirm",
+     "label": "It notices if the lid doesn't close"
+    }
+   ],
+   "success": "Your bin checks its own work, like real machines do.",
+   "demo": "{{pins}}\n#include <Servo.h>\n\nServo lid;\n\n// Grove Ultrasonic Ranger: one pin sends a click, then listens for its echo.\nlong readCm(int pin) {\n  pinMode(pin, OUTPUT);\n  digitalWrite(pin, LOW);\n  delayMicroseconds(2);\n  digitalWrite(pin, HIGH);\n  delayMicroseconds(5);\n  digitalWrite(pin, LOW);\n  pinMode(pin, INPUT);\n  long us = pulseIn(pin, HIGH, 30000UL);\n  return us / 58;\n}\n\nvoid setup() {\n  lid.attach(SERVO_PIN);\n  lid.write(0);\n  pinMode(LED_PIN, OUTPUT);\n  pinMode(SWITCH_PIN, INPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  long cm = readCm(RANGER_PIN);\n  if (cm > 0 && cm < 15) {\n    lid.write(90);\n    digitalWrite(LED_PIN, HIGH);\n    Serial.println(\"open\");\n    delay(3000);\n    lid.write(0);\n    unsigned long start = millis();\n    while (digitalRead(SWITCH_PIN) == LOW && millis() - start < 2000) {\n      delay(10);  // wait for the lid to press the micro switch\n    }\n    if (digitalRead(SWITCH_PIN) == HIGH) {\n      Serial.println(\"closed\");\n      digitalWrite(LED_PIN, LOW);\n    } else {\n      Serial.println(\"lid stuck!\");\n    }\n  }\n  delay(100);\n}\n",
+   "sim_ms": 5500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 5800
+      }
+     }
+    },
+    {
+     "at_ms": 0,
+     "set": {
+      "digital": {
+       "SWITCH_PIN": 0
+      }
+     }
+    },
+    {
+     "at_ms": 400,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 580
+      }
+     }
+    },
+    {
+     "at_ms": 1200,
+     "set": {
+      "pulse": {
+       "RANGER_PIN": 5800
+      }
+     }
+    },
+    {
+     "at_ms": 3700,
+     "set": {
+      "digital": {
+       "SWITCH_PIN": 1
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "outro": "You built a Smart Bin from four Grove modules, with a **function** for the ranger, a **servo** lid and a **micro switch** that checks the lid closed.",
+ "stretch": [
+  "Add a Grove Buzzer that plays a short tune when the lid opens.",
+  "Count how many times the bin opens today and print it.",
+  "Use a second Ultrasonic Ranger inside the lid to tell how full the bin is."
+ ]
+}

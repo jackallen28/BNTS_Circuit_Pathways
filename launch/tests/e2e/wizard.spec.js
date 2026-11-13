@@ -152,3 +152,42 @@ test("the run panel's phone shows the sketch's web page, and its links reach the
   // Playwright's own helper script can't run in the phone's script-free frame; that's the point of the sandbox.
   expect(problems.filter((p) => !p.includes("Blocked script execution in 'about:srcdoc'"))).toEqual([]);
 });
+
+test("a Grove project: the wizard shows the Base Shield and one cable per module, and the test works in the simulator", async ({ page }) => {
+  const problems = watchErrors(page);
+  await open(page, "project=grove-smart-bin&board=uno&wizard=1");
+  const wiz = page.getByRole("dialog", { name: /Wiring Wizard/ });
+  await expect(wiz.getByRole("heading", { name: /Meet the Grove Ultrasonic Ranger/ })).toBeVisible();
+  await expect(wiz).toContainText("times the echo");
+  await wiz.getByRole("button", { name: "Skip the introductions" }).click();
+  await expect(wiz.getByRole("heading", { name: "Step 1: Put the Grove Base Shield V2 on" })).toBeVisible();
+  await expect(wiz).toContainText("Slide the little switch");
+  await expect(wiz.locator(".cp-grove-shield")).toBeVisible();
+  await expect(wiz.locator(".cp-grove-shield [data-port='D7']")).toBeAttached();
+  await wiz.getByRole("button", { name: "Next ▶" }).click();
+  await expect(wiz.getByRole("heading", { name: /Plug in the Grove Ultrasonic Ranger/ })).toBeVisible();
+  await expect(wiz).toContainText("into port D7");
+  await expect(wiz.locator(".cp-grove-cable[data-cable='ranger']")).toHaveAttribute("filter", /hl/);
+  await page.screenshot({ path: "test-results/screenshots/wizard-grove.png" });
+  for (let i = 0; i < 4; i++) await wiz.getByRole("button", { name: "Next ▶" }).click();
+
+  await expect(wiz.getByRole("heading", { name: "Test it" })).toBeVisible();
+  await wiz.getByRole("button", { name: "Test", exact: true }).click();
+  for (const id of ["lid", "led"]) {
+    const row = wiz.locator(`[data-row="${id}"]`);
+    await expect(row).toContainText("having its turn", { timeout: 15_000 });
+    await row.getByLabel("I saw it work").check();
+  }
+  // the inputs: press the micro switch, and move a hand towards the ranger
+  await expect(wiz.locator("[data-row='switch']")).toContainText("Push the micro switch's lever");
+  const hot = wiz.locator(".cp-hot[aria-label*='lid-closed switch']");
+  await hot.hover();
+  await page.mouse.down();
+  await expect(wiz.locator("[data-row='switch']")).toHaveClass(/ok/, { timeout: 10_000 });
+  await page.mouse.up();
+  const dist = wiz.getByRole("slider", { name: /Distance/ }).first();
+  await dist.fill("10");
+  await expect(wiz.locator("[data-row='ranger']")).toHaveClass(/ok/, { timeout: 10_000 });
+  await expect(wiz.getByRole("button", { name: "Start programming" })).toBeEnabled();
+  expect(problems).toEqual([]);
+});

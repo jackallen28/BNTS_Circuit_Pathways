@@ -9,13 +9,16 @@ import { ROOT, boards } from "./sim/helpers.js";
 import { runHeadless } from "../../site/arduinopath/js/sim/headless.js";
 import { expandPins, projectSuits } from "../../site/arduinopath/js/sim/pins.js";
 import { evaluate, isAutomatic } from "../../site/arduinopath/js/sim/checks.js";
+import { withGrove } from "../../site/shared/grove/grove.js";
+
+const grove = JSON.parse(fs.readFileSync(path.join(ROOT, "site/shared/grove/grove.json"), "utf8"));
 
 const CLOCK = Date.UTC(2026, 9, 22, 3, 4, 5); // a fixed laptop clock
 
 function projectsIn(dir) {
   return fs.readdirSync(dir)
     .filter((f) => f.endsWith(".json"))
-    .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")));
+    .map((f) => withGrove(JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")), grove));
 }
 
 /** Runs one step on one board; returns the failed checks (or a compile problem). */

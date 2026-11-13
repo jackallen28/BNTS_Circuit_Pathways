@@ -9,6 +9,8 @@ export const ROLES = [
   "PIR_PIN", "DHT_PIN", "TRIG_PIN", "ECHO_PIN", "NEOPIXEL_PIN", "TM1637_CLK", "TM1637_DIO",
   "MATRIX_DIN", "MATRIX_CLK", "MATRIX_CS", "RFID_SS", "RFID_RST",
   "KEYPAD_R1", "KEYPAD_R2", "KEYPAD_R3", "KEYPAD_R4", "KEYPAD_C1", "KEYPAD_C2", "KEYPAD_C3", "KEYPAD_C4",
+  // Grove modules (their port decides the pin: site/shared/grove/grove.json)
+  "RANGER_PIN", "LIGHT_PIN", "SWITCH_PIN", "RELAY_PIN",
 ];
 
 /** The pin plan for a board in a project: the board's plan with the project's overrides. */

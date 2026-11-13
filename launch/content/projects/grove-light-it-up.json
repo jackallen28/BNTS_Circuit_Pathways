@@ -1,0 +1,120 @@
+{
+ "$schema": "../schema/project.schema.json",
+ "tier": "grove",
+ "boards": [
+  "uno",
+  "mega"
+ ],
+ "kit": "grove",
+ "id": "grove-light-it-up",
+ "title": "Grove: Light It Up",
+ "order": 1,
+ "minutes": 30,
+ "parts": [
+  {
+   "type": "grove-led"
+  }
+ ],
+ "concepts": [
+  "pinMode",
+  "digitalWrite",
+  "delay",
+  "Grove ports"
+ ],
+ "curriculum": [
+  "78-hardware",
+  "78-programming"
+ ],
+ "intro": "Your first Grove build: plug a Grove LED into the Base Shield with one cable, then make it blink. No breadboard and no loose wires!",
+ "grove": {
+  "shield": "base-shield",
+  "modules": [
+   {
+    "id": "led",
+    "type": "grove-led",
+    "port": "D4",
+    "role": "LED_PIN",
+    "color": "blue",
+    "label": "blue light"
+   }
+  ]
+ },
+ "steps": [
+  {
+   "title": "Turn it on",
+   "support": "guided",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nvoid setup() {\n  // Get the LED's port ready to send power out.\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LED_PIN, ___);  // on\n}\n",
+   "text": "Your Grove LED is plugged into port **D4**, so its pin is **4**. The `#define LED_PIN 4` at the top gives that number a name.\n\n`digitalWrite(LED_PIN, HIGH)` sends power out of the pin, and the LED lights up.\n\n**Your task:** fill in the blank so the LED turns on, then press **Run**.",
+   "hints": [
+    "The blank is the word that means \"on\".",
+    "On is `HIGH`.",
+    "The line is `digitalWrite(LED_PIN, HIGH);`"
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "pin_seen",
+     "label": "The LED turns on",
+     "pin": "LED_PIN",
+     "value": "HIGH"
+    },
+    {
+     "type": "confirm",
+     "label": "I saw the Grove LED light up"
+    }
+   ],
+   "success": "It's on! The Grove cable carried power from port D4 to the LED.",
+   "demo": "{{pins}}\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LED_PIN, HIGH);\n}\n",
+   "sim_ms": 1500
+  },
+  {
+   "title": "Make it blink",
+   "support": "scaffolded",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LED_PIN, HIGH);\n  delay(500);\n  // turn it off, then wait\n}\n",
+   "text": "A blink is: on, wait, off, wait, and repeat. `loop()` repeats for you.\n\n**Your task:** add two lines so the LED turns off and the program waits half a second (500 ms).",
+   "hints": [
+    "Copy the two lines above and change one word.",
+    "Off is `LOW`.",
+    "Add `digitalWrite(LED_PIN, LOW);` and `delay(500);`"
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "pin_seen",
+     "label": "The LED turns on",
+     "pin": "LED_PIN",
+     "value": "HIGH",
+     "times": 2
+    },
+    {
+     "type": "pin_seen",
+     "label": "The LED turns off",
+     "pin": "LED_PIN",
+     "value": "LOW",
+     "times": 2
+    },
+    {
+     "type": "confirm",
+     "label": "I saw it blink"
+    }
+   ],
+   "success": "Blinking! Try changing the 500s to make it faster or slower.",
+   "demo": "{{pins}}\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LED_PIN, HIGH);\n  delay(500);\n  digitalWrite(LED_PIN, LOW);\n  delay(500);\n}\n",
+   "sim_ms": 3000
+  }
+ ],
+ "outro": "You built your first Grove circuit and made it blink with **pinMode**, **digitalWrite** and **delay**.",
+ "stretch": [
+  "Make a heartbeat: two quick blinks, then a long pause.",
+  "Plug the LED into port D7 instead. What do you need to change in the code?",
+  "Make the LED blink your initials in Morse code."
+ ]
+}

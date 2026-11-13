@@ -1,0 +1,255 @@
+{
+ "$schema": "../schema/project.schema.json",
+ "tier": "grove",
+ "boards": [
+  "uno",
+  "mega"
+ ],
+ "kit": "grove",
+ "id": "grove-press-for-light",
+ "title": "Grove: Press for Light",
+ "order": 2,
+ "minutes": 40,
+ "parts": [
+  {
+   "type": "grove-button"
+  },
+  {
+   "type": "grove-led"
+  }
+ ],
+ "concepts": [
+  "digitalRead",
+  "if / else",
+  "variables"
+ ],
+ "curriculum": [
+  "78-hardware",
+  "78-algorithms",
+  "78-programming"
+ ],
+ "intro": "A Grove button and a Grove LED: press the button to light it up, then make it remember whether it's on or off.",
+ "grove": {
+  "shield": "base-shield",
+  "modules": [
+   {
+    "id": "button",
+    "type": "grove-button",
+    "port": "D2",
+    "role": "BUTTON_PIN"
+   },
+   {
+    "id": "led",
+    "type": "grove-led",
+    "port": "D4",
+    "role": "LED_PIN",
+    "color": "green"
+   }
+  ]
+ },
+ "steps": [
+  {
+   "title": "Read the button",
+   "support": "guided",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nvoid setup() {\n  pinMode(BUTTON_PIN, INPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  Serial.println(digitalRead(BUTTON_PIN));\n  delay(200);\n}\n",
+   "text": "A Grove button reads **1 (HIGH) while it's pressed** and **0 (LOW)** when it isn't. (A breadboard button with `INPUT_PULLUP` is the other way round: the Grove button has its own resistor.)\n\n**Your task:** press **Run**, open the **Serial Monitor**, and press the button. Watch the numbers.",
+   "hints": [
+    "In the simulator, click and hold the Grove button.",
+    "The Serial Monitor is under the code.",
+    "Hold it down for a moment so a few 1s appear."
+   ],
+   "checks": [
+    {
+     "type": "serial_regex",
+     "label": "It shows 0 (not pressed)",
+     "pattern": "(^|\\n)0\\r?\\n"
+    },
+    {
+     "type": "serial_regex",
+     "label": "It shows 1 (pressed)",
+     "pattern": "(^|\\n)1\\r?\\n"
+    },
+    {
+     "type": "confirm",
+     "label": "I saw 1 when I pressed the button"
+    }
+   ],
+   "success": "The board can feel your button press.",
+   "demo": "{{pins}}\nvoid setup() {\n  pinMode(BUTTON_PIN, INPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  Serial.println(digitalRead(BUTTON_PIN));\n  delay(200);\n}\n",
+   "sim_ms": 3000,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 0
+      }
+     }
+    },
+    {
+     "at_ms": 1000,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 1
+      }
+     }
+    },
+    {
+     "at_ms": 2000,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 0
+      }
+     }
+    }
+   ]
+  },
+  {
+   "title": "Light while pressed",
+   "support": "scaffolded",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n  pinMode(BUTTON_PIN, INPUT);\n}\n\nvoid loop() {\n  if (digitalRead(BUTTON_PIN) == HIGH) {\n    // turn the LED on\n  } else {\n    // turn the LED off\n  }\n}\n",
+   "text": "`if` lets your program decide. If the button reads HIGH, turn the LED on. Otherwise (`else`), turn it off.\n\n**Your task:** fill in the two comments with `digitalWrite` lines.",
+   "hints": [
+    "One line goes under each comment.",
+    "On is `digitalWrite(LED_PIN, HIGH);`",
+    "Off is `digitalWrite(LED_PIN, LOW);`"
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "pin_seen",
+     "label": "The LED lights while you press",
+     "pin": "LED_PIN",
+     "value": "HIGH"
+    },
+    {
+     "type": "pin_seen",
+     "label": "The LED goes off when you let go",
+     "pin": "LED_PIN",
+     "value": "LOW"
+    },
+    {
+     "type": "confirm",
+     "label": "The LED follows the button"
+    }
+   ],
+   "success": "Your LED follows the button: a tiny bit of decision-making.",
+   "demo": "{{pins}}\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n  pinMode(BUTTON_PIN, INPUT);\n}\n\nvoid loop() {\n  if (digitalRead(BUTTON_PIN) == HIGH) {\n    digitalWrite(LED_PIN, HIGH);\n  } else {\n    digitalWrite(LED_PIN, LOW);\n  }\n}\n",
+   "sim_ms": 2500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 0
+      }
+     }
+    },
+    {
+     "at_ms": 800,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 1
+      }
+     }
+    },
+    {
+     "at_ms": 1600,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 0
+      }
+     }
+    }
+   ]
+  },
+  {
+   "title": "Remember on or off",
+   "support": "brief",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n  pinMode(BUTTON_PIN, INPUT);\n}\n\nvoid loop() {\n  if (digitalRead(BUTTON_PIN) == HIGH) {\n    digitalWrite(LED_PIN, HIGH);\n  } else {\n    digitalWrite(LED_PIN, LOW);\n  }\n}\n",
+   "text": "**Goal:** make each press **switch** the light: press once for on, again for off. Print \"on\" or \"off\" each time.\n\nYou'll need a `bool` variable to remember, `!` to flip it, and a little wait until the button is let go (or one press would flip it many times).",
+   "hints": [
+    "Make `bool lightOn = false;` above `setup()`.",
+    "When pressed: `lightOn = !lightOn;` then set the LED to match.",
+    "After that, wait in `while (digitalRead(BUTTON_PIN) == HIGH) { delay(10); }`"
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "serial_regex",
+     "label": "First press: on",
+     "pattern": "(^|\\n)on\\r?\\n"
+    },
+    {
+     "type": "serial_regex",
+     "label": "Second press: off",
+     "pattern": "(^|\\n)on\\r?\\n(.*\\n)*off\\r?\\n"
+    },
+    {
+     "type": "confirm",
+     "label": "Each press switches the light"
+    }
+   ],
+   "success": "That's a toggle switch, like a desk lamp's.",
+   "demo": "{{pins}}\nbool lightOn = false;\n\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n  pinMode(BUTTON_PIN, INPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  if (digitalRead(BUTTON_PIN) == HIGH) {\n    lightOn = !lightOn;\n    digitalWrite(LED_PIN, lightOn ? HIGH : LOW);\n    Serial.println(lightOn ? \"on\" : \"off\");\n    while (digitalRead(BUTTON_PIN) == HIGH) {\n      delay(10);  // wait for the button to be let go\n    }\n  }\n}\n",
+   "sim_ms": 2500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 0
+      }
+     }
+    },
+    {
+     "at_ms": 500,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 1
+      }
+     }
+    },
+    {
+     "at_ms": 900,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 0
+      }
+     }
+    },
+    {
+     "at_ms": 1500,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 1
+      }
+     }
+    },
+    {
+     "at_ms": 1900,
+     "set": {
+      "digital": {
+       "BUTTON_PIN": 0
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "outro": "You used **digitalRead**, **if / else** and a **variable** to make a Grove button control a light.",
+ "stretch": [
+  "Make a long press (over 1 second) turn the light on for 10 seconds.",
+  "Count presses and print the count.",
+  "Add a second Grove LED on D7 that lights while the first is off."
+ ]
+}

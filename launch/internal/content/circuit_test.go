@@ -189,6 +189,12 @@ func TestProjectCircuits(t *testing.T) {
 			t.Fatal(err)
 		}
 		if pc.Circuit == nil {
+			var kit struct {
+				Kit string `json:"kit"`
+			}
+			if json.Unmarshal(p.Raw, &kit) == nil && kit.Kit == "grove" {
+				continue // a Grove project's circuit is made from its modules (tests/js/grove.test.js checks them)
+			}
 			t.Errorf("%s: no circuit", p.ID)
 			continue
 		}

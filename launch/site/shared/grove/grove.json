@@ -1,0 +1,537 @@
+{
+  "about": "Grove kits: the shields (which ports they have, and which pins each port uses) and the Grove modules students plug into them. Teachers can edit this file. A Grove cable has four wires: yellow (SIG, the signal), white (SIG2, a second signal most modules don't use), red (VCC, power) and black (GND). Each module's \"sim\" says how the simulator treats it (its behaviour, and its legs in Grove pin order: yellow, white, red, black); tools/grove_art.mjs draws the parts from this file.",
+  "cable": [
+    {
+      "id": "sig",
+      "colour": "#f5c400",
+      "name": "yellow (signal)"
+    },
+    {
+      "id": "sig2",
+      "colour": "#f4f4f4",
+      "name": "white (second signal)"
+    },
+    {
+      "id": "vcc",
+      "colour": "#d8262d",
+      "name": "red (power)"
+    },
+    {
+      "id": "gnd",
+      "colour": "#1b1b1b",
+      "name": "black (GND)"
+    }
+  ],
+  "shields": {
+    "base-shield": {
+      "name": "Grove Base Shield V2",
+      "app": "arduinopath",
+      "boards": [
+        "uno",
+        "mega"
+      ],
+      "what": "The Base Shield sits on top of your Arduino and gives it Grove ports. Each Grove module plugs into a port with one cable: no breadboard and no loose wires.",
+      "fit": "Line the Base Shield's pins up with the holes along both edges of your Arduino and press it straight down, gently and evenly, until it sits firmly.",
+      "switch": "Slide the little switch near the A0 port to 5V (5V is right for an Uno or a Mega).",
+      "ports": [
+        {
+          "id": "D2",
+          "kind": "digital",
+          "sig": "2",
+          "sig2": "3"
+        },
+        {
+          "id": "D3",
+          "kind": "digital",
+          "sig": "3",
+          "sig2": "4"
+        },
+        {
+          "id": "D4",
+          "kind": "digital",
+          "sig": "4",
+          "sig2": "5"
+        },
+        {
+          "id": "D5",
+          "kind": "digital",
+          "sig": "5",
+          "sig2": "6"
+        },
+        {
+          "id": "D6",
+          "kind": "digital",
+          "sig": "6",
+          "sig2": "7"
+        },
+        {
+          "id": "D7",
+          "kind": "digital",
+          "sig": "7",
+          "sig2": "8"
+        },
+        {
+          "id": "D8",
+          "kind": "digital",
+          "sig": "8",
+          "sig2": "9"
+        },
+        {
+          "id": "A0",
+          "kind": "analog",
+          "sig": "A0",
+          "sig2": "A1"
+        },
+        {
+          "id": "A1",
+          "kind": "analog",
+          "sig": "A1",
+          "sig2": "A2"
+        },
+        {
+          "id": "A2",
+          "kind": "analog",
+          "sig": "A2",
+          "sig2": "A3"
+        },
+        {
+          "id": "A3",
+          "kind": "analog",
+          "sig": "A3",
+          "sig2": "A4"
+        },
+        {
+          "id": "I2C",
+          "kind": "i2c"
+        },
+        {
+          "id": "UART",
+          "kind": "uart",
+          "sig": "0",
+          "sig2": "1"
+        }
+      ]
+    },
+    "base-hat": {
+      "name": "Grove Base Hat for Raspberry Pi",
+      "app": "pipath",
+      "boards": [
+        "pi"
+      ],
+      "what": "The Base Hat sits on your Raspberry Pi's pins and gives it Grove ports. It replaces the breadboard: each module plugs in with one cable. It can also read analog sensors (like a knob or a light sensor), which a Raspberry Pi can't do by itself.",
+      "fit": "Turn the Pi off. Line the Base Hat's socket up with all 40 of the Pi's pins and press it straight down, gently and evenly.",
+      "switch": "",
+      "ports": [
+        {
+          "id": "D5",
+          "kind": "digital",
+          "sig": "5",
+          "sig2": "6"
+        },
+        {
+          "id": "D16",
+          "kind": "digital",
+          "sig": "16",
+          "sig2": "17"
+        },
+        {
+          "id": "D18",
+          "kind": "digital",
+          "sig": "18",
+          "sig2": "19"
+        },
+        {
+          "id": "D22",
+          "kind": "digital",
+          "sig": "22",
+          "sig2": "23"
+        },
+        {
+          "id": "D24",
+          "kind": "digital",
+          "sig": "24",
+          "sig2": "25"
+        },
+        {
+          "id": "D26",
+          "kind": "digital",
+          "sig": "26",
+          "sig2": "27"
+        },
+        {
+          "id": "PWM",
+          "kind": "pwm",
+          "sig": "12",
+          "sig2": "13"
+        },
+        {
+          "id": "A0",
+          "kind": "analog",
+          "sig": "0",
+          "sig2": "1"
+        },
+        {
+          "id": "A2",
+          "kind": "analog",
+          "sig": "2",
+          "sig2": "3"
+        },
+        {
+          "id": "A4",
+          "kind": "analog",
+          "sig": "4",
+          "sig2": "5"
+        },
+        {
+          "id": "A6",
+          "kind": "analog",
+          "sig": "6",
+          "sig2": "7"
+        },
+        {
+          "id": "I2C",
+          "kind": "i2c"
+        },
+        {
+          "id": "UART",
+          "kind": "uart",
+          "sig": "14",
+          "sig2": "15"
+        }
+      ]
+    }
+  },
+  "modules": {
+    "grove-led": {
+      "name": "Grove LED",
+      "plural": "Grove LEDs",
+      "group": "output",
+      "ports": [
+        "digital"
+      ],
+      "role": "LED_PIN",
+      "colors": [
+        "blue",
+        "red",
+        "green"
+      ],
+      "what": "A Grove LED is a small light on its own board. It already has its resistor, so it just plugs in.",
+      "legs": "No legs to worry about: the Grove cable only fits one way. The LED in the socket has a long leg (+); if you ever swap the LED, the long leg goes in the hole marked +.",
+      "did_you_know": "You can swap the LED in a Grove LED socket for any colour of 5mm LED.",
+      "arduino": {
+        "setup": "pinMode({pin}, OUTPUT);",
+        "on": "digitalWrite({pin}, HIGH);",
+        "off": "digitalWrite({pin}, LOW);"
+      },
+      "pi": {
+        "import": "from gpiozero import LED",
+        "make": "{name} = LED({pin})",
+        "use": "{name}.on()"
+      },
+      "sim": {
+        "behaviour": "led",
+        "legs": [
+          "anode",
+          "nc",
+          "vcc",
+          "cathode"
+        ],
+        "test_as": "led"
+      }
+    },
+    "grove-button": {
+      "name": "Grove Button",
+      "plural": "Grove Buttons",
+      "group": "input",
+      "ports": [
+        "digital"
+      ],
+      "role": "BUTTON_PIN",
+      "what": "A button you press. While it's pressed, its signal is HIGH. When you let go, it's LOW.",
+      "legs": "No legs: plug a Grove cable into it. Unlike a breadboard button, a Grove button reads HIGH when pressed (it has its own resistor), so use INPUT, not INPUT_PULLUP.",
+      "did_you_know": "Inside the button, a tiny metal dome clicks down and joins two contacts together.",
+      "arduino": {
+        "setup": "pinMode({pin}, INPUT);",
+        "read": "digitalRead({pin}) == HIGH"
+      },
+      "pi": {
+        "import": "from gpiozero import Button",
+        "make": "{name} = Button({pin}, pull_up=False)",
+        "use": "{name}.is_pressed"
+      },
+      "sim": {
+        "behaviour": "button",
+        "legs": [
+          "sig",
+          "nc",
+          "vcc",
+          "gnd"
+        ],
+        "switch": [
+          [
+            "sig",
+            "vcc"
+          ]
+        ],
+        "idle": 0,
+        "test_as": "grove-button"
+      }
+    },
+    "grove-micro-switch": {
+      "name": "Grove Micro Switch",
+      "plural": "Grove Micro Switches",
+      "group": "input",
+      "ports": [
+        "digital"
+      ],
+      "role": "SWITCH_PIN",
+      "what": "A micro switch has a long metal lever. When something pushes the lever (like a bin lid closing), the switch clicks and its signal goes HIGH.",
+      "legs": "No legs: plug a Grove cable into it. It reads HIGH while the lever is pushed down.",
+      "did_you_know": "Micro switches are in computer mice, microwave doors and lift buttons. They can click millions of times.",
+      "arduino": {
+        "setup": "pinMode({pin}, INPUT);",
+        "read": "digitalRead({pin}) == HIGH"
+      },
+      "pi": {
+        "import": "from gpiozero import Button",
+        "make": "{name} = Button({pin}, pull_up=False)",
+        "use": "{name}.is_pressed"
+      },
+      "sim": {
+        "behaviour": "button",
+        "legs": [
+          "sig",
+          "nc",
+          "vcc",
+          "gnd"
+        ],
+        "switch": [
+          [
+            "sig",
+            "vcc"
+          ]
+        ],
+        "idle": 0,
+        "test_as": "grove-button"
+      }
+    },
+    "grove-servo": {
+      "name": "Grove Servo",
+      "plural": "Grove Servos",
+      "group": "output",
+      "ports": [
+        "digital",
+        "pwm"
+      ],
+      "role": "SERVO_PIN",
+      "what": "A servo is a small motor that turns to an angle you choose, from 0 to 180 degrees. It can open a lid or point a dial.",
+      "legs": "The Grove servo has a Grove plug on its cable: plug it straight into a port. On a Raspberry Pi, use the PWM port.",
+      "did_you_know": "A servo checks where it is many times a second and corrects itself, which is why it holds its angle.",
+      "arduino": {
+        "include": "#include <Servo.h>",
+        "global": "Servo {name};",
+        "setup": "{name}.attach({pin});",
+        "use": "{name}.write(90);"
+      },
+      "pi": {
+        "import": "from gpiozero import AngularServo",
+        "make": "{name} = AngularServo({pin}, min_angle=0, max_angle=180)",
+        "use": "{name}.angle = 90"
+      },
+      "sim": {
+        "behaviour": "servo",
+        "legs": [
+          "signal",
+          "nc",
+          "power",
+          "gnd"
+        ],
+        "test_as": "servo"
+      }
+    },
+    "grove-ultrasonic": {
+      "name": "Grove Ultrasonic Ranger",
+      "plural": "Grove Ultrasonic Rangers",
+      "group": "input",
+      "ports": [
+        "digital"
+      ],
+      "role": "RANGER_PIN",
+      "what": "It measures distance with sound you can't hear: it sends out a click and times the echo. It works from about 3 cm to 3.5 m.",
+      "legs": "One Grove cable. It uses a single pin to send the click and listen for the echo (a breadboard HC-SR04 needs two).",
+      "did_you_know": "Bats and dolphins find their way with echoes in the same way.",
+      "arduino": {
+        "helper": "// Grove Ultrasonic Ranger: one pin sends a click, then listens for its echo.\nlong readCm(int pin) {\n  pinMode(pin, OUTPUT);\n  digitalWrite(pin, LOW);\n  delayMicroseconds(2);\n  digitalWrite(pin, HIGH);\n  delayMicroseconds(5);\n  digitalWrite(pin, LOW);\n  pinMode(pin, INPUT);\n  long us = pulseIn(pin, HIGH, 30000UL);\n  return us / 58;\n}",
+        "read": "readCm({pin})"
+      },
+      "pi": {
+        "import": "from grove.grove_ultrasonic_ranger import GroveUltrasonicRanger",
+        "make": "{name} = GroveUltrasonicRanger({pin})",
+        "use": "{name}.get_distance()"
+      },
+      "sim": {
+        "behaviour": "grove-ultrasonic",
+        "legs": [
+          "sig",
+          "nc",
+          "vcc",
+          "gnd"
+        ],
+        "test_as": "grove-ultrasonic"
+      }
+    },
+    "grove-rotary": {
+      "name": "Grove Rotary Angle Sensor",
+      "plural": "Grove Rotary Angle Sensors",
+      "group": "input",
+      "ports": [
+        "analog"
+      ],
+      "role": "POT_PIN",
+      "what": "A knob (a potentiometer). Turning it changes the number your program reads, from 0 to the top of the scale.",
+      "legs": "One Grove cable into an analog port (A0 to A3 on an Arduino; A0, A2, A4 or A6 on a Pi's Base Hat).",
+      "did_you_know": "Volume knobs on speakers are often potentiometers just like this one.",
+      "arduino": {
+        "read": "analogRead({pin})"
+      },
+      "pi": {
+        "import": "from grove.grove_rotary_angle_sensor import GroveRotaryAngleSensor",
+        "make": "{name} = GroveRotaryAngleSensor({pin})",
+        "use": "{name}.value"
+      },
+      "sim": {
+        "behaviour": "potentiometer",
+        "legs": [
+          "wiper",
+          "nc",
+          "end2",
+          "end1"
+        ],
+        "test_as": "potentiometer"
+      }
+    },
+    "grove-light": {
+      "name": "Grove Light Sensor",
+      "plural": "Grove Light Sensors",
+      "group": "input",
+      "ports": [
+        "analog"
+      ],
+      "role": "LIGHT_PIN",
+      "what": "It tells your program how bright it is. Brighter light gives a bigger number.",
+      "legs": "One Grove cable into an analog port.",
+      "did_you_know": "Street lights and phone screens use light sensors to switch on or dim by themselves.",
+      "arduino": {
+        "read": "analogRead({pin})"
+      },
+      "pi": {
+        "import": "from grove.grove_light_sensor_v1_2 import GroveLightSensor",
+        "make": "{name} = GroveLightSensor({pin})",
+        "use": "{name}.light"
+      },
+      "sim": {
+        "behaviour": "ldr",
+        "legs": [
+          "1",
+          "nc",
+          "2",
+          "gnd"
+        ],
+        "test_as": "grove-analog"
+      }
+    },
+    "grove-moisture": {
+      "name": "Grove Moisture Sensor",
+      "plural": "Grove Moisture Sensors",
+      "group": "input",
+      "ports": [
+        "analog"
+      ],
+      "role": "SOIL_PIN",
+      "what": "Push its two prongs into soil. Wetter soil gives a bigger number, so you can tell when a plant needs water.",
+      "legs": "One Grove cable into an analog port. Only the prongs go in the soil, never the board or the cable.",
+      "did_you_know": "Water lets a little electricity flow between the prongs. Dry soil hardly lets any through.",
+      "arduino": {
+        "read": "analogRead({pin})"
+      },
+      "pi": {
+        "import": "from grove.grove_moisture_sensor import GroveMoistureSensor",
+        "make": "{name} = GroveMoistureSensor({pin})",
+        "use": "{name}.moisture"
+      },
+      "sim": {
+        "behaviour": "soil-moisture",
+        "legs": [
+          "sig",
+          "nc",
+          "vcc",
+          "gnd"
+        ],
+        "moisture_rises": true,
+        "test_as": "grove-analog"
+      }
+    },
+    "grove-relay": {
+      "name": "Grove Relay",
+      "plural": "Grove Relays",
+      "group": "output",
+      "ports": [
+        "digital"
+      ],
+      "role": "RELAY_PIN",
+      "what": "A relay is a switch your program can flip. It clicks on when its signal is HIGH, and a small light shows it's on.",
+      "legs": "One Grove cable. Only use the screw terminals with a teacher: never connect mains power.",
+      "did_you_know": "A relay uses a tiny electromagnet to pull a switch closed, so a small signal can switch a bigger circuit.",
+      "arduino": {
+        "setup": "pinMode({pin}, OUTPUT);",
+        "on": "digitalWrite({pin}, HIGH);",
+        "off": "digitalWrite({pin}, LOW);"
+      },
+      "pi": {
+        "import": "from gpiozero import OutputDevice",
+        "make": "{name} = OutputDevice({pin})",
+        "use": "{name}.on()"
+      },
+      "sim": {
+        "behaviour": "led",
+        "legs": [
+          "anode",
+          "nc",
+          "vcc",
+          "cathode"
+        ],
+        "test_as": "led"
+      }
+    },
+    "grove-buzzer": {
+      "name": "Grove Buzzer",
+      "plural": "Grove Buzzers",
+      "group": "output",
+      "ports": [
+        "digital"
+      ],
+      "role": "BUZZER_PIN",
+      "what": "A buzzer makes beeps and simple tunes. Your program chooses the note.",
+      "legs": "One Grove cable into a digital port.",
+      "did_you_know": "The buzzer has a thin disc inside that bends back and forth thousands of times a second to make sound.",
+      "arduino": {
+        "use": "tone({pin}, 880);"
+      },
+      "pi": {
+        "import": "from gpiozero import TonalBuzzer",
+        "make": "{name} = TonalBuzzer({pin})",
+        "use": "{name}.play(\"A4\")"
+      },
+      "sim": {
+        "behaviour": "buzzer",
+        "legs": [
+          "positive",
+          "nc",
+          "vcc",
+          "negative"
+        ],
+        "test_as": "buzzer"
+      }
+    }
+  }
+}

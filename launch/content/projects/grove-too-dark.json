@@ -1,0 +1,172 @@
+{
+ "$schema": "../schema/project.schema.json",
+ "tier": "grove",
+ "boards": [
+  "uno",
+  "mega"
+ ],
+ "kit": "grove",
+ "id": "grove-too-dark",
+ "title": "Grove: Too Dark Alarm",
+ "order": 4,
+ "minutes": 45,
+ "parts": [
+  {
+   "type": "grove-light"
+  },
+  {
+   "type": "grove-buzzer"
+  },
+  {
+   "type": "grove-led"
+  }
+ ],
+ "concepts": [
+  "analogRead",
+  "if / else",
+  "tone",
+  "constants"
+ ],
+ "curriculum": [
+  "78-hardware",
+  "78-algorithms",
+  "78-programming"
+ ],
+ "intro": "A light sensor, a buzzer and an LED: when it gets too dark, the light comes on and the alarm beeps.",
+ "grove": {
+  "shield": "base-shield",
+  "modules": [
+   {
+    "id": "light",
+    "type": "grove-light",
+    "port": "A1",
+    "role": "LIGHT_PIN"
+   },
+   {
+    "id": "buzzer",
+    "type": "grove-buzzer",
+    "port": "D6",
+    "role": "BUZZER_PIN"
+   },
+   {
+    "id": "led",
+    "type": "grove-led",
+    "port": "D4",
+    "role": "LED_PIN",
+    "color": "red"
+   }
+  ]
+ },
+ "steps": [
+  {
+   "title": "How bright is it?",
+   "support": "guided",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  Serial.println(analogRead(LIGHT_PIN));\n  delay(200);\n}\n",
+   "text": "The Light Sensor is in analog port **A1**. Brighter light gives a bigger number.\n\n**Your task:** run it, open the Serial Monitor, and cover the sensor (in the simulator, drag the light slider down).",
+   "hints": [
+    "The light slider is next to the drawing.",
+    "Dark gives a small number, bright a big one.",
+    "Try both ends of the slider."
+   ],
+   "checks": [
+    {
+     "type": "serial_regex",
+     "label": "A dark reading (under 100)",
+     "pattern": "(^|\\n)\\d{1,2}\\r?\\n"
+    },
+    {
+     "type": "serial_regex",
+     "label": "A bright reading (over 600)",
+     "pattern": "(^|\\n)([6-9]\\d\\d|1\\d\\d\\d)\\r?\\n"
+    },
+    {
+     "type": "confirm",
+     "label": "The number goes down when I cover the sensor"
+    }
+   ],
+   "success": "Your board can tell how bright it is.",
+   "demo": "{{pins}}\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  Serial.println(analogRead(LIGHT_PIN));\n  delay(200);\n}\n",
+   "sim_ms": 1500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "analog": {
+       "LIGHT_PIN": 900
+      }
+     }
+    },
+    {
+     "at_ms": 700,
+     "set": {
+      "analog": {
+       "LIGHT_PIN": 40
+      }
+     }
+    }
+   ]
+  },
+  {
+   "title": "Sound the alarm",
+   "support": "scaffolded",
+   "starter_mode": "replace",
+   "starter": "{{pins}}\nconst int DARK = 200;\n\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  int light = analogRead(LIGHT_PIN);\n  if (light < DARK) {\n    digitalWrite(LED_PIN, HIGH);\n    // beep\n  } else {\n    digitalWrite(LED_PIN, LOW);\n    // stop beeping\n  }\n  delay(100);\n}\n",
+   "text": "`tone(BUZZER_PIN, 880)` plays a note (880 beats a second). `noTone(BUZZER_PIN)` stops it. `DARK` is a **constant**: one number you can change in one place.\n\n**Your task:** fill in the two comments.",
+   "hints": [
+    "Beep with `tone(BUZZER_PIN, 880);`",
+    "Stop with `noTone(BUZZER_PIN);`",
+    "Each line goes under its comment."
+   ],
+   "checks": [
+    {
+     "type": "compiles",
+     "label": "Your code has no clues (errors)"
+    },
+    {
+     "type": "tone_seen",
+     "label": "It beeps when dark",
+     "pin": "BUZZER_PIN",
+     "min_hz": 100
+    },
+    {
+     "type": "pin_seen",
+     "label": "The LED comes on when dark",
+     "pin": "LED_PIN",
+     "value": "HIGH"
+    },
+    {
+     "type": "confirm",
+     "label": "Covering the sensor sets off the alarm"
+    }
+   ],
+   "success": "Your alarm works. Real ones use the same idea.",
+   "demo": "{{pins}}\nconst int DARK = 200;\n\nvoid setup() {\n  pinMode(LED_PIN, OUTPUT);\n}\n\nvoid loop() {\n  int light = analogRead(LIGHT_PIN);\n  if (light < DARK) {\n    digitalWrite(LED_PIN, HIGH);\n    tone(BUZZER_PIN, 880);\n  } else {\n    digitalWrite(LED_PIN, LOW);\n    noTone(BUZZER_PIN);\n  }\n  delay(100);\n}\n",
+   "sim_ms": 1500,
+   "sim_events": [
+    {
+     "at_ms": 0,
+     "set": {
+      "analog": {
+       "LIGHT_PIN": 900
+      }
+     }
+    },
+    {
+     "at_ms": 700,
+     "set": {
+      "analog": {
+       "LIGHT_PIN": 40
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "outro": "You read a Grove **light sensor**, made a decision with **if / else**, and used **tone** for an alarm.",
+ "stretch": [
+  "Make the beep go faster the darker it gets.",
+  "Only sound the alarm after it's been dark for 3 seconds.",
+  "Show the light level on the Serial Plotter."
+ ]
+}
