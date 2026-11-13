@@ -65,6 +65,9 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
   const blocksTab = h("button", { class: "tab", type: "button", role: "tab", id: "tab-blocks", "aria-selected": "false", onclick: () => setCoding("blocks", true) }, "Blocks");
   const codingTabs = h("div", { class: "tabs coding-tabs", role: "tablist", "aria-label": "How to write your code" }, textTab, blocksTab);
   const runHolder = h("div", { class: "run-holder" });
+  // ESP boards: the Web Page Designer (its design is kept with the project's progress)
+  const webPageBtn = tool("wifi", "Web page", () => openWebPage());
+  webPageBtn.hidden = !board()?.wifi;
   const portSelect = h("select", { class: "select port-select", "aria-label": "Your board's USB port", title: "The USB port your board is plugged into" },
     h("option", { value: "", text: "Plug in your board..." }));
 
@@ -89,6 +92,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
       checkBtn,
       separator(),
       beta ? null : tool("download", "Download .ino", () => downloadIno()),
+      webPageBtn,
       spacer(),
       tool("settings", "Settings", () => openSettings({ onSaved: settingsChanged, projectId: isFreePlay ? undefined : projectId })),
     ],
@@ -116,6 +120,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
   let editor = null;
   let rp = null;
   let freeGrove = []; // Free Play's Grove modules: [{ id, type, role, port }]
+  let freeData = { step: 0 }; // what Free Play keeps with its progress (Grove modules, the web page design)
   let freeProject = null; // ...as a project, so the simulator can draw and run them
   let groveData = null;
   let runKind = null; // "run" | "goal" | null
@@ -151,6 +156,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
 
   function settingsChanged() {
     showBoard();
+    webPageBtn.hidden = !board()?.wifi;
     coach.level = level();
     coach.nudges = state.me.settings.nudges !== false;
     if (rp) {
@@ -455,7 +461,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     freeGrove.push({ id, type, role, port: port.id });
     editor.value = addGroveCode(code(), groveData, { type, role, port });
     saver.change(code());
-    api.saveProgress("freeplay", { step: 0, grove: freeGrove }).catch(() => {});
+    saveFree({ grove: freeGrove });
     rebuildFreeCircuit();
     renderGuide();
     plugIn(id);
@@ -463,9 +469,37 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
 
   function removeGrove(id) {
     freeGrove = freeGrove.filter((m) => m.id !== id);
-    api.saveProgress("freeplay", { step: 0, grove: freeGrove }).catch(() => {});
+    saveFree({ grove: freeGrove });
     rebuildFreeCircuit();
     renderGuide();
+  }
+
+  function saveFree(more) {
+    freeData = { ...freeData, ...more };
+    api.saveProgress("freeplay", freeData).catch(() => {});
+  }
+
+  async function openWebPage() {
+    const { openWebPageDesigner } = await import("../dialogs/webpage.js");
+    stopRun();
+    let saveTimer = 0;
+    openWebPageDesigner({
+      board: board(), currentCode: code(),
+      design: isFreePlay ? freeData.webpage : progress?.webpage,
+      onSave: (design) => {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          if (isFreePlay) saveFree({ webpage: design });
+          else if (progress) { progress.webpage = design; saveProgress(); }
+        }, 800);
+      },
+      onUse: (newCode) => {
+        editor.value = newCode;
+        saver.change(newCode);
+        coach.changed();
+        if (coding === "blocks") showBlocks();
+      },
+    });
   }
 
   /** The mini Wiring Wizard for one module: meet it, plug it in, test it. */
@@ -997,6 +1031,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
       // the Grove modules added before come back
       let saved = null;
       try { saved = (await api.progress()).find((p) => p.project_id === "freeplay")?.data; } catch { /* none */ }
+      if (saved) freeData = { ...saved };
       if (Array.isArray(saved?.grove) && saved.grove.length) {
         try {
           groveData ??= await api.grove();

@@ -196,3 +196,50 @@ test("Free Play with a Grove kit: add a module, its code goes in, it's in the si
   await expect(page.locator(".run-holder .cp-grove-shield")).toBeVisible();
   expect(problems).toEqual([]);
 });
+
+test("the Web Page Designer on an ESP: build a page, put it in the code, and the phone shows it", async ({ page }) => {
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(e.message));
+  // The phone is a sandboxed frame with no scripts: Chromium notes that
+  // whenever the test looks inside it, which isn't a fault in the page.
+  page.on("console", (m) => { if (m.type() === "error" && !/Blocked script execution in 'about:srcdoc'/.test(m.text())) problems.push(m.text()); });
+  await page.goto("/arduinopath/");
+  const newTile = page.locator(".new-tile");
+  await expect(newTile.or(page.getByLabel("First name", { exact: true }))).toBeVisible();
+  if (await newTile.isVisible().catch(() => false)) await newTile.click();
+  await page.getByLabel("First name", { exact: true }).fill("Wren");
+  await page.getByLabel("Your school").fill("Test School");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByText("Beginner", { exact: true }).click();
+  await page.getByText("ESP32 DevKit", { exact: false }).first().click();
+  await page.getByRole("button", { name: "Let's go!" }).click();
+  await expect(page.getByRole("heading", { name: /Hi Wren!/ })).toBeVisible();
+  await page.locator(".freeplay-card").click();
+  await page.waitForURL(/#\/freeplay/);
+  await expect(page.getByRole("button", { name: "Web page", exact: true })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Web page", exact: true }).click();
+  const dlg = page.getByRole("dialog", { name: "Web Page Designer" });
+  await expect(dlg.locator(".wp-phone")).toContainText("My Smart Light");
+  await dlg.getByLabel("Title").fill("Fish Feeder");
+  await expect(dlg.locator(".wp-phone h1")).toHaveText("Fish Feeder");
+  await dlg.getByRole("button", { name: "+ Button" }).click();
+  const last = dlg.locator(".wp-item").last();
+  await last.getByLabel("Words on the button").fill("Feed the fish");
+  await last.getByLabel("What it does").selectOption("custom");
+  await expect(dlg.locator(".wp-phone")).toContainText("Feed the fish");
+  await page.screenshot({ path: "test-results/screenshots/webpage-designer.png" });
+  await dlg.getByRole("button", { name: "Put it in my code" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Replace it" }).click();
+  await expect(page.locator(".editor-text")).toHaveValue(/Fish Feeder: a web page made with ArduinoPath's Web Page Designer/);
+  await expect(page.locator(".editor-text")).toHaveValue(/void feedTheFish\(\) \{/);
+  // run it: the phone shows the page
+  await page.getByRole("button", { name: "Run" }).click();
+  await expect(page.locator(".rp-phone")).toBeVisible({ timeout: 20_000 });
+  await page.locator(".rp-phone").getByRole("button", { name: "Go" }).click();
+  await expect(page.frameLocator(".rp-phone-screen").locator("h1")).toHaveText("Fish Feeder", { timeout: 15_000 });
+  // the design is kept for next time
+  await page.reload();
+  await page.getByRole("button", { name: "Web page", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Web Page Designer" }).locator(".wp-phone h1")).toHaveText("Fish Feeder");
+  expect(problems).toEqual([]);
+});

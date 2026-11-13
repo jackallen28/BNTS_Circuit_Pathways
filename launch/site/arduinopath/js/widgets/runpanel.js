@@ -203,6 +203,7 @@ export function createRunPanel({ board, project = null, circuit = null, onRuntim
   // here and put back with the CSSOM, which the policy allows. Scripts can't
   // run on the phone.
   let pageStyles = [];
+  let refreshTimer = 0;
   function showPage(html) {
     // Take the styles out as text first: even parsing them would trip the policy.
     pageStyles = [];
@@ -211,6 +212,15 @@ export function createRunPanel({ board, project = null, circuit = null, onRuntim
       .replace(/(<[a-z][^>]*?\s)style\s*=\s*("[^"]*"|'[^']*')/gi, "$1data-ap-style=$2");
     const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelectorAll("script, link[rel=stylesheet]").forEach((x) => x.remove());
+    // <meta http-equiv="refresh">: the sandboxed phone can't follow it, so the panel asks for the page again itself
+    clearTimeout(refreshTimer);
+    const meta = doc.querySelector("meta[http-equiv=refresh i]");
+    if (meta) {
+      const secs = Math.max(1, Math.min(120, parseFloat(meta.getAttribute("content")) || 5));
+      meta.remove();
+      const again = phoneAddress.value;
+      refreshTimer = setTimeout(() => { if (sim?.running && phoneAddress.value === again) phoneOpen(again); }, secs * 1000);
+    }
     for (const e of doc.querySelectorAll("*")) {
       for (const a of [...e.attributes]) if (/^on/i.test(a.name)) e.removeAttribute(a.name);
     }
