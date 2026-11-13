@@ -11,7 +11,7 @@ on:
       site:
         description: "Which site"
         type: choice
-        options: [real, test]
+        options: [real, test, pi]
         default: real
 
 permissions:
@@ -47,3 +47,6 @@ jobs:
       - name: Deploy the TEST site
         if: inputs.site == 'test'
         run: npm run deploy:test
+      - name: Deploy the Pi beta (Raspberry Pi students; same database as the real site)
+        if: inputs.site == 'pi'
+        run: npm run deploy:pi

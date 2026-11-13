@@ -1,8 +1,8 @@
 // Circuit Pathways home: drifting pixel squares, reveal-on-scroll, and the
 // class forms (students join with a class code, teachers sign in).
 
-import { getAccess, setAccess, clearAccess, postJSON } from "/shared/access.js";
-import { beta, showTestTag } from "/shared/beta.js";
+import { getAccess, setAccess, clearAccess, postJSON, inClass } from "/shared/access.js";
+import { beta, piBeta, showTestTag, showBetaBadge } from "/shared/beta.js";
 import { takePiFromUrl, thisPi } from "/shared/thispi.js";
 
 // Opened from a Raspberry Pi's own shortcut (?pi=...): remember this Pi.
@@ -38,15 +38,19 @@ fetch("/api/info", { credentials: "omit" }).then((r) => r.json()).then((info) =>
   if (savedClasses) {
     $("#privacy").textContent = "When you join a class, only your first name(s) and school are kept, with your work, so your teacher can see it and you can carry on on another computer. It's all deleted when the class ends. Nothing else about you is kept.";
   }
+  if (piBeta) {
+    $("#privacy").textContent = "Without a class code, your work is saved on this device only. When you join a class, only your first name(s) and school are kept with your work, so your teacher can see it and you can carry on on another computer. It's all deleted when the class ends. Nothing else about you is kept.";
+  }
 }).catch(() => {});
 
 function showState() {
   const a = getAccess();
-  $("#session-forms").hidden = Boolean(a);
-  $("#session-in").hidden = !a;
+  const member = inClass(a); // in the Pi beta, a student with no class is just using this device
+  $("#session-forms").hidden = member;
+  $("#session-in").hidden = !member;
   $("#teacher-link").hidden = a?.kind !== "teacher";
   $("#forget-me").hidden = a?.kind !== "student";
-  if (a) {
+  if (member) {
     const until = `until the end of ${fmtDate(a.expires_at - 12 * 3600 * 1000)}`;
     $("#session-in-text").textContent = a.kind === "teacher"
       ? `You're signed in as a teacher until ${new Date(a.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}.`
@@ -54,7 +58,8 @@ function showState() {
         ? `You're in ${a.class?.name ?? "your class"} (${a.class?.code ?? ""}) as ${(a.names ?? []).join(" and ")}, ${until}. Your work is saved with your class.`
         : `You're in class ${a.value}, ${until}.`;
   }
-  $("#need-class").hidden = new URLSearchParams(location.search).get("need") !== "class" || Boolean(a);
+  $("#need-class").hidden = new URLSearchParams(location.search).get("need") !== "class" || member || piBeta;
+  $("#optional-note").hidden = !piBeta || member;
 }
 
 function setNote(form, text, kind = "") {
@@ -144,6 +149,11 @@ showState();
 if (thisPi() && !beta) {
   $("#on-pi").textContent = `This is the Raspberry Pi ${thisPi()}. When you choose "My Raspberry Pi" in PiPath, your programs run on it. Your work is saved on this Pi, and with your class once you've joined one, so you can carry on on any computer.`;
   $("#on-pi").hidden = false;
+}
+if (piBeta) {
+  // The Pi beta: students start straight away (saved on this device); a class code is optional.
+  showBetaBadge();
+  $(".scroll-hint").textContent = "Got a class code, or a teacher? Scroll down ▾";
 }
 if (beta) {
   // The TEST version: the same home page, but no class codes or teacher sign-in.

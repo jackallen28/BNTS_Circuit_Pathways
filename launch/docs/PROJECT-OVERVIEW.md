@@ -38,6 +38,13 @@ The teacher's priorities, which everything must respect:
   the USB way: WebUSB drivers for CH340, CP210x, FTDI and CDC-ACM chips, shaped like Web Serial's SerialPort.
   Chrome on Android (WebUSB, no Web Serial) uses it straight away. On Windows the normal way is the one to use:
   Windows Update adds the CH340 / CP210x drivers, and WebUSB can't claim a chip that has a driver.
+- **The Pi beta edition** (`PI_BETA=1`, wrangler env `pi`, `site/shared/beta.js` `piBeta`, `access.js` kind `local`): the
+  real site marked BETA where a class code is optional. No code: the apps get the access word `local` (the Worker lets
+  it compile and link a Pi, rate limited) and everything is saved in the browser on that device. A class code: the
+  same sync to the class database as the real site (which it shares). A profile made before joining is linked and
+  uploaded the next time the app opens (`localapi.me()`). The TEST version (`BETA=1`) is unchanged: nothing saved.
+- **Faster on a Pi**: vendored files (Python, Blockly, esptool, logos) are cached a week (`cacheControlFor`, `_headers`);
+  the Pi launcher passes Chromium flags for classrooms (no keyring prompt, big disk cache, low-memory mode on <=2 GB).
 - **The Raspberry Pi version** (`internal/pilink/install.sh.tmpl`, `site/shared/thispi.js`): the Pi installer adds
   Pi menu and desktop shortcuts that open the site with `?pi=<ID>`, so PiPath on that Pi runs programs on it. Work is
   saved on the Pi and synced to the student's class.

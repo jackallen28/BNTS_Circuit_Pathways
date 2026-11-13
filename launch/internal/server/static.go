@@ -42,7 +42,7 @@ func (s *Server) staticHandler() http.Handler {
 		if strings.HasSuffix(p, "/") || file == "" {
 			file = path.Join(file, "index.html")
 		}
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", cacheControlFor(file))
 		if tag, ok := tags[file]; ok {
 			w.Header().Set("ETag", tag)
 			if r.Header.Get("If-None-Match") == tag {

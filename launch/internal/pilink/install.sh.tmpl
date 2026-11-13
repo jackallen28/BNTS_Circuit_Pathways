@@ -131,8 +131,17 @@ case "${1:-home}" in
   *) PAGE=/ ;;
 esac
 URL="$SITE$PAGE?pi=$ID"
+# Flags that suit a Pi in a classroom: no first-run page, no password-keyring prompt, no translate bar,
+# and a big disk cache so the site's large files (Python) are only downloaded once.
+FLAGS=(--no-first-run --no-default-browser-check --password-store=basic --disable-features=Translate --disk-cache-size=268435456)
+# A Pi with about 2 GB of memory or less (Zero 2, 3, 2 GB 4): Chromium's low-memory mode.
+MEM_KB="$(awk '/^MemTotal:/ { print $2 }' "${CP_MEMINFO:-/proc/meminfo}" 2>/dev/null)"
+if [[ "${MEM_KB:-0}" =~ ^[0-9]+$ && "${MEM_KB:-0}" -gt 0 && "${MEM_KB:-0}" -le 2300000 ]]; then FLAGS+=(--enable-low-end-device-mode); fi
+# CP_CHROMIUM_FLAGS adds more (for IT to try things out)
+# shellcheck disable=SC2206
+[[ -n "${CP_CHROMIUM_FLAGS:-}" ]] && FLAGS+=($CP_CHROMIUM_FLAGS)
 for b in chromium-browser chromium google-chrome; do
-  command -v "$b" >/dev/null && exec "$b" --app="$URL"
+  command -v "$b" >/dev/null && exec "$b" "${FLAGS[@]}" --app="$URL"
 done
 exec xdg-open "$URL"
 LAUNCH_END

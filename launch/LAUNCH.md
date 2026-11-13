@@ -116,6 +116,12 @@ Pathways**, **PiPath** and **ArduinoPath** to the Pi menu (Education) and the de
 already linked to that Pi, so PiPath runs programs on it with no ID to type. Work is saved on the Pi, and with the
 student's class once they join it (Cloudflare site), so they can carry on on a laptop or at home.
 
+**The Pi beta:** to have students on Pis use the BETA site where a class code is optional (work saved on the Pi,
+or synced to their class if they join one), deploy it with `npm run deploy:pi` in `cloudflare/` (see its README), then
+make the Pis' installers with `-server https://<the Pi beta address>`. Updating a Pi that's already set up:
+`sudo pilink server https://<the Pi beta address>`. Teachers still make classes on either site (same database).
+On a small Pi (Zero 2, 3) the first open of PiPath downloads about 12 MB of Python; after that it is cached for a week.
+
 Handy commands on a Pi: `pilink show` (the ID), `pilink status`, `pilink log`, `sudo pilink restart`,
 `sudo pilink run on|off`, `sudo pilink server https://new-address`, `sudo pilink uninstall`.
 

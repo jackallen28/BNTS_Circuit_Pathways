@@ -5,6 +5,7 @@ import { defineConfig } from "@playwright/test";
 const PORT = Number(process.env.E2E_PORT) || 8543;
 const BETA_PORT = Number(process.env.E2E_BETA_PORT) || 8544; // the TEST version, for tests/e2e/test-version.spec.js
 const CF_PORT = Number(process.env.E2E_CF_PORT) || 8545; // the Cloudflare Worker (local), for tests/e2e/cloudflare.spec.js
+const PI_PORT = Number(process.env.E2E_PI_PORT) || 8546; // the Pi beta on the Worker (local), for tests/e2e/pi-beta.spec.js
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -36,6 +37,12 @@ export default defineConfig({
     {
       command: `sh cloudflare/test/serve.sh ${CF_PORT}`,
       url: `http://localhost:${CF_PORT}/api/info`,
+      reuseExistingServer: false,
+      timeout: 240_000,
+    },
+    {
+      command: `sh cloudflare/test/serve.sh ${PI_PORT} pi`,
+      url: `http://localhost:${PI_PORT}/api/info`,
       reuseExistingServer: false,
       timeout: 240_000,
     },

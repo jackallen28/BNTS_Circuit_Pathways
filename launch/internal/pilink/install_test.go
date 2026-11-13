@@ -104,8 +104,27 @@ func TestInstallerRunsAndMakesWorkingFiles(t *testing.T) {
 	launch.Env = append(os.Environ(), "CP_ETC="+filepath.Join(root, "etc"), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	got, err := launch.CombinedOutput()
 	id, _ := os.ReadFile(filepath.Join(root, "etc/circuitpathways-pi.id"))
-	if want := "--app=https://school.example.org/pipath/?pi=" + strings.TrimSpace(string(id)); err != nil || strings.TrimSpace(string(got)) != want {
-		t.Errorf("launcher: %v %q, want %q", err, got, want)
+	if want := "--app=https://school.example.org/pipath/?pi=" + strings.TrimSpace(string(id)); err != nil || !strings.HasSuffix(strings.TrimSpace(string(got)), want) {
+		t.Errorf("launcher: %v %q, want it to end with %q", err, got, want)
+	}
+	for _, want := range []string{"--no-first-run", "--password-store=basic", "--disk-cache-size="} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("launcher should pass %s, got %q", want, got)
+		}
+	}
+	// a small Pi gets Chromium's low-memory mode; a big one doesn't
+	for mem, wantLow := range map[string]bool{"524288": true, "1948000": true, "3900000": false, "8000000": false} {
+		meminfo := filepath.Join(dir, "meminfo-"+mem)
+		os.WriteFile(meminfo, []byte("MemTotal:       "+mem+" kB\nMemFree: 1 kB\n"), 0o644)
+		l := exec.Command("bash", filepath.Join(root, "usr/local/bin/circuitpathways"))
+		l.Env = append(os.Environ(), "CP_ETC="+filepath.Join(root, "etc"), "CP_MEMINFO="+meminfo, "CP_CHROMIUM_FLAGS=--test-flag", "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+		out2, _ := l.CombinedOutput()
+		if has := strings.Contains(string(out2), "--enable-low-end-device-mode"); has != wantLow {
+			t.Errorf("%s kB: low-memory mode = %v, want %v (%q)", mem, has, wantLow, out2)
+		}
+		if !strings.Contains(string(out2), "--test-flag") {
+			t.Errorf("CP_CHROMIUM_FLAGS should be passed on: %q", out2)
+		}
 	}
 	conf, _ := os.ReadFile(filepath.Join(root, "etc/circuitpathways-pi.conf"))
 	if !strings.Contains(string(conf), "KEY="+key) || !strings.Contains(string(conf), "SERVER=https://school.example.org") {

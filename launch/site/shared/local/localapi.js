@@ -163,6 +163,8 @@ export function createLocalApi({
       const st = await need();
       st.last_seen = now();
       await store.putStudent(st);
+      // a student who joined a class after starting here (the Pi beta): link this profile and send up what they've done
+      if (!st.cloud && cloud?.link?.()) await syncClass(st);
       return meOf(st);
     },
 

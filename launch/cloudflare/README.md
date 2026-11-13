@@ -61,6 +61,27 @@ secrets. Then run **Actions > Deploy to Cloudflare**.
 sign-in and nothing saved. Create its own database first (`npx wrangler d1 create circuit-pathways-test`) and
 put that id in the `test` section of `wrangler.jsonc`.
 
+**The Pi beta site** (`npm run deploy:pi`, or the same Action with "pi") is for students using Raspberry Pis.
+It is the real site, marked BETA, where **a class code is optional**:
+
+- With no code, a student starts straight away and their work is saved **on that Pi only** (in its browser).
+- With a class code (and their first name(s) and school), their work **also syncs to the class database**, so
+  the teacher sees it and it follows them to any device. Work they did before joining is sent up the next
+  time they open the app.
+- The Pi relay, Run on my Pi, the installers and the teacher page are all on. Uploading to a board and
+  linking a Pi work without a class code too (still rate limited).
+
+It uses the **same D1 database as the real site** (put the same `database_id` in the `pi` section of
+`wrangler.jsonc`), so a class a teacher makes on one site is the class students join on the other. Give it
+the same secrets, once, with `--env pi`:
+
+```bash
+for s in CLASS_SECRET TEACHER_CODES PI_KEY_SECRET COMPILE_URL COMPILE_KEY; do npx wrangler secret put $s --env pi; done
+```
+
+Then point the Pis at it: `sudo pilink server https://circuit-pathways-pi.YOUR-NAME.workers.dev` on each Pi, or
+make fresh installers with `launch -pi-refresh ... -server <that address>` (see LAUNCH.md).
+
 **Each teacher has their own code.** Their classes belong to that code. If a teacher's code is
 removed from `TEACHER_CODES`, they can't sign in any more, and their classes are deleted when they end.
 

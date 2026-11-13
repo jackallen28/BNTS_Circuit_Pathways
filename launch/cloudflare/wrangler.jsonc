@@ -31,6 +31,26 @@
   // logs keep method, path and status only: the Worker never logs request bodies
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "env": {
+    // the Pi beta: the site for students using Raspberry Pis. A class code is optional: without one, work is
+    // saved on the Pi only; with one it syncs to the SAME database as the real site, so a class a teacher makes
+    // there is the class students join here. Set the same secrets on both Workers (see README.md).
+    "pi": {
+      "name": "circuit-pathways-pi",
+      "vars": { "PI_BETA": "1", "DEFAULT_SCHOOL": "Banyule Nillumbik Tech School" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "circuit-pathways", "database_id": "REPLACE-WITH-YOUR-D1-ID", "migrations_dir": "migrations" }
+      ],
+      "durable_objects": { "bindings": [{ "name": "PIHUB", "class_name": "PiHub" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PiHub"] }],
+      "ratelimits": [
+        { "name": "LIMIT_JOIN", "namespace_id": "3001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "LIMIT_SIGNIN", "namespace_id": "3002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "LIMIT_CLASS", "namespace_id": "3003", "simple": { "limit": 20, "period": 60 } },
+        { "name": "LIMIT_WORK", "namespace_id": "3004", "simple": { "limit": 120, "period": 60 } },
+        { "name": "LIMIT_COMPILE", "namespace_id": "3005", "simple": { "limit": 20, "period": 60 } }
+      ],
+      "triggers": { "crons": [] }
+    },
     // the TEST (beta) version: no classes, teachers or Pi linking; nothing saved
     "test": {
       "name": "circuit-pathways-test",

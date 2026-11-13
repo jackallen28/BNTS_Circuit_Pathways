@@ -9,6 +9,23 @@ import (
 
 const permissionsPolicy = "serial=(self), usb=(self), camera=(), microphone=(), geolocation=(), interest-cohort=()"
 
+// Files that rarely change (the vendored Python, Blockly and esptool, and the logos) are cached for a week, so a
+// student's second visit, and especially a Raspberry Pi on slow WiFi, doesn't ask for 12 MB of Python again.
+// Everything else stays "no-cache": the browser asks, and gets a quick "not changed" when it hasn't.
+const vendorCacheControl = "public, max-age=604800"
+
+var longCachedDirs = []string{"pipath/vendor/", "arduinopath/vendor/", "img/"}
+
+// cacheControlFor is the Cache-Control header for a file in the site (path without a leading slash).
+func cacheControlFor(file string) string {
+	for _, d := range longCachedDirs {
+		if strings.HasPrefix(file, d) {
+			return vendorCacheControl
+		}
+	}
+	return "no-cache"
+}
+
 // CatalogueJSON is ArduinoPath's catalogue, as /arduinopath/data/catalogue.json serves it.
 func CatalogueJSON(c *content.Catalogue) ([]byte, error) {
 	boards := make([]json.RawMessage, 0, len(c.Boards))
@@ -44,6 +61,9 @@ func HeadersFile(beta bool) string {
 		if app == "/pipath/*" {
 			b.WriteString("  Cross-Origin-Embedder-Policy: require-corp\n")
 		}
+	}
+	for _, d := range longCachedDirs {
+		b.WriteString("/" + d + "*\n  ! Cache-Control\n  Cache-Control: " + vendorCacheControl + "\n")
 	}
 	return b.String()
 }

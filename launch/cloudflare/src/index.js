@@ -14,10 +14,14 @@ const PLACEHOLDER_SERVER = "https://circuit-pathways.onrender.com";
 const BETA_HIDDEN = [/^\/teacher(\/|$)/, /^\/api\/teacher\//, /^\/api\/class\//, /^\/api\/student\//, /^\/api\/pi\//, /^\/pipath\/remote\/?(index\.html|circuitpathways_pi\.py|install\.sh)?$/];
 
 const isBeta = (env) => env.BETA === "1" || env.BETA === "true";
+// The Pi beta: students use the site on a Raspberry Pi. A class code is optional. Without one, work is
+// saved on that device only and the apps use the access word "local"; with one, work also syncs to the class.
+const isPiBeta = (env) => !isBeta(env) && (env.PI_BETA === "1" || env.PI_BETA === "true");
 
 /** Who may use the compiler and the Pi relay: a student in a class that's running, or a teacher. */
 async function accessOK(env, token, now) {
   if (isBeta(env) && token === "beta") return true;
+  if (isPiBeta(env) && token === "local") return true; // no class: saved on the device, still rate limited
   if (await teacherFrom(env, token, now)) return true;
   return Boolean(await studentOf(env, token, now));
 }
@@ -105,6 +109,7 @@ async function handle(req, env) {
   if (p === "/api/info") {
     return json(200, {
       app: "Circuit Pathways", version: env.VERSION ?? "cloudflare", compile: Boolean(env.COMPILE_URL), beta,
+      edition: beta ? "test" : isPiBeta(env) ? "pi-beta" : "", class_optional: isPiBeta(env),
       classes: !beta, relay: env.PI_KEY_SECRET ? "ws" : "off", commit: String(env.CF_VERSION_METADATA?.id ?? "").slice(0, 8),
     });
   }
