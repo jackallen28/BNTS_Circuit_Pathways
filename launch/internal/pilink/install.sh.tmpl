@@ -41,6 +41,14 @@ if [[ -z "$ROOT" ]]; then
     apt-get update -qq && apt-get install -y -qq python3-gpiozero
   fi
   apt-get install -y -qq python3-lgpio >/dev/null 2>&1 || true   # the pin driver on newer Pis
+  # Grove Base Hat: Seeed's grove.py library (analog sensors, the Ultrasonic Ranger...) and I2C switched on.
+  # Best effort: a Pi without a Base Hat works without them. CP_GROVE=no skips this.
+  if [[ "${CP_GROVE:-yes}" != no ]]; then
+    say "Setting up the Grove Base Hat library (grove.py)"
+    command -v raspi-config >/dev/null && raspi-config nonint do_i2c 0 >/dev/null 2>&1 || true
+    python3 -c 'import grove' 2>/dev/null || pip3 install -q --break-system-packages grove.py >/dev/null 2>&1 || pip3 install -q grove.py >/dev/null 2>&1 || \
+      printf '\nNote: grove.py could not be installed (no internet?). Grove lessons with analog sensors need it: run  sudo pip3 install --break-system-packages grove.py\n'
+  fi
 fi
 
 say "Installing Pi Link for the Pi $ID"
