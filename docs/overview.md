@@ -34,8 +34,16 @@ The teacher's priorities, which everything must respect:
   as a Durable Object, and compiles passed to `COMPILE_URL`. The Go server still runs the same site on Render.
 - **Grove kits** (`site/shared/grove/grove.json`, `grove.js`): Base Shield / Base Hat ports and modules, Grove
   projects in both apps (a `grove` tier) with plug-in steps instead of breadboard wiring, and Grove in Free Play.
-- **Web Page Designer** (ArduinoPath, ESP boards: `js/webpage.js`, `js/dialogs/webpage.js`): students design a
-  phone web page and get a working WebServer sketch; the simulator's phone panel shows it.
+- **Web Page Designer** (ArduinoPath, ESP boards: `js/webpage.js` is the model and code maker, `js/dialogs/webpage.js`
+  the screen): students **drag** elements (heading, text, button, switch, slider, colour picker, reading as a number or a
+  bar, status light) from a palette onto a phone, drag them to reorder or onto a bin to remove (pointer events: mouse,
+  touch or pen; every action has a keyboard way too, and Undo/Redo). Each element shows what it's wired to
+  (`→ LED_PIN (pin 25)`, `← Knob (pin 34)`), clashing pins are flagged (a NodeMCU has one analog pin), and the inspector
+  says in one sentence what it does. **Try it** makes the page work against a pretend board (LEDs glow, the RGB LED
+  mixes, the buzzer beeps, knob and sensor sliders move the readings) using `tryIt()`, which follows the real sketch.
+  "See the code it makes" shows the sketch live. The generated page has no scripts, so it works in any phone browser and
+  in the simulator's phone. Every idea and an every-element page are compiled for real in CI for every ESP board
+  (`tools/make_compile_fixtures.mjs` writes them to `internal/arduino/testdata/webpage/`; a JS test keeps them in step).
 - **USB the browser way** (`js/usbserial.js`, `js/dialogs/boardhelp.js`): a website can't install drivers, so when
   Web Serial's box doesn't list the board, "Can't see your board?" gives tips for that kind of computer and offers
   the USB way: WebUSB drivers for CH340, CP210x, FTDI and CDC-ACM chips, shaped like Web Serial's SerialPort.

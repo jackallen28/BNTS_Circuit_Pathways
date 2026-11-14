@@ -26,6 +26,7 @@ monitor) is on the `drafts` branch, not here.
 go run ./cmd/circuitpathways -dev                 # http://localhost:8080, teacher code teacher-code-dev, no compilers
 gofmt -l . ; go vet ./... ; go test -race ./...
 python3 tools/build_pipath_data.py --check          # run without --check to regenerate after editing content/pipath/
+node tools/make_compile_fixtures.mjs --check        # run without --check after changing site/arduinopath/js/webpage.js
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover raspberry-pi
 npm ci && npm test
 CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test   # the app server is started by the config; port E2E_PORT or 8543

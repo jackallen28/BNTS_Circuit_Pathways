@@ -51,7 +51,9 @@ Ask whoever set it up which address to use. [`../README.md`](../README.md) expla
    - **Check my code** only compiles.
    - The **Coach** explains every error ("clue") in plain English, with hints that start small.
 6. **Stars** count independence (fewer hints is more stars), never speed.
-7. **ESP boards:** the **Web page** button helps students design a web page for their project and writes the code.
+7. **ESP boards:** the **Web page** button opens the Web Page Designer. Students drag buttons, switches, sliders, colour
+   pickers, readings and status lights onto a phone, choose which part each one works, and press **Try it** to use the
+   page on pretend parts before putting the code on the real board.
 
 ## The help levels
 

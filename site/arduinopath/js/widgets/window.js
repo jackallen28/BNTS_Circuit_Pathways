@@ -41,7 +41,7 @@ const dialogStack = []; // only the top dialog answers Escape and Tab
  * (`result`) that resolves with the value passed to close().
  * Escape and the red ✕ close it with `undefined`.
  */
-export function openDialog({ title, content = [], buttons = [], wide = false, iconName = "app", onOpen }) {
+export function openDialog({ title, content = [], buttons = [], wide = false, iconName = "app", onOpen, className = "" }) {
   const previous = document.activeElement;
   let resolve;
   const result = new Promise((r) => (resolve = r));
@@ -49,7 +49,7 @@ export function openDialog({ title, content = [], buttons = [], wide = false, ic
 
   const body = h("div", { class: "window-body" }, content,
     buttons.length ? h("div", { class: "dialog-buttons" }, buttons) : null);
-  const win = h("div", { class: ["window", "dialog", wide && "wide"], role: "dialog", "aria-modal": "true", "aria-labelledby": titleId },
+  const win = h("div", { class: ["window", "dialog", wide && "wide", className], role: "dialog", "aria-modal": "true", "aria-labelledby": titleId },
     h("div", { class: "titlebar" },
       icon(iconName, "app-icon"),
       h("span", { class: "title", id: titleId, text: title }),

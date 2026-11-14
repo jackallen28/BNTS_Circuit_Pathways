@@ -3,6 +3,7 @@ package arduino_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -51,6 +52,21 @@ func TestCompileEveryBoardForReal(t *testing.T) {
 			case "esp32":
 				if len(data) < 0x10000 {
 					t.Errorf("an ESP32 merged image is bootloader + partitions + app, got only %d bytes", len(data))
+				}
+			}
+			// the Web Page Designer's sketches for this board (written by tools/make_compile_fixtures.mjs)
+			pages, _ := filepath.Glob(filepath.Join("testdata", "webpage", b.ID+"--*.ino"))
+			if b.Family != "avr" && len(pages) == 0 {
+				t.Errorf("no Web Page Designer sketches for %s: run node tools/make_compile_fixtures.mjs", b.ID)
+			}
+			for _, f := range pages {
+				code, err := os.ReadFile(f)
+				if err != nil {
+					t.Fatal(err)
+				}
+				res, arts, err := tools.Compile(ctx, string(code), b.FQBN, b.BuildProperties)
+				if err != nil || !res.OK || len(arts) == 0 {
+					t.Errorf("%s doesn't compile: %v\n%s", filepath.Base(f), err, res.Output)
 				}
 			}
 			// a student's sketch with a mistake comes back as an error with a line number, and no file

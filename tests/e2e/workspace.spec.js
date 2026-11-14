@@ -239,12 +239,68 @@ test("Free Play with a Grove kit: add a module, its code goes in, it's in the si
   expect(problems).toEqual([]);
 });
 
-test("the Web Page Designer on an ESP: build a page, put it in the code, and the phone shows it", async ({ page }) => {
+/** Drags with the real mouse, in small steps, from one element to a point (like a student would). */
+async function dragTo(page, from, x, y) {
+  const b = await from.boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) await page.mouse.move(b.x + b.width / 2 + ((x - b.x - b.width / 2) * i) / 12, b.y + b.height / 2 + ((y - b.y - b.height / 2) * i) / 12);
+  await page.mouse.up();
+}
+
+test("the Web Page Designer on a NodeMCU: ideas, a pin clash warning, and a colour and beep to try", async ({ page }) => {
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(e.message));
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto("/arduinopath/");
+  const newTile = page.locator(".new-tile");
+  await expect(newTile.or(page.getByLabel("First name", { exact: true }))).toBeVisible();
+  if (await newTile.isVisible().catch(() => false)) await newTile.click();
+  await page.getByLabel("First name", { exact: true }).fill("Kai");
+  await page.getByLabel("Your school").fill("Test School");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByText("Beginner", { exact: true }).click();
+  await page.getByText("NodeMCU", { exact: false }).first().click();
+  await page.getByRole("button", { name: "Let's go!" }).click();
+  await page.locator(".freeplay-card").click();
+  await page.getByRole("button", { name: "Web page", exact: true }).click();
+  const dlg = page.getByRole("dialog", { name: "Web Page Designer" });
+
+  // start from the plant idea: its soil reading is on A0, the NodeMCU's only analog pin
+  await dlg.getByLabel("Start from an idea").selectOption("plant");
+  await page.getByRole("button", { name: "Start from it" }).click();
+  await expect(dlg.locator(".wp-phone h1")).toHaveText("Plant Buddy");
+  await expect(dlg.locator(".wp-el-reading meter")).toHaveAttribute("max", "1023"); // the board's own analog range
+  // a knob is on A0 too: both say so, and the inspector explains
+  await dlg.getByRole("button", { name: "Add Reading" }).click();
+  await expect(dlg.locator(".wp-badge.warn")).toHaveCount(2);
+  await expect(dlg.locator(".wp-badge.warn").first()).toHaveText("⚠ pin A0 is shared");
+  await expect(dlg.locator(".wp-warn")).toContainText("SOIL_PIN and POT_PIN are both on pin A0");
+  await dlg.getByRole("button", { name: "Undo" }).click();
+  await expect(dlg.locator(".wp-badge.warn")).toHaveCount(0);
+
+  // party lights: the colour picker lights the pretend RGB LED, and the beep button beeps
+  await dlg.getByLabel("Start from an idea").selectOption("party");
+  await page.getByRole("button", { name: "Start from it" }).click();
+  await dlg.getByRole("tab", { name: /Try it/ }).click();
+  const bench = dlg.locator(".wp-bench");
+  await expect(bench).toContainText("RGB LED");
+  await dlg.getByLabel("Light colour", { exact: true }).fill("#00ff00");
+  await expect(bench).toContainText("rgb 0, 255, 0");
+  await dlg.getByRole("button", { name: "Beep!" }).click();
+  await expect(bench.locator(".wp-buzz")).toHaveClass(/beep/);
+  await dlg.getByLabel("Beep pitch", { exact: true }).fill("440");
+  await expect(bench).toContainText("playing 440 Hz");
+  expect(problems).toEqual([]);
+});
+
+test("the Web Page Designer on an ESP: drag, drop, wire, try it, then the phone shows it", async ({ page }) => {
   const problems = [];
   page.on("pageerror", (e) => problems.push(e.message));
   // The phone is a sandboxed frame with no scripts: Chromium notes that
   // whenever the test looks inside it, which isn't a fault in the page.
   page.on("console", (m) => { if (m.type() === "error" && !/Blocked script execution in 'about:srcdoc'/.test(m.text())) problems.push(m.text()); });
+  await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto("/arduinopath/");
   const newTile = page.locator(".new-tile");
   await expect(newTile.or(page.getByLabel("First name", { exact: true }))).toBeVisible();
@@ -261,27 +317,88 @@ test("the Web Page Designer on an ESP: build a page, put it in the code, and the
   await expect(page.getByRole("button", { name: "Web page", exact: true })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Web page", exact: true }).click();
   const dlg = page.getByRole("dialog", { name: "Web Page Designer" });
+  const els = dlg.locator(".wp-el");
   await expect(dlg.locator(".wp-phone")).toContainText("My Smart Light");
+  await expect(els).toHaveCount(4); // the starting idea: some text, two buttons and a reading
+
+  // the page's settings: the title
   await dlg.getByLabel("Title").fill("Fish Feeder");
   await expect(dlg.locator(".wp-phone h1")).toHaveText("Fish Feeder");
-  await dlg.getByRole("button", { name: "+ Button" }).click();
-  const last = dlg.locator(".wp-item").last();
-  await last.getByLabel("Words on the button").fill("Feed the fish");
-  await last.getByLabel("What it does").selectOption("custom");
-  await expect(dlg.locator(".wp-phone")).toContainText("Feed the fish");
+
+  // drag a switch from the palette into the gap after the first element
+  const second = await els.nth(1).boundingBox();
+  await dragTo(page, dlg.getByRole("button", { name: "Add Switch" }), second.x + second.width / 2, second.y + 3);
+  await expect(els).toHaveCount(5);
+  await expect(els.nth(1)).toHaveClass(/wp-el-switch/);
+  await expect(els.nth(1)).toHaveClass(/selected/);
+  await expect(els.nth(1).locator(".wp-badge")).toHaveText("→ LED_PIN (pin 25)");
+  await expect(dlg.locator(".wp-does")).toContainText("turns LED_PIN (pin 25) on or off");
+
+  // drag the first element (the text) to the bottom of the page
+  const phone = await dlg.locator(".wp-phone").boundingBox();
+  await dragTo(page, els.nth(0), phone.x + phone.width / 2, phone.y + phone.height - 20);
+  await expect(els.last()).toHaveClass(/wp-el-text/);
+
+  // drag a button onto the bin to remove it; Undo brings it back
+  const bin = await dlg.locator(".wp-bin").boundingBox();
+  await dragTo(page, dlg.locator(".wp-el-button").first(), bin.x + bin.width / 2, bin.y + bin.height / 2);
+  await expect(els).toHaveCount(4);
+  await dlg.getByRole("button", { name: "Undo" }).click();
+  await expect(els).toHaveCount(5);
+
+  // a knob reading, added with a click, and changed in the inspector
+  await dlg.getByRole("button", { name: "Add Reading" }).click();
+  await expect(els).toHaveCount(6);
+  await expect(dlg.locator(".wp-el-reading .wp-badge")).toHaveText("← Knob (pin 34)");
+  await expect(dlg.locator(".wp-does")).toHaveText("Shows a knob (POT_PIN) as a bar. The page updates every 5 seconds.");
+  await expect(dlg.locator(".wp-inspector")).not.toContainText("null");
+  await dlg.getByLabel("Name", { exact: true }).fill("Water level");
+  const water = dlg.locator(".wp-el-reading", { hasText: "Water level" });
+  await expect(water).toHaveCount(1);
+
+  // the keyboard: Alt+Up moves an element up
+  const at = Number(await water.getAttribute("data-index"));
+  expect(at).toBeGreaterThan(0);
+  await water.focus();
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect(els.nth(at - 1)).toContainText("Water level");
   await page.screenshot({ path: "test-results/screenshots/webpage-designer.png" });
+
+  // Try it: the page works on the pretend board
+  await dlg.getByRole("tab", { name: /Try it/ }).click();
+  const bench = dlg.locator(".wp-bench");
+  await expect(bench).toContainText("LED_PIN (pin 25)");
+  await expect(bench.locator(".wp-part").first()).toContainText("off");
+  await dlg.getByRole("switch").click();
+  await expect(dlg.getByRole("switch")).toContainText("ON");
+  await expect(bench.locator(".wp-part").first()).toContainText("on");
+  await dlg.getByRole("button", { name: "Turn it off" }).click();
+  await expect(dlg.getByRole("switch")).toContainText("OFF", { timeout: 2000 });
+  await dlg.getByLabel("Pretend knob").fill("3000");
+  await expect(water.locator("b")).toHaveText("3000");
+  await page.screenshot({ path: "test-results/screenshots/webpage-designer-try.png" });
+
+  // the code is right there to look at
+  await dlg.locator(".wp-code-box summary").click();
+  await expect(dlg.locator(".wp-code")).toContainText("void toggleLight()");
+
   await dlg.getByRole("button", { name: "Put it in my code" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Replace it" }).click();
   await expect(page.locator(".editor-text")).toHaveValue(/Fish Feeder: a web page made with ArduinoPath's Web Page Designer/);
-  await expect(page.locator(".editor-text")).toHaveValue(/void feedTheFish\(\) \{/);
-  // run it: the phone shows the page
+  await expect(page.locator(".editor-text")).toHaveValue(/void toggleLight\(\) \{/);
+  // run it: the phone shows the page, and its switch works
   await page.getByRole("button", { name: "Run" }).click();
   await expect(page.locator(".rp-phone")).toBeVisible({ timeout: 20_000 });
   await page.locator(".rp-phone").getByRole("button", { name: "Go" }).click();
-  await expect(page.frameLocator(".rp-phone-screen").locator("h1")).toHaveText("Fish Feeder", { timeout: 15_000 });
+  const phoneFrame = page.frameLocator(".rp-phone-screen");
+  await expect(phoneFrame.locator("h1")).toHaveText("Fish Feeder", { timeout: 15_000 });
+  await phoneFrame.locator("a.switch").click();
+  await expect(phoneFrame.locator("a.switch")).toHaveClass(/sw-on/, { timeout: 10_000 });
   // the design is kept for next time
   await page.reload();
   await page.getByRole("button", { name: "Web page", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Web Page Designer" }).locator(".wp-phone h1")).toHaveText("Fish Feeder");
+  await expect(page.getByRole("dialog", { name: "Web Page Designer" }).locator(".wp-el")).toHaveCount(6);
   expect(problems).toEqual([]);
 });
+
