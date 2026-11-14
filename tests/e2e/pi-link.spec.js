@@ -31,7 +31,7 @@ test("a browser pairs with a Pi and controls its pins", async ({ page }) => {
 
   const code = await pairingCode();
   await page.goto("/pipath/remote/");
-  await expect(page.locator("#cmd")).toContainText("install.sh");
+  await expect(page.locator("#cmd")).toContainText("/install/student-pi.sh | sudo bash");
 
   // a wrong code is explained, a right one connects
   await page.fill("#code", "ZZZZ-ZZZZ");
