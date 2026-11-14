@@ -34,7 +34,7 @@ func (s *Server) staticHandler() http.Handler {
 	tags := etags(s.Site)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if p == "/arduinopath" || p == "/pipath" || p == "/teacher" {
+		if p == "/arduinopath" || p == "/pipath" || p == "/teacher" || p == "/trust" {
 			http.Redirect(w, r, p+"/", http.StatusMovedPermanently)
 			return
 		}

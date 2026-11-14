@@ -1,9 +1,9 @@
 // The Pi Link page: pair with a Pi, see its 40-pin header, and control the pins.
 
 import { getAccess } from "/shared/access.js";
+import { info } from "/shared/edition.js";
 import { PiRemote, HEADER, USABLE } from "./pi-remote.js";
 
-if (!getAccess()) location.replace("/?need=class");
 
 const $ = (s) => document.querySelector(s);
 const remote = new PiRemote();
@@ -20,7 +20,9 @@ window.piRemote = remote; // handy for trying things in the browser's console, a
   }
 }
 
-$("#cmd").textContent = `curl -fsSL ${location.origin}/pipath/remote/install.sh | sudo bash -s -- CPK1-XXXXXXXX-XXXXXXXXXX`;
+// a student Pi is set up from the school server (this page may be on the Pi itself, or on the school server)
+const school = info.school_server || location.hostname;
+$("#cmd").textContent = `curl -fsSL http://${school}/install/student-pi.sh | sudo bash`;
 
 function say(text, kind = "") {
   const s = $("#status");
@@ -48,7 +50,7 @@ $("#pair").addEventListener("submit", async (e) => {
     await remote.connect($("#code").value);
   } catch (err) {
     say(err.message, "bad");
-    if (err.code === "no_class") location.replace("/?need=class");
+    if (err.code === "no_class") location.replace("/");
   } finally {
     btn.disabled = false;
   }

@@ -1,0 +1,17 @@
+.trust { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
+.trust .back { color: #9ff3f7; font-weight: 700; text-decoration: none; }
+.trust h1 { font-size: clamp(28px, 4.5vw, 42px); margin: 16px 0 12px; }
+.trust .lead { font-size: 18px; }
+.trust a { color: #9ff3f7; }
+.trust .step { margin: 18px 0; padding: 20px 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.07); }
+.trust .step h2 { margin: 0 0 10px; font-size: 22px; }
+.trust details { margin: 8px 0; padding: 10px 14px; border-radius: 12px; background: rgba(0,0,0,.22); }
+.trust summary { cursor: pointer; font-weight: 800; }
+.trust ol { margin: 10px 0 4px; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.trust code { font: 13px ui-monospace, Consolas, monospace; word-break: break-all; }
+.trust .status { padding: 12px 16px; border-radius: 12px; background: rgba(255,213,74,.16); border: 1px solid rgba(255,213,74,.5); }
+.trust .status.good { background: rgba(80,220,140,.16); border-color: rgba(80,220,140,.6); }
+.trust .btn { display: inline-block; text-decoration: none; font: inherit; font-weight: 700; color: #fff; cursor: pointer; padding: 10px 20px;
+  border: 0; border-radius: 999px; background: linear-gradient(180deg, #74e3e9, var(--teal2, #19c1ca) 52%, #0a868c); }
+.trust .note.good { color: #9ff0c0; }
+.trust .note.bad { color: #ffb4a8; }

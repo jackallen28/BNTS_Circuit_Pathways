@@ -37,9 +37,9 @@ func (s *Server) handlePiApp(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	scheme := "https"
-	if h := hostOnly(r.Host); h == "localhost" || h == "127.0.0.1" || h == "::1" {
-		scheme = "http"
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
 	}
 	out := strings.Replace(string(src), placeholderServer, scheme+"://"+r.Host, 1)
 	w.Header().Set("Content-Type", "text/x-python; charset=utf-8")
@@ -148,8 +148,8 @@ func (s *Server) handlePiSend(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) allowedBrowser(w http.ResponseWriter, r *http.Request) bool {
-	if !s.Signer.CheckAccess(r.Header.Get(accessHeader), s.Now()) {
-		writeError(w, http.StatusUnauthorized, "no_class", "Join a class with your class code to connect to a Pi.")
+	if !s.accessOK(r, bearer(r)) {
+		writeError(w, http.StatusUnauthorized, "no_class", "Your class has ended. Join again on the home page, or carry on without a class.")
 		return false
 	}
 	return true
@@ -226,9 +226,9 @@ func (s *Server) handlePiInstaller(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	scheme := "https"
-	if h := hostOnly(r.Host); h == "localhost" || h == "127.0.0.1" || h == "::1" {
-		scheme = "http"
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
 	}
 	script, err := pilink.Installer(scheme+"://"+r.Host, "", app)
 	if err != nil {

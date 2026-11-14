@@ -1,5 +1,6 @@
 // The activity picker: Free Play first, then every activity. Nothing is locked.
 import { h, fill } from "../dom.js";
+import { piLink } from "../../../shared/edition.js";
 import { state } from "../state.js";
 import { api } from "../api.js";
 import { LEVELS, LEVEL_INFO, shown, starsFor, NOT_IN_BROWSER, normaliseLevel } from "../progress.js";
@@ -51,5 +52,5 @@ export function pickerScreen(root, { openActivity, openFree, openSettings, logOu
       h("button", { class: "btn", type: "button", text: "Settings", onclick: openSettings }), h("button", { class: "btn", type: "button", id: "logout", text: "Log out", onclick: logOut })),
     chips,
     h("main", { class: "picker", id: "main" }, h("div", { class: "picker-win" }, grid)),
-    h("div", { class: "statusbar" }, h("span", { text: `Help: ${LEVEL_INFO[normaliseLevel(settings().help_level)][0]}` }), h("span", { style: { flex: "1" } }), h("a", { href: "remote/", text: "Link to a Raspberry Pi (beta)" }))));
+    h("div", { class: "statusbar" }, h("span", { text: `Help: ${LEVEL_INFO[normaliseLevel(settings().help_level)][0]}` }), h("span", { style: { flex: "1" } }), piLink ? h("a", { href: "remote/", text: "Pi Link: this Pi's pins" }) : null)));
 }

@@ -1,37 +1,48 @@
 # Circuit Pathways: project overview (for anyone, human or AI, joining the work)
 
-Read this first, then `AGENTS.md` (the rules) and `docs/deploy-render.md` (deploying).
+Read this first, then `AGENTS.md` (the rules) and `docs/server.md` (setting up the school server).
 
 ## 1. What this is
 
 **Circuit Pathways** is a free, no-AI coding tutor for secondary students (Years 7-10, some VCE), made by the
-**Banyule Nillumbik Tech School (BNTS)** and reviewed by teachers. It has two learning apps that run **in the
-student's browser** (Chrome or Edge on a laptop) from one website:
+**Banyule Nillumbik Tech School (BNTS)** and reviewed by teachers. It runs on **the school's own Raspberry Pi** (the
+*school server*), which every computer on the school network opens in Chrome or Edge, and on each **student Pi**, which
+runs it itself so it works offline. Nothing is on the internet. It has two learning apps:
 
 | App | Language | Real hardware | In the browser |
 |---|---|---|---|
-| **PiPath** | Python | Raspberry Pi (GPIO, camera) | 27 of 28 activities run with Python in the browser (Pyodide) and an on-screen Pi. A student can instead choose **Run on: My Raspberry Pi** so the program runs on their own Pi. |
-| **ArduinoPath** | Blocks or Arduino C++ | Uno, Nano, NodeMCU, ESP32 and others | A full simulator, Wiring Wizard, Coach, and **Upload to a real board** over USB (Web Serial). |
+| **PiPath** | Python | Raspberry Pi (GPIO, camera) | 27 of 28 activities run with Python in the browser (Pyodide) and an on-screen Pi. On a **student Pi**, programs run on its real pins (Pi Link). Laptops are simulation only. |
+| **ArduinoPath** | Blocks or Arduino C++ | Uno, Nano, NodeMCU, ESP32 and others | A full simulator, Wiring Wizard, Coach, and **Upload to a real board** over USB (Web Serial), compiled on the school server. |
+
+```
+laptops ──https──▶ SCHOOL SERVER (main Pi): the site, classes + set work + students' work (SQLite), the compiler,
+                   the teacher portal, the student Pi installer, its own https certificate
+student Pis: the same program on http://localhost:8080 (the site, Pi Link), classes and compiles passed on to the
+             school server when it can be reached (offline: work waits in the browser and goes up later)
+```
 
 The teacher's priorities, which everything must respect:
 
 1. **Keep student data to the minimum.** A student gives a *first name (or up to 4 first names) and a school*, nothing
-   else. On the **Go / Render** site these stay in the student's browser and in save files the student downloads; the
-   server never receives them. On the **Cloudflare** site, a student who *chooses to join a class* has their first
-   name(s), school and work kept with that class (so the teacher can see it), and all of it is deleted after the
-   class's end date. A student with no class (the Pi beta, the TEST version) keeps everything on their own device.
+   else. With no class, these stay in the student's browser and in save files the student downloads. A student who
+   *chooses to join a class* has their first name(s), school and work kept with that class **on the school server**
+   (so the teacher can see it), and all of it is deleted after the class's end date.
 2. **No AI** anywhere (no generative features, no model calls). All help is a hand-written database of errors, hints
    and tiered explanations.
-3. **No accounts, cookies, analytics, CDN scripts or fonts.** Third-party code is vendored with its licence.
+3. **No accounts, cookies, analytics, CDN scripts or fonts, and nothing on the internet.** Third-party code is vendored
+   with its licence.
 4. **Students run their own learning.** Every activity is open from day one; the student picks their help level.
+   Teachers can **set work** (a suggested list), never lock it.
 5. **Student-facing text:** plain English, short sentences, about a Year 7 reading level, **Australian spelling**
    (colour, organise, favourite), encouraging, errors are "clues" not "failures".
 6. **Safety text** on every wiring screen (unplug before changing wires, never 5V on an ESP/Pi pin, resistor with LEDs).
 7. FidgetCAD is **out of scope**. Ignore anything about it.
 
-### Added in 2026 (Cloudflare and kits)
-- **Cloudflare** (`cloudflare/`, its README): the site as a Worker with static assets, saved classes in D1, the Pi relay
-  as a Durable Object, and compiles passed to `COMPILE_URL`. The Go server still runs the same site on Render.
+### Added in 2026
+- **The school server** (November 2026; `docs/server.md`): the Go program keeps classes in SQLite (`internal/store`),
+  makes its own https certificate (`internal/tlsca`), hands student Pis their installer (`internal/setup`), and runs as
+  a student Pi (`-mode student-pi`, `internal/server/upstream.go`). Teachers **set work** for a class and see
+  **progress** on it. The Cloudflare and Render hosting it replaced is on the `drafts` branch (`draft/cloud-hosting/`).
 - **Grove kits** (`site/shared/grove/grove.json`, `grove.js`): Base Shield / Base Hat ports and modules, Grove
   projects in both apps (a `grove` tier) with plug-in steps instead of breadboard wiring, and Grove in Free Play.
 - **Web Page Designer** (ArduinoPath, ESP boards: `js/webpage.js` is the model and code maker, `js/dialogs/webpage.js`
@@ -49,51 +60,49 @@ The teacher's priorities, which everything must respect:
   the USB way: WebUSB drivers for CH340, CP210x, FTDI and CDC-ACM chips, shaped like Web Serial's SerialPort.
   Chrome on Android (WebUSB, no Web Serial) uses it straight away. On Windows the normal way is the one to use:
   Windows Update adds the CH340 / CP210x drivers, and WebUSB can't claim a chip that has a driver.
-- **The Pi beta edition** (`PI_BETA=1`, wrangler env `pi`, `site/shared/beta.js` `piBeta`, `access.js` kind `local`): the
-  real site marked BETA where a class code is optional. No code: the apps get the access word `local` (the Worker lets
-  it compile and link a Pi, rate limited) and everything is saved in the browser on that device. A class code: the
-  same sync to the class database as the real site (which it shares). A profile made before joining is linked and
-  uploaded the next time the app opens (`localapi.me()`). The TEST version (`BETA=1`) is unchanged: nothing saved.
-- **Faster on a Pi**: vendored files (Python, Blockly, esptool, logos) are cached a week (`cacheControlFor`, `_headers`);
+- **Faster on a Pi**: vendored files (Python, Blockly, esptool, logos) are cached a week (`cacheControlFor`);
   the Pi launcher passes Chromium flags for classrooms (no keyring prompt, big disk cache, low-memory mode on <=2 GB).
-- **The Raspberry Pi version** (`internal/pilink/install.sh.tmpl`, `site/shared/thispi.js`): the Pi installer adds
-  Pi menu and desktop shortcuts that open the site with `?pi=<ID>`, so PiPath on that Pi runs programs on it. Work is
-  saved on the Pi and synced to the student's class.
+- **Student Pis** (`internal/setup/student-pi.sh.tmpl`, `internal/pilink/install.sh.tmpl`, `site/shared/thispi.js`):
+  the installer adds Pi menu and desktop shortcuts that open `http://localhost:8080` with `?pi=<ID>`, so PiPath on that
+  Pi runs programs on it. Work is saved on the Pi and synced to the student's class.
 
 ## 2. Repository layout
 
 ```
-README.md               start here: which edition and which repository is which
+README.md               start here: how it fits together, and which repository is which
 AGENTS.md               the rules for anyone (or any AI tool) changing the code
 site/                   everything the browser loads (plain HTML, CSS and ES modules, no build step).
                         The folders match the web addresses:
   index.html, css/, js/, img/   the home page (/)
   pipath/                       PiPath (/pipath/), with the Pi app in pipath/remote/
   arduinopath/                  ArduinoPath (/arduinopath/)
-  teacher/                      the teacher page (/teacher/)
-  shared/                       code both apps use: access, beta editions, class sync, Grove, the local database
+  teacher/                      the teacher portal (/teacher/)
+  trust/                        setting a laptop up to trust the school server's https certificate (/trust/)
+  shared/                       code both apps use: access, the server's edition, class sync, Grove, the local database
 content/                what a teacher can edit, as data
   arduinopath/                  boards, parts, projects, errors, kit, curriculum (JSON)
   pipath/                       lessons, catalogue, errors, free play (TOML)
-cmd/circuitpathways/             the Go program: flags, environment, Pi keys, the export for Cloudflare
+cmd/circuitpathways/    the Go program: the school server / student Pi, and its commands (teacher, status, backup...)
 internal/               the Go server's packages (listed below)
 embed.go                builds site/ and content/arduinopath/ into the Go program
-cloudflare/             the same site as a Cloudflare Worker: classes in D1, the Pi relay, the compile proxy
 raspberry-pi/           tests and README for the Pi app (the app is site/pipath/remote/circuitpathways_pi.py,
                         its installer is internal/pilink/install.sh.tmpl)
-tests/                  js/ (Node tests), e2e/ (Playwright, in a real browser)
-tools/                  build_pipath_data.py (PiPath TOML to JSON), grove_art.mjs (Grove part drawings)
-docs/                   overview.md (this), deploy-render.md, server.md, hardware-checklist.md
-Dockerfile*, render*.yaml   building and hosting on Render
-.github/workflows/      ci.yml (every test, a real compile, the Docker image), cloudflare-deploy.yml
+tests/                  js/ (Node tests), e2e/ (Playwright, in a real browser), pi-server/smoke.sh (the servers for real)
+tools/                  build-pi.sh (the Raspberry Pi download), preflight.mjs, build_pipath_data.py, grove_art.mjs
+docs/                   overview.md (this), server.md, test-day.md, teacher-guide.md, hardware-checklist.md
+VERSION                 the version the download and releases carry
+.github/workflows/      ci.yml (every test, a real compile, the Pi download), release.yml (publish the download)
 ```
 
 Older and experimental work is **not** here: it is on the `drafts` branch (section 9).
 
 The Go packages in `internal/`:
 ```
-internal/classes/       class codes and teacher tokens (signed, stateless)
-internal/server/        HTTP server: routes, security headers/CSP, rate limits, compile, Pi relay endpoints
+internal/store/         SQLite: classes, students (first names + school), work, set work; clean-up, backup, wipe
+internal/auth/          teacher and student tokens (HMAC), the teacher codes file
+internal/tlsca/         the school server's own certificate authority and https certificate
+internal/setup/         the installers: the school server's (in the download) and each student Pi's (served)
+internal/server/        HTTP server: routes, classes, security headers/CSP, rate limits, compile, Pi relay, student Pi upstream
 internal/arduino/       arduino-cli pinned in requirements.json; Setup/Compile; returns base64 artifacts
 internal/content/       loads and validates ArduinoPath content (boards, projects, errors)
 internal/pirelay/       the Pi relay: Command (whitelist), in-memory hubs, SSE streams
@@ -103,19 +112,21 @@ internal/pilink/        Pi keys (HMAC) and the Pi installer template (install.sh
 ## 3. The website (what students and teachers see)
 
 ### Home page (`site/index.html`, `css/`, `js/home.js`)
-Dark gradient with the 3D BNTS logo, a Win95-styled PiPath card and a Vista-styled ArduinoPath card, a
-compare table, and two forms:
-- **Student:** type a **class code** (`ABCDE-FGHJK`) -> stored in `localStorage` (`circuitpathways.access`) until it
-  expires -> open PiPath or ArduinoPath. Then the app asks for first name(s) + school (kept in the browser).
-- **Teacher:** type a **teacher code** -> a 12-hour teacher token -> the teacher page.
+Dark gradient with the 3D BNTS logo, a Win95-styled PiPath card and a Vista-styled ArduinoPath card, a compare table,
+and two forms:
+- **Student:** start straight away (no class: work saved in this browser), or type a **class code** (`ABCDE-FGHJK`),
+  then first name(s) + school -> a student token in `localStorage` (`circuitpathways.access`) until the class ends.
+  A student in a class sees the **work their teacher set**, with links that open each project or activity.
+- **Teacher:** type a **teacher code** -> a 12-hour teacher token -> the teacher portal.
+- On a laptop over plain http, a note links to the secure address and `/trust/`. On a student Pi, a note says when the
+  school server can't be reached.
 
-### Teacher page (`site/teacher/`)
-Signed-in teachers can: make a **class code** (1 day to a year); name the class; **save/open a class file**
-(`.circuitclass`, a zip holding the class setup plus students' handed-in `.circuit` / `.pipath` files); add student
-files and see who has done what. The class name, the class file and all student work stay on the **teacher's
-computer**, handled only in the browser. The Go server stores nothing about classes. **On Cloudflare** (`cloudflare/`),
-classes are saved in D1 instead: students join with the class code + first name(s) + school, their work syncs to the
-class, and the teacher page shows the roster and work. Everything is deleted after the class's end date.
+### Teacher portal (`site/teacher/`)
+Make classes (name, school, end date), see each class's roster and work (**See work**, download everyone's work as
+save files), **set work** (ArduinoPath projects and PiPath activities in order, with a note:
+`PUT /api/teacher/class/<code>/tasks`), and a **progress** table for the set work (✓ finished, n/N steps, · opened,
+worked out from each student's synced progress). Change a class's end date, remove a student, delete a class.
+Class files (`.circuitclass`) are an optional copy on the teacher's computer.
 
 ### PiPath (`site/pipath/`) - Windows 95 look
 - Vanilla ES modules and DOM helpers only (`js/dom.js` `h()`), CSSOM for dynamic styles (CSP forbids `style=""`).
@@ -154,47 +165,50 @@ class, and the teacher page shows the roster and work. Everything is deleted aft
 - Projects/boards/errors are data in `content/` (JSON, schema in `content/arduinopath/schema/`).
 
 ### Shared (`site/shared/`)
-`access.js` (class/teacher access in localStorage, `postJSON` adds the required headers), and `local/` (the
-browser-local save system used by both apps: `.circuit` for ArduinoPath, `.pipath` for PiPath).
+`access.js` (a student's class token or a teacher's sign-in in localStorage, else `local`; `postJSON` adds the required
+headers), `edition.js` (school server or student Pi, Pi Link on or off, the build line), and `local/` (the browser-local
+save system used by both apps: `.circuit` for ArduinoPath, `.pipath` for PiPath; `cloud.js` and `localapi.js` sync a
+class member's work to the school server, and send up anything newer that waited while offline).
 
 ## 4. The server (Go, `internal/server`)
 
-One binary, one port (`$PORT`, default 8080). Only these jobs: serve the site, check class/teacher access,
-compile Arduino code, relay Pi messages.
+One program, two modes (`-mode school`, the default, and `-mode student-pi`). See `docs/server.md` for running it.
 
 | Route | Purpose |
 |---|---|
-| `POST /api/teacher/signin` | teacher code -> 12 h token `t1.<exp>.<sig>` |
-| `POST /api/teacher/class` | teacher token -> new class code |
-| `POST /api/class/join` | check a class code (rate limited) |
-| `POST /api/compile` | class code or teacher token in `X-Access`; compiles for a board with arduino-cli |
-| `GET /arduinopath/data/catalogue.json`, `/projects/{id}` | ArduinoPath content |
-| `GET /api/pi/events?code=` (SSE), `POST /api/pi/command` | browser side of the Pi relay (needs class access) |
+| `POST /api/teacher/signin` | a teacher code (from `teacher-codes.txt` in the data folder) -> 12 h token `t2.<teacher>.<exp>.<sig>` |
+| `GET /api/teacher/classes`, `POST /api/teacher/class` | the teacher's classes; make one (name, school, `days` or `ends_at`) |
+| `/api/teacher/class/<code>` (`GET`, `DELETE`, `/work`, `/end`, `/tasks` `GET`/`PUT`, `/students/<id>` `DELETE`) | a class: roster + tasks, everyone's work, end date, set work, remove a student |
+| `POST /api/class/join` | a class code alone -> `needs_names`; with first names + school -> a student token `s2.<id>.<sig>` |
+| `/api/student/me` (`GET` with tasks, `DELETE`), `/api/student/work` (`GET`, `POST` up to 25 items, newer wins) | a student's own class |
+| `POST /api/compile` | compiles for a board with arduino-cli. Anyone on the network; a token that is sent must be real |
+| `GET /api/pi/events?code=` (SSE), `POST /api/pi/command` | browser side of the Pi relay (a student Pi) |
 | `GET /api/pi/pi/events` (SSE), `POST /api/pi/pi/send` | Pi side (needs the Pi's key in `X-Pi-Key`) |
-| `GET /pipath/remote/circuitpathways_pi.py`, `install.sh` | the Pi app / generic installer with this site's address filled in |
-| `GET /healthz`, `GET /api/info` | health, version |
+| `GET /install/student-pi.sh`, `/install/circuitpathways-linux-<arch>`, `/ca.crt` | the school server sets up student Pis and laptops |
+| `GET /healthz`, `GET /api/info` | health; edition (`school`/`student-pi`), name, build, compile, relay, online, tls, fingerprint |
 
 Rules the server enforces: security headers on everything; **strict CSP** (`/arduinopath/` and `/pipath/` use
-`style-src 'self'`, so no inline styles; the home and teacher pages allow inline styles); every write needs the
-`X-Circuit-Pathways: 1` header; strict request validation and size limits (`maxBody` 128 KB); per-IP in-memory
-rate limits; logs hold method, path, status, time only. **No database. Nothing is written to disk** except the
-compiler's temporary folder.
+`style-src 'self'`, so no inline styles; the home, teacher and trust pages allow inline styles); every write needs the
+`X-Circuit-Pathways: 1` header and JSON; strict validation (the same name/school rules as `validate.js`) and size
+limits; per-address in-memory rate limits (no proxy headers trusted); logs hold method, path, status and time only.
 
-### Stateless auth (`internal/classes`)
-- **Class code** `ABCDE-FGHJK`: 12 bits expiry day (days after 1 Jan 2026) + 13 random bits + 25-bit
-  HMAC-SHA256 tag, Crockford base32, valid to the end of that day in Melbourne time. Cannot be revoked early.
-- **Teacher token** `t1.<exp>.<sig>`, 12 hours. Teacher codes come from env `TEACHER_CODES` (comma separated, >= 8 chars).
-- Secrets: `CLASS_SECRET` (never change it once classes are out), `TEACHER_CODES`, `PI_KEY_SECRET`,
-  optional `REVOKED_PI_IDS`. `-dev` mode uses fixed dev values (teacher code `teacher-code-dev`).
+**Data** (`/var/lib/circuitpathways`): `pathways.db` (SQLite, WAL, `secure_delete`, schema version), `secret` (signs
+tokens), `teacher-codes.txt`, `tls/` (the certificate authority and certificate), and on a student Pi `pi-key-secret`
+and `this-pi-id`. Classes that have ended are deleted every few hours (then the file is compacted).
+
+**A student Pi** (`upstream.go`): serves the site and Pi Link itself on `127.0.0.1:8080`; `/api/teacher/`, `/api/class/`,
+`/api/student/` (and `/api/compile` without local tools) go to the school server over https, trusting only its
+certificate authority; if it can't be reached, those answer 503 `offline` and `/api/info` says `online: false`.
 
 ## 5. Raspberry Pi: Pi Link and "Run on my Raspberry Pi"
 
 ```
-student's browser  <--SSE / POST-->  Circuit Pathways server (relay, in memory)  <--SSE / POST-->  Pi app
+the Pi's browser  <--SSE / POST-->  Circuit Pathways on the same Pi (localhost:8080, relay in memory)  <--SSE / POST-->  Pi app
 ```
-Both sides only make **outgoing** connections, so it works on school networks and from an https page.
+Everything stays on the student Pi, so it works with no network.
 
-- Each Pi has its own key `CPK1-<8 id>-<10 mac>` (HMAC, `PI_KEY_SECRET`); the student types the Pi's ID `XXXX-XXXX`.
+- Each Pi has its own key `CPK1-<8 id>-<10 mac>` (HMAC with the Pi's own `pi-key-secret`, made by
+  `circuitpathways pi-key`); the shortcuts pass the Pi's ID `XXXX-XXXX` (`?pi=`), so nobody types it.
 - **Pi app** `site/pipath/remote/circuitpathways_pi.py` (stdlib + gpiozero; `--mock` for pretend pins):
   - **Bridge:** whitelisted pin commands (GPIO 2-27: mode/write/pwm/release/all_off/read/ping); fail-safe turns
     outputs off after 10 s offline.
@@ -205,15 +219,14 @@ Both sides only make **outgoing** connections, so it works on school networks an
     `File "program.py"`. Off switch: `RUN=no` / `sudo pilink run off`.
 - **Relay** (`internal/pirelay`): `Command.Check()` is the whitelist (file names, sizes, helper list, camera
   object); events `hello/state/error/pong/run/out/exit`; browser queue 512 so output is never dropped.
-- **Installer** (`internal/pilink/install.sh.tmpl`, per-Pi via `go run ./cmd/circuitpathways -pi-keys N`; refresh with
-  `-pi-refresh pi-keys.csv`): installs the app, `cprun`, a locked-down systemd service that starts at boot, the
+- **Installer** (`internal/pilink/install.sh.tmpl`, run by the student Pi installer via `circuitpathways pi-installer`):
+  installs the app, `cprun`, a locked-down systemd service that starts at boot, the
   `pilink` helper (`show|status|log|restart|run on|off|server|uninstall`), `PI-LINK-ID.txt`, a desktop ID popup.
   The template uses `<% %>` delimiters because bash `[[ ]]` clashes with Go's `{{ }}`.
 - **Browser side:** `site/pipath/remote/pi-remote.js` (`PiRemote`: connect, pins, `run/stdin/stop`),
   `site/pipath/js/runtime/pi.js` (singleton), `js/dialogs/pi.js` (link window), `js/screens/workspace.js`
   (`where`, `ensurePi`, `runOnPi`), and `/pipath/remote/` (the older pin-switching page).
-- Security posture is documented in `docs/deploy-render.md` ("Running students' programs on a Pi"). Be honest in docs:
-  student code is real Python on the school network.
+- Be honest in docs: student code is real Python on the student's Pi (as `cprun`, with limits).
 
 ## 6. Data and saving
 
@@ -226,42 +239,29 @@ Both sides only make **outgoing** connections, so it works on school networks an
 
 ```
 gofmt -l .                                   # must print nothing
-go vet ./... && go test -race ./...          # server, classes, relay, pilink, content, cmd
+go vet ./... && go test -race ./...          # server, classes, set work, student Pi, certificates, relay, pilink, content
 python3 tools/build_pipath_data.py --check   # PiPath JSON up to date with the TOML
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover raspberry-pi   # Pi app, runs real programs (36 tests)
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover raspberry-pi   # Pi app, runs real programs
 npm ci && npm test                           # about 400 Node tests (simulator, wizard, saves, flashing, every PiPath demo in real Pyodide)
-CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test        # 65 end-to-end tests (spawns the real Go server in -dev; some spawn the real Pi app)
+bash tests/pi-server/smoke.sh                # the school server with https + a student Pi installed from it, Pi Link, offline
+CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test   # end-to-end: a dev school server (8543) and a student Pi (8546)
 ```
-CI (`.github/workflows/ci.yml`) runs all of that plus `compile` (real arduino-cli compile of every board via
-`TestCompileEveryBoardForReal`) and `image` (docker build + smoke). Not verifiable offline: the real compile and
-Docker build (CI covers them), real board upload, and a real Pi.
+CI (`.github/workflows/ci.yml`) runs all of that plus `compile` (the real arduino-cli for every board, and the smoke test
+with a real compile through the school server and a student Pi) and `pi-bundle` (builds the Raspberry Pi download and
+runs the smoke test with it). Not verifiable here: real board uploads, a real Pi's pins, the installers under systemd
+on a real Pi, and laptops trusting the certificate.
 
 ## 8. Deploy
 
-`render.yaml` (repository root): Docker web service `circuit-pathways`, Standard plan (ESP32
-compiler needs ~1.5 GB). Env: `CLASS_SECRET` (generated), `TEACHER_CODES`, `PI_KEY_SECRET`, `REVOKED_PI_IDS`
-(secrets set in Render, never in git). The first build downloads the Arduino toolchain. See `docs/deploy-render.md`.
-
-## 8b. The TEST version (BETA=1)
-
-`BETA=1` (or `-beta`) turns the same build into a shareable test for colleagues: the home page shows a TEST label;
-`site/shared/beta.js` asks `/api/info`, and when it is the test version `getAccess()` returns an open "beta" access (a
-joined class or teacher sign-in wins over it), `openStore()` returns the in-memory store, Save/Open my work, Download
-.ino, Wipe and the PiPath "Run on" choice are hidden, and a TEST tag is shown. The server returns 404 for `/api/pi/` and
-the Pi Link page, sends `X-Robots-Tag: noindex`, and accepts the open access only for `/api/compile`.
-
-**Beta teacher mode** (both beta editions, `info.teacher_mode`): classes and the teacher page are there, and a teacher
-signs in with **a code they make up** (8 to 64 characters; their classes are kept under it, nobody else sees them
-without it). The real site still only takes the school's `TEACHER_CODES`. Students join with the class code. On the Go
-site that is a stateless class code (nothing saved). On the Cloudflare TEST version, a student who joins has their first
-name(s), school and work saved to the class in the TEST database (the device itself still keeps nothing, so after a
-reload they join back in and their work returns); the Go site's class codes keep nothing. On Go set `CLASS_SECRET`, or
-class codes stop working when the TEST version restarts. Blueprint: `render.test.yaml`. Tests: `tests/e2e/test-version.spec.js`
-(second server, port 8544), `tests/e2e/cloudflare-test.spec.js` (the Worker's `test` env, port 8547), `cloudflare/test/pibeta.test.mjs`.
+`bash tools/build-pi.sh` (or **Actions > Release**) makes `circuitpathways-pi-VERSION.tar.gz`: the program for 64-bit
+Raspberry Pi OS and `install-server.sh`. On the school server Pi: `sudo bash install-server.sh`. On each student Pi:
+`curl -fsSL http://pathways.local/install/student-pi.sh | sudo bash`. Laptops: `http://pathways.local/trust` once.
+See `docs/server.md`.
 
 ## 9. Older and experimental work (the `drafts` branch)
 
-The first CircuitPath was a **local app** (`CircuitPath.exe` / `.app`, Go + SQLite, served on localhost, Edge app
+The hosted versions (Cloudflare with classes in D1, Render, the TEST and Pi beta editions) are in
+`draft/cloud-hosting/`, as they were at commit `bd484de`. The first CircuitPath was a **local app** (`CircuitPath.exe` / `.app`, Go + SQLite, served on localhost, Edge app
 window) and, before that, a Pi/cloud server. The offline PiPath and ArduinoPath apps, WastePath (a Pi waste-sorting
 camera bin) and the bin monitor (an Arduino bin with a dashboard) were built beside it. All of that is kept, organised,
 in the **`draft/`** folder on the **`drafts`** branch (`draft/README.md` says what each folder is and where it came from).
@@ -274,15 +274,19 @@ Nothing there is deployed or tested. The original brief for the Wiring Wizard, s
 |---|---|
 | Add/edit a PiPath lesson | `content/pipath/lessons/*.toml` -> `python3 tools/build_pipath_data.py` -> tests |
 | Add/edit an ArduinoPath project or error hint | `content/arduinopath/projects/*.json`, `content/arduinopath/errors.json` (+ its test) |
-| Change the home or teacher page | `site/index.html`, `css/`, `js/home.js`, `site/teacher/` |
+| Change the home page or teacher portal | `site/index.html`, `css/`, `js/home.js`, `site/teacher/` |
+| Change classes, set work or the database | `internal/server/classes.go`, `internal/store/` (bump `schemaVersion` and migrate) |
+| Change the installers | `internal/setup/`, `internal/pilink/install.sh.tmpl`, then `bash tests/pi-server/smoke.sh` |
 | Change how PiPath runs code | `site/pipath/js/runtime/`, `py/cpsim/` |
 | Change the Pi app or installer | `site/pipath/remote/circuitpathways_pi.py`, `internal/pilink/install.sh.tmpl`, `raspberry-pi/` tests |
-| Change auth / rate limits / headers | `internal/classes/`, `internal/server/` |
+| Change auth / rate limits / headers | `internal/auth/`, `internal/server/` |
 | Add a board or part | `content/arduinopath/boards/`, `content/arduinopath/parts/`, `site/arduinopath/parts/` |
 
 ## 11. Known limits and open ideas
 
-- Not yet tried on real hardware: Arduino/ESP upload (esptool path least tested), Run on my Pi on a real Pi.
-- PiPath Turtle Art not in the browser. A wifi blip can lose a few lines of output on the Pi run.
-- Ideas: pin events from a Pi program into a pins panel, an SD-card image with Pi Link installed, a teacher view of
-  online Pis, a direct (no-internet) mode where the Pi serves the page itself, native remote GPIO over SSH.
+- Not yet tried on real hardware: the school server and student Pi installers on real Pis (they are tested in a
+  folder, with systemd left out), laptops trusting the certificate, Arduino/ESP upload (the esptool path least tested),
+  and Run on my Pi on a real Pi's pins.
+- PiPath Turtle Art not in the browser.
+- Ideas: a teacher view of which student Pis are online, an SD-card image of a ready student Pi, updating student Pis
+  from the school server by themselves, the server's status (disk, backups) in the teacher portal.

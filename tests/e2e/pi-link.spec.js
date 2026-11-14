@@ -133,12 +133,14 @@ test("the Pi app can be downloaded with this website's address filled in", async
   expect(res.headers()["content-disposition"]).toContain("circuitpathways_pi.py");
 });
 
-test("the Pi page needs a class code", async ({ browser }) => {
+test("the Pi page opens with no class, but a made-up token is turned away", async ({ browser }) => {
   const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const page = await ctx.newPage();
   await page.goto("/pipath/remote/");
-  await page.waitForURL("**/?need=class");
-  const res = await ctx.request.post("/api/pi/command", { headers: { "X-Circuit-Pathways": "1" }, data: { code: "ABC-123", cmd: { op: "all_off" } } });
+  await expect(page).toHaveURL(/\/pipath\/remote\/$/);
+  const res = await ctx.request.post("/api/pi/command", { headers: { "X-Circuit-Pathways": "1", "X-Access": "s2.made-up" }, data: { code: "ABC-123", cmd: { op: "all_off" } } });
   expect(res.status()).toBe(401);
+  const none = await ctx.request.post("/api/pi/command", { headers: { "X-Circuit-Pathways": "1" }, data: { code: "ABC-123", cmd: { op: "all_off" } } });
+  expect(none.status()).toBe(404); // (no class is fine; that Pi just isn't connected)
   await ctx.close();
 });

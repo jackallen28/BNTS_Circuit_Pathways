@@ -6,41 +6,30 @@ const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
 const { getAccess, setAccess, clearAccess, inClass } = await import("../../site/shared/access.js");
 
-test("a normal site needs a class code", () => {
+test("with no class a student is 'local': their work is saved in this browser", () => {
   clearAccess();
-  assert.equal(getAccess(Date.now(), false), null);
-  setAccess("student", "s2.token", Date.now() + 60_000, { names: ["Mia"] });
-  assert.equal(getAccess(Date.now(), false).kind, "student");
-  assert.equal(inClass(getAccess(Date.now(), false)), true);
-});
-
-test("the TEST version gives the open 'beta' access, but a class joined (beta teacher mode) or a teacher wins", () => {
-  clearAccess();
-  assert.equal(getAccess(Date.now(), false, true).kind, "beta");
-  assert.equal(inClass(getAccess(Date.now(), false, true)), false);
-  setAccess("student", "s2.token", Date.now() + 60_000, { names: ["Ari"] });
-  assert.equal(getAccess(Date.now(), false, true).kind, "student");
-  assert.equal(inClass(getAccess(Date.now(), false, true)), true);
-  clearAccess();
-  setAccess("teacher", "t2.token", Date.now() + 60_000);
-  assert.equal(getAccess(Date.now(), false, true).kind, "teacher");
-  assert.equal(getAccess(Date.now() + 120_000, false, true).kind, "beta", "an expired sign-in falls back to open access");
-});
-
-test("the Pi beta lets a student start with no class: they're 'local'", () => {
-  clearAccess();
-  const a = getAccess(Date.now(), true);
+  const a = getAccess();
   assert.equal(a.kind, "local");
   assert.equal(a.value, "local");
   assert.equal(inClass(a), false);
   assert.equal(inClass(null), false);
 });
 
-test("in the Pi beta a joined class wins over local, and an expired one falls back to local", () => {
+test("a joined class wins over local, and an ended one falls back to local", () => {
   clearAccess();
   setAccess("student", "s2.token", Date.now() + 60_000, { names: ["Mia"] });
-  assert.equal(getAccess(Date.now(), true).kind, "student");
-  assert.equal(inClass(getAccess(Date.now(), true)), true);
-  assert.equal(getAccess(Date.now() + 120_000, true).kind, "local"); // the class ended
-  assert.equal(inClass({ kind: "teacher", value: "t" }), true);
+  assert.equal(getAccess().kind, "student");
+  assert.equal(inClass(getAccess()), true);
+  assert.equal(getAccess(Date.now() + 120_000).kind, "local"); // the class ended
+});
+
+test("a teacher's sign-in lasts until it expires; an old kind of access is forgotten", () => {
+  clearAccess();
+  setAccess("teacher", "t2.token", Date.now() + 60_000);
+  assert.equal(getAccess().kind, "teacher");
+  assert.equal(inClass(getAccess()), true);
+  assert.equal(getAccess(Date.now() + 120_000).kind, "local");
+  setAccess("class", "ABCDE-FGHJK", Date.now() + 60_000); // the old stateless class codes
+  assert.equal(getAccess().kind, "local");
+  assert.equal(mem.has("circuitpathways.access"), false);
 });

@@ -41,29 +41,3 @@ func CatalogueJSON(c *content.Catalogue) ([]byte, error) {
 		"projects": projects, "errors": c.Errors, "curriculum": c.Curriculum,
 	})
 }
-
-// HeadersFile is the same security headers this server sends, written as a Cloudflare _headers
-// file, so a copy of the site served from Cloudflare's static assets behaves the same.
-func HeadersFile(beta bool) string {
-	var b strings.Builder
-	b.WriteString("# Made by `circuitpathways -export`: the same headers the Go server sends (internal/server). Don't edit.\n")
-	b.WriteString("/*\n")
-	b.WriteString("  Content-Security-Policy: " + cspFor("/") + "\n")
-	b.WriteString("  X-Content-Type-Options: nosniff\n  X-Frame-Options: SAMEORIGIN\n  Referrer-Policy: no-referrer\n")
-	b.WriteString("  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Resource-Policy: same-origin\n")
-	b.WriteString("  Permissions-Policy: " + permissionsPolicy + "\n  Strict-Transport-Security: max-age=31536000\n")
-	b.WriteString("  Cache-Control: no-cache\n")
-	if beta {
-		b.WriteString("  X-Robots-Tag: noindex, nofollow\n")
-	}
-	for _, app := range []string{"/arduinopath/*", "/pipath/*"} {
-		b.WriteString(app + "\n  ! Content-Security-Policy\n  Content-Security-Policy: " + cspFor(strings.TrimSuffix(app, "*")) + "\n")
-		if app == "/pipath/*" {
-			b.WriteString("  Cross-Origin-Embedder-Policy: require-corp\n")
-		}
-	}
-	for _, d := range longCachedDirs {
-		b.WriteString("/" + d + "*\n  ! Cache-Control\n  Cache-Control: " + vendorCacheControl + "\n")
-	}
-	return b.String()
-}

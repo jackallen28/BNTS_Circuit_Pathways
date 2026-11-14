@@ -1,4 +1,4 @@
-// Class sync: work saved in the browser also goes to the student's class (the Cloudflare site), newer
+// Class sync: work saved in the browser also goes to the student's class (on the school server), newer
 // work comes back down on another device, and a save file carries the class link to a new device.
 import { test } from "node:test";
 import assert from "node:assert/strict";

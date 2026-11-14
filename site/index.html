@@ -22,8 +22,10 @@
     </div>
     <span class="sr">Banyule Nillumbik Tech School</span>
     <p class="eyebrow">Banyule Nillumbik Tech School presents</p>
-    <h1 class="title">Circuit <span>Pathways</span><b class="beta-badge" id="beta-badge" hidden>BETA</b></h1>
+    <h1 class="title">Circuit <span>Pathways</span></h1>
     <p class="lede">A custom-built solution to make Arduino and Raspberry Pi more accessible to students, and to let us offer a more comprehensive, authentic and tailored range of microcontroller and systems thinking programs.</p>
+    <p class="server-note" id="secure-note" role="status" hidden></p>
+    <p class="server-note" id="offline-note" role="status" hidden></p>
     <h2 class="ask">Where do you want to explore?</h2>
     <div class="choices">
       <a class="choice choice-pi" href="pipath/">
@@ -53,10 +55,13 @@
   <div class="session reveal" id="session">
     <p class="eyebrow">Classes</p>
     <h2>Join a class, or start one</h2>
-    <p class="session-msg" id="need-class" role="status" hidden>Please join a class first. Type the class code your teacher gave you below.</p>
-    <p class="session-msg" id="optional-note" role="status" hidden>You can start right now: pick PiPath or ArduinoPath above. Your work is saved on this device. If your teacher gave you a class code, join below and your work is saved to your class too, so you can carry on on any computer.</p>
+    <p class="session-msg" id="optional-note" role="status">You can start right now: pick PiPath or ArduinoPath above. Your work is saved on this computer. If your teacher gave you a class code, join below and your work is saved with your class too, so your teacher can see it and you can carry on on any computer at school.</p>
     <div class="session-in" id="session-in" hidden>
       <p id="session-in-text"></p>
+      <div class="tasks" id="tasks" hidden>
+        <h3>Work your teacher set</h3>
+        <ol class="task-list" id="task-list"></ol>
+      </div>
       <div class="session-actions">
         <a class="btn" href="arduinopath/">Open ArduinoPath ▸</a>
         <a class="btn" href="pipath/">Open PiPath ▸</a>
@@ -80,15 +85,14 @@
       </form>
       <form class="card" id="teacher-form" autocomplete="off">
         <h3>Teachers: start a class</h3>
-        <p>Sign in with your teacher code to make a class code for your students, and to save a class file.</p>
-        <p class="small" id="teacher-hint" hidden><b>Beta teacher mode:</b> make up a teacher code (8 or more characters), type it here, and remember it. Your classes are kept under it, so it's how you get back to them. Students join with the class code you make.</p>
+        <p>Sign in with your teacher code to make classes, set work, and see your students' progress and code.</p>
         <label>Teacher code <input name="teacher" type="password" autocomplete="off" required></label>
         <button type="submit" class="btn btn-alt">Teacher sign in ▸</button>
         <p class="note" role="status" aria-live="polite"></p>
       </form>
     </div>
     <p class="small privacy on-pi" id="on-pi" role="status" hidden></p>
-    <p class="small privacy" id="privacy">Only a first name and a school are asked for, and they stay in your own saved file in this browser. They are never sent to or kept on our server.</p>
+    <p class="small privacy" id="privacy">Without a class, your work stays in this browser. When you join a class, only your first name(s) and school are kept, with your work, on the school's own Circuit Pathways server, so your teacher can see it. It's all deleted when the class ends. Nothing goes to the internet, and nothing else about you is kept.</p>
   </div>
 
 <div class="shared reveal">
@@ -99,7 +103,7 @@
       <div class="sh"><h3>A Coach for every error</h3><p>Errors are explained in plain English, with hints that start small.</p></div>
       <div class="sh"><h3>One part at a time</h3><p>Test each part on its own, then join it up. Checklists tick themselves.</p></div>
       <div class="sh"><h3>Simulator first</h3><p>Try it on the on-screen board, then on real hardware.</p></div>
-      <div class="sh"><h3>Saved on your computer</h3><p>Work saves in the student's browser, and they can keep it as a file.</p></div>
+      <div class="sh"><h3>Your school's own server</h3><p>Everything runs on a Raspberry Pi at school. Work saves on the student's computer and with their class, never on the internet.</p></div>
     </div>
 
 <div class="glance reveal">
@@ -107,15 +111,15 @@
     <div class="glance-table" role="table" aria-label="PiPath and ArduinoPath compared">
       <div class="gr gh" role="row"><span role="columnheader"></span><span role="columnheader" class="g-pi">PiPath</span><span role="columnheader" class="g-ard">ArduinoPath</span></div>
       <div class="gr" role="row"><span role="rowheader">Students code in</span><span>Python</span><span>Blocks or Arduino C++ (switch any time)</span></div>
-      <div class="gr" role="row"><span role="rowheader">Runs on</span><span>Any laptop, in Chrome or Edge. Python runs in the browser</span><span>Any laptop, in Chrome or Edge</span></div>
-      <div class="gr" role="row"><span role="rowheader">Hardware</span><span>An on-screen Raspberry Pi with LEDs, buttons, buzzer, distance sensor and camera. Or choose <b>Run on my Raspberry Pi</b> to run your program on a real Pi</span><span>Uno, Nano, NodeMCU or ESP32 + breadboard parts</span></div>
+      <div class="gr" role="row"><span role="rowheader">Runs on</span><span>Any laptop on the school network, in Chrome or Edge (Python runs in the browser, on the on-screen Pi), or a student Raspberry Pi (on its real pins, even offline)</span><span>Any laptop on the school network, or a student Raspberry Pi, in Chrome, Edge or Chromium</span></div>
+      <div class="gr" role="row"><span role="rowheader">Hardware</span><span>An on-screen Raspberry Pi with LEDs, buttons, buzzer, distance sensor and camera. On a student Pi, <b>Run on: My Raspberry Pi</b> runs programs on its real pins</span><span>Uno, Nano, NodeMCU or ESP32 + breadboard parts</span></div>
       <div class="gr" role="row"><span role="rowheader">No physical kit yet?</span><span>Every activity runs on the on-screen Simulator in your browser</span><span>Every project runs on the on-screen Simulator</span></div>
       <div class="gr" role="row"><span role="rowheader">Activities</span><span>28 activities, from a simple "Hello, Pi!" program to a machine learning program (27 run in the browser), including Grove kits</span><span>At the moment there are 28, from blinking lights to WiFi projects, including Grove kits</span></div>
       <div class="gr" role="row"><span role="rowheader">Year levels</span><span>Years 7–10 and VCE</span><span>Years 7–10 and VCE</span></div>
       <div class="gr" role="row"><span role="rowheader">Curriculum</span><span colspan="2" class="g-both">Victorian Curriculum Digital Technologies, Levels 7–10, plus VCE Systems Engineering and Applied Computing pathways and study design links</span></div>
       <div class="gr" role="row"><span role="rowheader">VCE pathways</span><span class="g-both">Supports pathways into VCE subjects: Systems Engineering, Applied Computing (Software Development and Data Analytics) and Algorithmics, with links to Physics, Maths and Product Design and Technologies</span></div>
       <div class="gr" role="row"><span role="rowheader">Help</span><span class="g-both">Adaptive and scaffolded: Beginner, Moderate or Advanced, chosen by each student · nudges when a student is stuck · a Coach for every error · hints that unlock as needed · stars for independence</span></div>
-      <div class="gr" role="row"><span role="rowheader">Privacy</span><span class="g-both">No generative AI and no student accounts. First name and school only, kept in the student's own saved file and never on our server</span></div>
+      <div class="gr" role="row"><span role="rowheader">Privacy</span><span class="g-both">No generative AI and no student accounts. First name and school only, kept on the school's own server while the class runs, then deleted. Nothing goes to the internet</span></div>
     </div>
 
 </section>

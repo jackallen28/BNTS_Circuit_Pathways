@@ -1,7 +1,9 @@
-// Class sync: on the Cloudflare site, a student who joined a class with a class code has their work
-// (code, progress and settings) copied to their class, so the teacher sees it all in one place and the
-// student can carry on on another device (a Raspberry Pi, say). Only work goes up: the student's first
-// names and school were given when they joined. Work still saves in this browser first; syncing is extra.
+// Class sync: a student who joined a class with a class code has their work (code, progress and settings)
+// copied to their class on the school's Circuit Pathways server, so the teacher sees it all in one place and
+// the student can carry on on another computer (a Raspberry Pi, say). Only work goes up: the student's first
+// names and school were given when they joined. Work always saves in this browser first; syncing is extra.
+// When the server can't be reached (a student Pi with no network), it tries again later, and anything still
+// waiting when the page closes goes up the next time the student opens the app (localapi.js, syncClass).
 
 import { getAccess } from "../access.js";
 

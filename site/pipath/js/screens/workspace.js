@@ -2,6 +2,7 @@
 // on the right. Used for every lesson, and for Free Play (no steps, no checklist).
 
 import { h, fill } from "../dom.js";
+import { piLink } from "../../../shared/edition.js";
 import { markdown } from "../markdown.js";
 import { api, lesson as loadLesson, freeplay as loadFreeplay, demoFilesFor } from "../api.js";
 import { state } from "../state.js";
@@ -10,7 +11,6 @@ import { createConsole } from "../widgets/outputpanel.js";
 import { createBoard } from "../widgets/board.js";
 import { messageBox, dialog } from "../widgets/window.js";
 import { getRunner } from "../runtime/shared.js";
-import { beta } from "../../../shared/beta.js";
 import { getPi, piReady, supportFor, piSummary, savedPiId } from "../runtime/pi.js";
 import { thisPi } from "/shared/thispi.js";
 import { linkPiDialog } from "../dialogs/pi.js";
@@ -49,7 +49,8 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   let runKind = "run";
   // sim: the Simulator in this browser. pi: the student's own Raspberry Pi (on a Pi
   // opened from its own shortcut, that's where programs run unless the student chose otherwise).
-  let where = !beta && (settings().run_where === "pi" || (!settings().run_where && thisPi())) ? "pi" : "sim";
+  // (a laptop on the school server has no Pi Link: programs run in the Simulator)
+  let where = piLink && (settings().run_where === "pi" || (!settings().run_where && thisPi())) ? "pi" : "sim";
   let piRun = false; // a program is running on the Pi right now
   const pi = getPi();
   let failedRuns = 0; // this step
@@ -100,7 +101,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     h("b", { text: isFree ? (state.config.free_play_name ?? "Free Play") : les.title }),
     h("span", { class: "spacer" }),
     h("label", { class: "small" }, "Help: ", levelSel),
-    beta ? null : h("label", { class: "small" }, "Run on: ", whereSel), beta ? null : piChip,
+    piLink ? h("label", { class: "small" }, "Run on: ", whereSel) : null, piLink ? piChip : null,
     runBtn, goalBtn, isFree ? null : resetBtn,
     h("button", { class: "btn", type: "button", onclick: openSettings, text: "Settings" }),
     h("button", { class: "btn", type: "button", onclick: async () => { await leave(); logOut(); }, text: "Log out" }));
@@ -185,7 +186,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
   // ---------------------------------------------------------------- saving
   function onEdit(code) {
     clearTimeout(codeTimer);
-    savedNote.textContent = beta ? "" : "Saving...";
+    savedNote.textContent = "Saving...";
     codeTimer = setTimeout(saveCode, 900);
     if (runner) runner.do("adapt_edit", secs()).catch(() => {});
     scheduleDraft();
@@ -195,7 +196,7 @@ export async function workspaceScreen(root, { lessonId, onHome, openSettings, lo
     clearTimeout(codeTimer);
     try {
       await api.saveCode(key, editor.value);
-      savedNote.textContent = beta ? "" : "Saved ✓";
+      savedNote.textContent = "Saved ✓";
     } catch (e) {
       savedNote.textContent = "Couldn't save";
     }

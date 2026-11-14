@@ -1,0 +1,29 @@
+name: Release (the Raspberry Pi download)
+
+# Press "Run workflow" in Actions > Release. It tests everything, builds circuitpathways-pi-VERSION.tar.gz (the
+# school server's download) and publishes it as a GitHub release named after VERSION. Change VERSION first.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./... && go test ./...
+      - run: bash tests/pi-server/smoke.sh
+      - name: Build the Raspberry Pi download
+        run: ARCHES="arm64 amd64" bash tools/build-pi.sh
+      - name: Publish it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="$(tr -d '[:space:]' < VERSION)"
+          gh release create "v$V" "dist/circuitpathways-pi-$V.tar.gz" --target "$GITHUB_SHA" --title "Circuit Pathways $V" \
+            --notes "The school server's download for Raspberry Pi (64-bit Raspberry Pi OS). Unpack it on the server Pi and run: sudo bash install-server.sh. See docs/server.md."

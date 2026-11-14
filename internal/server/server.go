@@ -1,10 +1,15 @@
-// Package server is the Circuit Pathways website. It serves the pages and
-// does only two jobs that a browser can't do alone: it checks class codes
-// and teacher sign-ins, and it compiles Arduino code for real boards.
+// Package server is Circuit Pathways: PiPath and ArduinoPath in the browser, served by the school's own
+// Raspberry Pi on the school network. It does what a browser can't do alone: it keeps classes (teachers'
+// classes, the work they set, and students' first names, school and work, until the class ends), it
+// compiles Arduino code for real boards, and it relays a Raspberry Pi's pins to the browser.
 //
-// It never stores anything about students: no names, no school, no work, no
-// code. Compiled code lives in a temporary folder for the length of one
-// compile. Nothing it logs includes a request body.
+// The same program runs in two ways:
+//
+//   - the school server (the main Pi): the site, the classes and the compiler, for every computer on the network;
+//   - a student Pi: the site on the Pi itself (so it works with no network), its own Pi Link, and classes and
+//     compiling passed on to the school server whenever it can be reached.
+//
+// Nothing it logs includes a request body, a name or an address.
 package server
 
 import (
@@ -15,15 +20,15 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"circuitpathways/internal/arduino"
-	"circuitpathways/internal/classes"
+	"circuitpathways/internal/auth"
 	"circuitpathways/internal/content"
 	"circuitpathways/internal/pilink"
 	"circuitpathways/internal/pirelay"
+	"circuitpathways/internal/store"
 )
 
 // Compiler compiles a sketch (arduino.Tools; tests use a fake).
@@ -31,29 +36,45 @@ type Compiler interface {
 	Compile(ctx context.Context, code, fqbn string, props []string) (arduino.CompileResult, []arduino.Artifact, error)
 }
 
+// The two ways the server runs.
+const (
+	ModeSchool    = "school"     // the main Pi: classes, the compiler, the site for the whole network
+	ModeStudentPi = "student-pi" // a student's Pi: the site and Pi Link for this Pi, the rest from the school server
+)
+
 // Config is everything the server needs.
 type Config struct {
 	Site      fs.FS
 	Catalogue *content.Catalogue
-	Signer    *classes.Signer
-	Teachers  classes.TeacherCodes
-	Compiler  Compiler // nil: compiling is off
-	Version   string
-	Log       *slog.Logger
-	Now       func() time.Time // nil: time.Now
+	// Mode is ModeSchool (the default) or ModeStudentPi.
+	Mode string
+	// Store keeps the classes (the school server). Nil on a student Pi.
+	Store *store.Store
+	// Auth signs teacher and student tokens (the school server).
+	Auth *auth.Signer
+	// Teachers are the school's teacher codes (the school server).
+	Teachers *auth.Teachers
+	// School is the school's name, filled in for new classes.
+	School   string
+	Compiler Compiler // nil: compiling is off (a student Pi then passes compiles on to the school server)
+	Version  string
+	Commit   string
+	Log      *slog.Logger
+	Now      func() time.Time // nil: time.Now
 	// MaxCompiles is how many compiles can run at once (default 2).
 	MaxCompiles int
 	// Relay connects browsers to Raspberry Pis (nil: a new one).
 	Relay *pirelay.Relay
 	// PiKeys checks Raspberry Pi keys (nil: Pi Link is off).
 	PiKeys *pilink.Keys
-	// Beta is the TEST version: the apps are open to anyone with the link, and the page says nothing
-	// is saved. It has "beta teacher mode": a teacher makes up their own teacher code, makes a class
-	// code, and students can join it. Pi Link is off.
-	Beta bool
-	// CompileKey lets another front end (the Cloudflare Worker) use this server as its compiler:
-	// a request with X-Compile-Key set to it counts as a class member. Empty: off.
-	CompileKey string
+	// Upstream is the school server, for a student Pi (nil on the school server).
+	Upstream *Upstream
+	// Name is what the server calls itself (its address on the network, for the pages).
+	Name string
+	// Install serves the student-Pi installer and this program for it (the school server).
+	Install *Installer
+	// TLS says the school server also answers on https (for the start page's advice).
+	TLS bool
 }
 
 // Server is the http.Handler.
@@ -62,11 +83,11 @@ type Server struct {
 	static  http.Handler
 	handler http.Handler
 	slots   chan struct{}
-	limits  struct{ signin, join, class, compile, piCommand *limiter }
+	limits  struct{ signin, join, class, compile, piCommand, work *limiter }
 }
 
 const (
-	maxBody       = 128 << 10 // a sketch is limited to 100 KB
+	maxBody       = 640 << 10 // a sketch is limited to 100 KB; 25 pieces of work at a time
 	teacherTTL    = 12 * time.Hour
 	compileWait   = 90 * time.Second
 	headerName    = "X-Circuit-Pathways"
@@ -83,6 +104,15 @@ func New(cfg Config) *Server {
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
+	if cfg.Mode == "" {
+		cfg.Mode = ModeSchool
+	}
+	if cfg.School == "" {
+		cfg.School = defaultSchool
+	}
+	if cfg.Teachers == nil {
+		cfg.Teachers = auth.NewTeachers("", "")
+	}
 	if cfg.MaxCompiles < 1 {
 		cfg.MaxCompiles = defaultSlots
 	}
@@ -92,6 +122,7 @@ func New(cfg Config) *Server {
 	s.limits.class = newLimiter(30, time.Minute)
 	s.limits.compile = newLimiter(15, time.Minute)
 	s.limits.piCommand = newLimiter(900, time.Minute)
+	s.limits.work = newLimiter(240, time.Minute)
 	if s.Relay == nil {
 		s.Relay = pirelay.New(cfg.Now)
 	}
@@ -103,13 +134,30 @@ func New(cfg Config) *Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
-	mux.HandleFunc("POST /api/teacher/signin", s.handleSignIn)
-	mux.HandleFunc("POST /api/teacher/class", s.handleNewClass)
-	mux.HandleFunc("POST /api/class/join", s.handleJoin)
-	mux.HandleFunc("POST /api/compile", s.handleCompile)
-	s.piRoutes(mux)
 	mux.HandleFunc("GET /api/info", s.handleInfo)
-	mux.HandleFunc("GET /pipath/dev/prefix", s.handlePrefix)
+	if s.Upstream != nil {
+		// a student Pi: classes (and compiling, without tools of its own) are the school server's
+		for _, p := range []string{"/api/teacher/", "/api/class/", "/api/student/"} {
+			mux.Handle(p, s.Upstream)
+		}
+		if s.Compiler == nil {
+			mux.Handle("POST /api/compile", s.Upstream)
+		} else {
+			mux.HandleFunc("POST /api/compile", s.handleCompile)
+		}
+	} else {
+		mux.HandleFunc("POST /api/teacher/signin", s.handleSignIn)
+		mux.HandleFunc("GET /api/teacher/classes", s.handleTeacherClasses)
+		mux.HandleFunc("POST /api/teacher/class", s.handleNewClass)
+		mux.HandleFunc("/api/teacher/class/", s.handleTeacherClass)
+		mux.HandleFunc("POST /api/class/join", s.handleJoin)
+		mux.HandleFunc("/api/student/", s.handleStudent)
+		mux.HandleFunc("POST /api/compile", s.handleCompile)
+	}
+	s.piRoutes(mux)
+	if s.Install != nil {
+		s.Install.routes(mux)
+	}
 	mux.HandleFunc("GET /arduinopath/data/catalogue.json", s.handleCatalogue)
 	mux.HandleFunc("GET /arduinopath/data/projects/{id}", s.handleProject)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
@@ -129,13 +177,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		start := time.Now()
 		h := w.Header()
 		h.Set("Content-Security-Policy", cspFor(r.URL.Path))
-		if s.Beta {
-			h.Set("X-Robots-Tag", "noindex, nofollow") // a link to share, not a page for search engines
-			if betaHidden(r.URL.Path) {
-				http.NotFound(w, r)
-				return
-			}
-		}
+		h.Set("X-Robots-Tag", "noindex, nofollow") // a school's own server, not a page for search engines
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "SAMEORIGIN")
 		h.Set("Referrer-Policy", "no-referrer")
@@ -148,7 +190,6 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		}
 		// Web Serial (uploading to a board) only on our own pages; nothing else is needed.
 		h.Set("Permissions-Policy", permissionsPolicy)
-		h.Set("Strict-Transport-Security", "max-age=31536000")
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			h.Set("Cache-Control", "no-store")
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -186,45 +227,6 @@ func cspFor(path string) string {
 	return cspBase + "; style-src 'self' 'unsafe-inline'"
 }
 
-// hostName says where this server runs, for the About box: Render sets RENDER, anywhere else is plain "go".
-func hostName() string {
-	if os.Getenv("RENDER") != "" {
-		return "render"
-	}
-	return "go"
-}
-
-// edition is "test" for the TEST version and "" for the real site (the Pi beta is a Cloudflare edition).
-func edition(beta bool) string {
-	if beta {
-		return "test"
-	}
-	return ""
-}
-
-// shortCommit is the first characters of the commit Render built (so a teacher can see which version is live).
-func shortCommit(c string) string {
-	if len(c) > 7 {
-		return c[:7]
-	}
-	return c
-}
-
-// betaHidden are the parts of the site the TEST version doesn't have: Raspberry Pi linking. (Classes and the
-// teacher page are there: the TEST version has "beta teacher mode", where a teacher makes up their own code.)
-func betaHidden(path string) bool {
-	switch path {
-	case "/pipath/remote", "/pipath/remote/", "/pipath/remote/index.html", "/pipath/remote/circuitpathways_pi.py", "/pipath/remote/install.sh":
-		return true // (pi-remote.js stays: PiPath's page loads it, and it does nothing without a Pi)
-	}
-	for _, p := range []string{"/api/pi/"} {
-		if path == p || strings.HasPrefix(path, strings.TrimSuffix(p, "/")+"/") {
-			return true
-		}
-	}
-	return false
-}
-
 func hostOnly(h string) string {
 	if i := strings.LastIndex(h, ":"); i > 0 && !strings.Contains(h[i:], "]") {
 		h = h[:i]
@@ -232,8 +234,8 @@ func hostOnly(h string) string {
 	return strings.ToLower(h)
 }
 
-// allowedHost lets any host name through except a bare IP-like or empty one
-// (Render serves us under its own name and the school's domain).
+// allowedHost: on the school's network the server is reached by its name (pathways.local), its address,
+// or (on a student Pi) localhost. Any of them is fine; a request with no host isn't.
 func allowedHost(h string) bool { return h != "" }
 
 type statusRecorder struct {
@@ -274,10 +276,27 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 }
 
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"app": "Circuit Pathways", "version": s.Version, "compile": s.Compiler != nil, "beta": s.Beta, "teacher_mode": s.Beta, "commit": shortCommit(os.Getenv("RENDER_GIT_COMMIT")),
-		"host": hostName(), "edition": edition(s.Beta),
-	})
+	relay := "off"
+	if s.PiKeys != nil {
+		relay = "sse"
+	}
+	info := map[string]any{
+		"app": "Circuit Pathways", "version": s.Version, "commit": s.Commit, "host": "pi", "edition": s.Mode,
+		"compile": s.Compiler != nil, "classes": true, "class_optional": true, "teacher_mode": false, "relay": relay,
+		"name": s.Name, "secure": r.TLS != nil, "tls": s.TLS,
+	}
+	if s.Install != nil && len(s.Install.CAPEM) > 0 {
+		info["ca_fingerprint"] = s.Install.Fingerprint()
+	}
+	if s.Upstream != nil {
+		up := s.Upstream.Status()
+		info["online"] = up.Online
+		info["school_server"] = up.Name
+		info["compile"] = s.Compiler != nil || up.Compile
+	} else {
+		info["online"] = true
+	}
+	writeJSON(w, http.StatusOK, info)
 }
 
 func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {

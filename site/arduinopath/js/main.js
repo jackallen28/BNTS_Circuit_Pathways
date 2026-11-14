@@ -1,9 +1,7 @@
 // ArduinoPath's web app: starts up, then shows the right screen for the
 // address (#/projects, #/project/<id>, #/freeplay, #/wipe...).
 
-import { showTestTag } from "../../shared/beta.js";
 import { api, onLoggedOut, storageIsTemporary } from "./api.js";
-import { getAccess } from "/shared/access.js";
 import { takePiFromUrl } from "/shared/thispi.js";
 
 takePiFromUrl(); // opened from a Raspberry Pi's own shortcut
@@ -50,6 +48,8 @@ function route() {
       return;
     }
     if (!state.me) {
+      // (a link to a project, such as work the teacher set: open it once the student has picked their name)
+      if (hash !== "#/") { try { sessionStorage.setItem("circuitpathways.after", hash); } catch { /* fine */ } }
       if (hash !== "#/") history.replaceState(null, "", "#/");
       loginScreen(root, { onLoggedIn, openWipe: () => go("#/wipe") });
       return;
@@ -61,7 +61,7 @@ function route() {
     const [, page, id] = hash.split("/");
     switch (page) {
       case "setup":
-        setupScreen(root, { onDone: () => go("#/projects") });
+        setupScreen(root, { onDone: () => go(afterLogin()) });
         break;
       case "project":
       case "freeplay":
@@ -84,9 +84,15 @@ function route() {
   return routing;
 }
 
+function afterLogin() {
+  let hash = null;
+  try { hash = sessionStorage.getItem("circuitpathways.after"); sessionStorage.removeItem("circuitpathways.after"); } catch { /* fine */ }
+  return /^#\/(project\/[a-z0-9-]+|freeplay)$/.test(hash ?? "") ? hash : "#/projects";
+}
+
 function onLoggedIn(me) {
   state.me = me;
-  go(me.settings.help_level ? "#/projects" : "#/setup");
+  go(me.settings.help_level ? afterLogin() : "#/setup");
 }
 
 async function logOut() {
@@ -108,13 +114,7 @@ onLoggedOut(() => {
 });
 
 async function start() {
-  showTestTag();
   await loadSprites(["img/icons.svg"]);
-  if (!getAccess()) {
-    // ArduinoPath is for classes: it needs a class code (or a teacher sign-in) from the home page.
-    location.replace("/?need=class");
-    return;
-  }
   try {
     [state.info, state.catalogue] = await Promise.all([api.info(), api.catalogue()]);
   } catch (err) {

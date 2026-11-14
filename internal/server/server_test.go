@@ -14,9 +14,10 @@ import (
 
 	"circuitpathways"
 	"circuitpathways/internal/arduino"
-	"circuitpathways/internal/classes"
+	"circuitpathways/internal/auth"
 	"circuitpathways/internal/content"
 	"circuitpathways/internal/pilink"
+	"circuitpathways/internal/store"
 )
 
 type fakeCompiler struct {
@@ -38,14 +39,19 @@ func newTest(t *testing.T) (*Server, *fakeCompiler) {
 	if len(problems) > 0 {
 		t.Fatal(problems[0])
 	}
-	signer, _ := classes.New("test-secret-0123456789")
+	st, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	signer, _ := auth.New("test-secret-0123456789")
 	piKeys, _ := pilink.NewKeys("test-pi-secret-0123456789", nil)
 	fc := &fakeCompiler{ok: true}
 	site := fstest.MapFS{
 		"index.html":             {Data: []byte("<h1>home</h1>")},
 		"arduinopath/index.html": {Data: []byte("<h1>ap</h1>")},
 	}
-	return New(Config{Site: site, Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234"), Compiler: fc, PiKeys: piKeys, Log: nil}), fc
+	return New(Config{Site: site, Catalogue: cat, Store: st, Auth: signer, Teachers: auth.NewTeachers("", "teacher-code-1234,teacher-code-5678"), Compiler: fc, PiKeys: piKeys}), fc
 }
 
 func post(s *Server, path string, body any, hdr map[string]string) *httptest.ResponseRecorder {
@@ -70,53 +76,13 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	return m
 }
 
-func TestTeacherMakesAClassAndStudentsJoin(t *testing.T) {
-	s, _ := newTest(t)
-	if w := post(s, "/api/teacher/signin", map[string]string{"code": "wrong-code-here"}, nil); w.Code != 401 {
-		t.Fatalf("wrong teacher code: %d", w.Code)
-	}
-	w := post(s, "/api/teacher/signin", map[string]string{"code": "teacher-code-1234"}, nil)
-	if w.Code != 200 {
-		t.Fatalf("signin: %d %s", w.Code, w.Body)
-	}
-	token := decode(t, w)["token"].(string)
-
-	// no token, no class
-	if w := post(s, "/api/teacher/class", map[string]int{"days": 7}, nil); w.Code != 401 {
-		t.Fatalf("class without sign-in: %d", w.Code)
-	}
-	w = post(s, "/api/teacher/class", map[string]int{"days": 7}, map[string]string{"Authorization": "Bearer " + token})
-	if w.Code != 200 {
-		t.Fatalf("class: %d %s", w.Code, w.Body)
-	}
-	code := decode(t, w)["code"].(string)
-
-	if w := post(s, "/api/class/join", map[string]string{"code": strings.ToLower(code)}, nil); w.Code != 200 {
-		t.Fatalf("join: %d %s", w.Code, w.Body)
-	}
-	if w := post(s, "/api/class/join", map[string]string{"code": "ZZZZZ-ZZZZZ"}, nil); w.Code != 404 {
-		t.Fatalf("bad code: %d", w.Code)
-	}
-	if w := post(s, "/api/teacher/class", map[string]int{"days": 0}, map[string]string{"Authorization": "Bearer " + token}); w.Code != 400 {
-		t.Fatalf("0 days: %d", w.Code)
-	}
-}
-
-func TestExpiredClassCode(t *testing.T) {
-	s, _ := newTest(t)
-	code, _, _ := s.Signer.NewClass(time.Now().AddDate(0, 0, -10), 3)
-	if w := post(s, "/api/class/join", map[string]string{"code": code}, nil); w.Code != 410 {
-		t.Fatalf("expired code: %d %s", w.Code, w.Body)
-	}
-}
-
-func TestCompileNeedsAClassAndPassesTheBoard(t *testing.T) {
+func TestCompileIsForEveryoneOnTheNetworkButATokenMustBeReal(t *testing.T) {
 	s, fc := newTest(t)
 	body := map[string]string{"code": "void setup(){}\nvoid loop(){}", "board": "uno"}
-	if w := post(s, "/api/compile", body, nil); w.Code != 401 {
-		t.Fatalf("no class code: %d", w.Code)
+	if w := post(s, "/api/compile", body, map[string]string{accessHeader: "s2.nonsense"}); w.Code != 401 {
+		t.Fatalf("a made-up token: %d", w.Code)
 	}
-	code, _, _ := s.Signer.NewClass(time.Now(), 2)
+	code := "local"
 	w := post(s, "/api/compile", body, map[string]string{accessHeader: code})
 	if w.Code != 200 {
 		t.Fatalf("compile: %d %s", w.Code, w.Body)
@@ -129,7 +95,7 @@ func TestCompileNeedsAClassAndPassesTheBoard(t *testing.T) {
 		t.Errorf("compiled for %q", fc.last)
 	}
 	// a teacher token works too
-	tok, _ := s.Signer.NewTeacherToken(time.Now(), time.Hour)
+	tok := s.Auth.TeacherToken("teacher-code-1234", time.Now().Add(time.Hour))
 	if w := post(s, "/api/compile", body, map[string]string{accessHeader: tok}); w.Code != 200 {
 		t.Fatalf("teacher compile: %d", w.Code)
 	}
@@ -166,8 +132,7 @@ func TestWritesNeedOurHeaderAndJSON(t *testing.T) {
 
 func TestTooBigSketch(t *testing.T) {
 	s, _ := newTest(t)
-	code, _, _ := s.Signer.NewClass(time.Now(), 2)
-	w := post(s, "/api/compile", map[string]string{"code": strings.Repeat("a", 200<<10), "board": "uno"}, map[string]string{accessHeader: code})
+	w := post(s, "/api/compile", map[string]string{"code": strings.Repeat("a", 200<<10), "board": "uno"}, map[string]string{accessHeader: "local"})
 	if w.Code != 413 {
 		t.Fatalf("a 200 KB sketch got %d", w.Code)
 	}
@@ -249,8 +214,7 @@ func TestRealSiteServesPythonForTheBrowser(t *testing.T) {
 	if len(problems) > 0 {
 		t.Fatal(problems[0])
 	}
-	signer, _ := classes.New("test-secret-0123456789")
-	s := New(Config{Site: circuitpathways.Site(), Catalogue: cat, Signer: signer, Teachers: classes.ParseTeacherCodes("teacher-code-1234")})
+	s := New(Config{Site: circuitpathways.Site(), Catalogue: cat})
 	for path, wantType := range map[string]string{
 		"/pipath/": "text/html",
 		"/pipath/vendor/pyodide/pyodide.asm.wasm":  "application/wasm",
@@ -290,95 +254,4 @@ func TestRealSiteServesPythonForTheBrowser(t *testing.T) {
 		}
 		return nil
 	})
-}
-
-func TestTestVersionNeedsNoClassCodeHasBetaTeacherModeAndHidesPis(t *testing.T) {
-	s, _ := newTest(t)
-	s.Beta = true
-	get := func(path string) *httptest.ResponseRecorder {
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
-		return w
-	}
-	// it says so, says teachers can make their own code, and asks search engines to stay away
-	info := get("/api/info")
-	if !strings.Contains(info.Body.String(), `"edition":"test"`) || !strings.Contains(info.Body.String(), `"host":"go"`) {
-		t.Errorf("info should say which edition and host this is: %s", info.Body)
-	}
-	if !strings.Contains(info.Body.String(), `"beta":true`) || !strings.Contains(info.Body.String(), `"teacher_mode":true`) {
-		t.Errorf("info should say this is the test version with teacher mode: %s", info.Body)
-	}
-	if got := info.Header().Get("X-Robots-Tag"); !strings.Contains(got, "noindex") {
-		t.Errorf("X-Robots-Tag = %q", got)
-	}
-	// Raspberry Pi linking isn't there
-	for _, p := range []string{"/api/pi/events", "/api/pi/pi/events", "/pipath/remote/", "/pipath/remote/circuitpathways_pi.py"} {
-		if w := get(p); w.Code != 404 {
-			t.Errorf("%s should not exist in the test version, got %d", p, w.Code)
-		}
-	}
-	// beta teacher mode: a teacher makes up their own code (8+ characters), makes a class, and students join it
-	if w := post(s, "/api/teacher/signin", map[string]string{"code": "short"}, nil); w.Code != 401 {
-		t.Errorf("a made-up code needs 8 characters: %d", w.Code)
-	}
-	w := post(s, "/api/teacher/signin", map[string]string{"code": "my own made up code"}, nil)
-	if w.Code != 200 {
-		t.Fatalf("a made-up teacher code should work in the test version: %d %s", w.Code, w.Body)
-	}
-	token := decode(t, w)["token"].(string)
-	w = post(s, "/api/teacher/class", map[string]int{"days": 3}, map[string]string{"Authorization": "Bearer " + token})
-	if w.Code != 200 {
-		t.Fatalf("class: %d %s", w.Code, w.Body)
-	}
-	code := decode(t, w)["code"].(string)
-	if w := post(s, "/api/class/join", map[string]string{"code": code}, nil); w.Code != 200 {
-		t.Errorf("a student should be able to join the class: %d %s", w.Code, w.Body)
-	}
-	if w := get("/teacher"); w.Code != http.StatusMovedPermanently { // (the redirect to /teacher/: it isn't hidden)
-		t.Errorf("the teacher page should be there in the test version: %d", w.Code)
-	}
-	// the apps' compile call accepts the test version's open access, but nothing else that isn't a class code
-	body := map[string]any{"board": "uno", "files": map[string]string{"sketch.ino": "void setup(){} void loop(){}"}}
-	if w := post(s, "/api/compile", body, map[string]string{accessHeader: "beta"}); w.Code == 401 {
-		t.Errorf("the test version's access should be accepted: %d %s", w.Code, w.Body)
-	}
-	if w := post(s, "/api/compile", body, map[string]string{accessHeader: "nonsense"}); w.Code != 401 {
-		t.Errorf("a made-up access value should be refused: %d", w.Code)
-	}
-	// and a normal site does not accept "beta" as access, or a made-up teacher code
-	s.Beta = false
-	if w := post(s, "/api/compile", body, map[string]string{accessHeader: "beta"}); w.Code != 401 {
-		t.Errorf("a normal site must not accept the test access: %d", w.Code)
-	}
-	if w := post(s, "/api/teacher/signin", map[string]string{"code": "my own made up code"}, nil); w.Code != 401 {
-		t.Errorf("a normal site must only accept the school's teacher codes: %d", w.Code)
-	}
-	if w := get("/api/info"); strings.Contains(w.Body.String(), `"beta":true`) || strings.Contains(w.Body.String(), `"teacher_mode":true`) || w.Header().Get("X-Robots-Tag") != "" {
-		t.Errorf("a normal site isn't the test version: %s", w.Body)
-	}
-}
-
-func TestPrefixToolIsForTheTestVersionOnly(t *testing.T) {
-	s, _ := newTest(t)
-	s.Site = fstest.MapFS{"pipath/js/widgets/x.js": {Data: []byte("one\ntwo\nthree\n")}, "index.html": {Data: []byte("x")}}
-	get := func(q string) *httptest.ResponseRecorder {
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, httptest.NewRequest("GET", "/pipath/dev/prefix?"+q, nil))
-		return w
-	}
-	if w := get("file=widgets/x.js&n=1"); w.Code != 404 {
-		t.Errorf("a normal site has no such tool: %d", w.Code)
-	}
-	s.Beta = true
-	if w := get("file=widgets/x.js&n=2"); w.Code != 200 || w.Body.String() != "one\ntwo\n" || !strings.Contains(w.Header().Get("Content-Type"), "javascript") {
-		t.Errorf("first two lines: %d %q %s", w.Code, w.Body, w.Header().Get("Content-Type"))
-	}
-	if w := get("file=widgets/x.js&n=2&plain=1"); !strings.Contains(w.Header().Get("Content-Type"), "text/plain") {
-		t.Errorf("plain: %s", w.Header().Get("Content-Type"))
-	}
-	for _, f := range []string{"../../etc/passwd", "widgets/x.go", "widgets/..%2fx.js", "nothere.js"} {
-		if w := get("file=" + f); w.Code == 200 {
-			t.Errorf("%s should not be served", f)
-		}
-	}
 }

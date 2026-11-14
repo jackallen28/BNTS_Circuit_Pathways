@@ -3,7 +3,6 @@
 // laptop, so there's no password. "Wipe this browser" opens the WIPE page.
 
 import { classLink } from "/shared/local/cloud.js";
-import { beta } from "../../../shared/beta.js";
 import { api } from "../api.js";
 import { h, icon, joinNames, clear, fill } from "../dom.js";
 import { showAbout } from "../dialogs/about.js";
@@ -20,7 +19,7 @@ export function loginScreen(root, { onLoggedIn, openWipe }) {
     stage,
     h("footer", { class: "logon-footer" },
       h("button", { class: "logon-link", type: "button", onclick: showAbout }, icon("about"), " About ArduinoPath"),
-      beta ? null : h("button", { class: "logon-link", type: "button", onclick: openWipe }, icon("warn"), " Wipe this browser")),
+      h("button", { class: "logon-link", type: "button", onclick: openWipe }, icon("warn"), " Wipe this browser")),
     h("img", { class: "bnts-pixels", src: "img/bnts-pixels.svg", alt: "" }));
   clear(root).append(screen);
 

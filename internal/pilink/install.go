@@ -14,7 +14,7 @@ var tmpl = template.Must(template.New("install").Delims("<%", "%>").Parse(instal
 
 // PlaceholderServer is the website address written into the Pi app's source
 // (and replaced when the app is handed out).
-const PlaceholderServer = "https://circuit-pathways.onrender.com"
+const PlaceholderServer = "http://localhost:8080"
 
 // Installer writes the shell script a Pi runs once (with sudo) to install Pi
 // Link and start it at every boot. With a key, the script is for that one Pi;

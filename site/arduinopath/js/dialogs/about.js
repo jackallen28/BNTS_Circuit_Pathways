@@ -3,7 +3,7 @@
 import { h, icon } from "../dom.js";
 import { openDialog } from "../widgets/window.js";
 import { state } from "../state.js";
-import { buildLabel } from "../../../shared/beta.js";
+import { buildLabel } from "../../../shared/edition.js";
 
 export function aboutContent() {
   return h("div", { class: "about" },

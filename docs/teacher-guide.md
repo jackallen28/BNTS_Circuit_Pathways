@@ -5,36 +5,41 @@ student's browser: **PiPath** (Python on the Raspberry Pi) and **ArduinoPath** (
 C++). Students choose their projects and how much help they get. There is no generative AI: every hint was written by
 people.
 
-## Which site are you on?
+## Where it runs
 
-| Site | Class code | What it is for |
+Circuit Pathways runs on your school's own Raspberry Pi (the **school server**). Nothing is on the internet.
+
+| Where | Students open | What it is for |
 |---|---|---|
-| **The real site** | Needed | Classes. A student joins with the class code you make. |
-| **The Pi beta** | Optional | Students on Raspberry Pis. Without a code, work is saved on that Pi. With one, it is also saved to the class. |
-| **The TEST version** | Optional | Trying it out. Nothing is kept on the computer; a student in a class has their work saved to the class. |
+| **A laptop** | `https://pathways.local` in Chrome or Edge | PiPath (Python on the on-screen Pi) and ArduinoPath (the simulator, and uploading to a board on USB). |
+| **A student Pi** | **PiPath** or **ArduinoPath** in the Pi menu | The same, plus PiPath on the Pi's real pins. It works even when the network is down. |
 
-Ask whoever set it up which address to use. [`../README.md`](../README.md) explains the editions.
+Setting it up (once, by you or IT): [`server.md`](server.md).
 
 ## Before your first lesson
 
-1. **Sign in on the home page** with your teacher code. (On the Pi beta and TEST versions you can make up a code of your
-   own, 8 or more characters. Write it down: your classes are kept under it, and it is how you get back to them.)
-2. **Make a class** on the **Teacher page**: a name (no student names), the school, and the day it ends. You get a class
-   code such as `ABCDE-FGHJK`. Give it to your students.
-3. **Try it yourself first**, as a student, on one computer: join with the code, make a profile, open *Blink & Traffic
-   Lights*, plug in a board and press **Upload**. (Uploading needs Chrome or Edge, a USB cable that carries data, and a
-   site set up with a compiler.)
-4. **If a school computer blocks something:** ask IT to allow the site's address, USB serial in Chrome or Edge, and,
-   for clone boards on Windows, the CH340 / CP2102 USB drivers. Students can press **Can't see your board?** for tips.
-5. **Check your kit.** The project picker says "needs a part not in your kit" using `content/arduinopath/kit.json`.
-   To change it, edit that file.
-6. **Run through the hardware checklist** ([hardware-checklist.md](hardware-checklist.md)) once with your boards and parts.
+1. **Get a teacher code.** Whoever looks after the server makes one for you: `sudo circuitpathways teacher add "Your name"`.
+   Keep it private: your classes are kept under it.
+2. **Set up your laptop** once: open `http://pathways.local/trust` and follow the steps. Then use `https://pathways.local`.
+3. **Sign in on the home page** with your teacher code: the **teacher portal** opens.
+4. **Make a class**: a name (no student names), the school, and the day it ends. You get a class code such as
+   `ABCDE-FGHJK`. Give it to your students.
+5. **Set work** (optional): pick ArduinoPath projects and PiPath activities, in order, with a note such as "steps 1 to 3
+   by Friday". Students see the list on the home page, with links. Nothing is locked: they can still pick anything.
+6. **Try it yourself first**, as a student, on one computer: join with the code, make a profile, open *Blink & Traffic
+   Lights*, plug in a board and press **Upload**. (Uploading needs Chrome or Edge, a USB cable that carries data, and the
+   secure address.)
+7. **If a school computer blocks something:** ask IT to set up every laptop to trust the server (`server.md`), allow
+   USB serial in Chrome or Edge, and, for clone boards on Windows, the CH340 / CP2102 USB drivers. Students can press
+   **Can't see your board?** for tips.
+8. **Check your kit.** The project picker says "needs a part not in your kit" using `content/arduinopath/kit.json`.
+9. **Run through the hardware checklist** ([hardware-checklist.md](hardware-checklist.md)) once with your boards and Pis.
 
 ## How a lesson works
 
 1. **Join.** On the home page a student types the class code, then their **first name(s)** and **school**. Students
-   sharing a kit can add up to four names. No passwords. (On the Pi beta a student can skip the code and start straight
-   away.)
+   sharing a kit can add up to four names. No passwords. A class code is optional: without one, work is saved on that
+   computer only. The home page then shows the **work you set**.
 2. **Help and board.** Beginner, Moderate or Advanced, and (in ArduinoPath) the board in their kit. Both can be changed
    in **Settings** at any time.
 3. **The project picker.** Every project is open. Tiers (Getting Started, Sensors & Sound, Displays & Lights, Games,
@@ -46,8 +51,8 @@ Ask whoever set it up which address to use. [`../README.md`](../README.md) expla
    checklist that ticks itself.
    - **Run** tries the code in the on-screen simulator. It needs no board.
    - **Watch the goal** shows what the step should do.
-   - **Upload** (ArduinoPath) puts the code on the real board. **Run on: My Raspberry Pi** (PiPath) runs it on the
-     student's own Pi.
+   - **Upload** (ArduinoPath) puts the code on the real board. On a student Pi, **Run on: My Raspberry Pi** (PiPath) runs
+     it on that Pi's pins.
    - **Check my code** only compiles.
    - The **Coach** explains every error ("clue") in plain English, with hints that start small.
 6. **Stars** count independence (fewer hints is more stars), never speed.
@@ -70,19 +75,26 @@ these nudges off in Settings.
 
 ## Seeing your class's work
 
-On the **Teacher page**, open a class to see each student's first name(s), school, and what they have done. **See work**
-shows their code. You can download everyone's work as a zip, or put it in a **class file** to keep on your computer.
-You can change a class's end date, remove one student, or **Delete this class now**.
+In the **teacher portal**, open a class:
+
+- **Progress** on the work you set: **✓** finished, a number such as **3/7** for steps done, **·** opened, blank not
+  started. Press **Refresh** for the latest.
+- The **students**: first name(s), school, when they joined and last saved, and **See work** for their code.
+- **Download everyone's work** (a zip of save files and code), or put it in a **class file** to keep on your computer.
+- Change the class's end date, **Remove** one student, or **Delete this class now**.
+
+Work saves to the class a moment after a student types. On a student Pi with no network, it waits and goes up when the
+Pi can reach the school server again.
 
 ## What is kept, and for how long
 
-- **A student with no class** keeps their work only on their own device (and in files they save).
-- **A student in a class** has their first name(s), school and work kept with the class (on the Cloudflare site), so you
-  can see it and they can carry on from any device. Nothing else about them is kept.
+- **A student with no class** keeps their work only in the browser on that computer (and in files they save).
+- **A student in a class** has their first name(s), school and work kept with the class **on the school server**, so you
+  can see it and they can carry on from any computer at school. Nothing else about them is kept, and nothing goes to the
+  internet.
 - **Everything is deleted** after the class's end date, or sooner if you delete the class or a student takes their name
   off it (**Take my name off the class** on the home page).
-- The database provider keeps backups for a few weeks, so say so in your privacy notice. A sample is in
-  [deploy-render.md](deploy-render.md), section 6.
+- Backups are only made when someone runs `sudo circuitpathways backup` on the server; say so in your privacy notice.
 
 ## Curriculum
 
@@ -114,6 +126,10 @@ Every wiring screen reminds students:
 | Upload says the board isn't answering (Uno / Nano) | Pick the right board in Settings. Nano clones often need **Old bootloader** ticked. |
 | Upload says "Failed to connect" (ESP boards) | Hold the board's **BOOT** / **FLASH** button while the upload starts. |
 | Upload says another program is using the board | Close the Arduino IDE or any other Serial Monitor tab. |
-| PiPath's Output stays empty | The school network may be blocking a file. The page says which, and to try another network (at the Tech School, **Tech Guest**). |
+| PiPath's Output stays empty | Reload the page. If it still doesn't work, check the computer is using the school server's address (the server may need restarting: `sudo systemctl restart circuitpathways`). |
+| The browser says the connection isn't private | That computer needs setting up once: `http://pathways.local/trust`. |
+| Upload or Python's `input()` doesn't work on a laptop | Use the secure address, `https://pathways.local`. |
+| `pathways.local` doesn't open | Use the server's address instead (ask whoever set it up), and check the computer is on the school network. |
+| A student Pi says the school server can't be reached | Students can keep working; it is saved on the Pi and goes to the class later. Check the server Pi is on. |
 | A student can't join the class | Check the code and that the class hasn't ended. The code is not case sensitive. |
 | Anything else | See the **When something goes wrong** list in [hardware-checklist.md](hardware-checklist.md). |

@@ -4,7 +4,6 @@
 // to turn a sketch into a program for the board. The server keeps nothing.
 
 import { withGrove } from "/shared/grove/grove.js";
-import { beta } from "../../shared/beta.js";
 import { createLocalApi, tabSession, LocalError } from "/shared/local/localapi.js";
 import { openStore } from "/shared/local/store.js";
 import { createCloud } from "/shared/local/cloud.js";
@@ -37,7 +36,7 @@ async function getJSON(path) {
   try {
     res = await fetch(path, { credentials: "omit" });
   } catch {
-    throw new ApiError(0, { error: "offline", message: "Circuit Pathways can't be reached. Check your internet connection and try again." });
+    throw new ApiError(0, { error: "offline", message: "The Circuit Pathways server can't be reached. Check this computer is on the school network, and try again." });
   }
   if (!res.ok) throw new ApiError(res.status, { error: "not_found", message: "That isn't here." });
   return res.json();
@@ -55,7 +54,6 @@ const local = () => (localPromise ??= storePromise.then((store) => createLocalAp
 
 /** True if this browser won't keep the student's work between visits (a private window, say). */
 export async function storageIsTemporary() {
-  if (beta) return false; // the TEST version saves nothing, and says so
   return !(await storePromise).persistent;
 }
 
@@ -72,14 +70,13 @@ async function call(name, ...args) {
   }
 }
 
-/** Compiles a sketch on the server for the chosen board. Needs a class code. */
+/** Compiles a sketch on the school server (or this student Pi, if it has the board tools) for the chosen board. */
 async function compile(code, board, variant) {
   const access = getAccess();
-  if (!access) throw new ApiError(401, { error: "no_class", message: "Join a class with your class code to upload to a board." });
   try {
     return await postJSON("/api/compile", { code, board, variant: variant || "" }, { "X-Access": access.value });
   } catch (err) {
-    if (err.status === undefined) throw new ApiError(0, { error: "offline", message: "Circuit Pathways can't be reached. Check your internet connection and try again." });
+    if (err.status === undefined) throw new ApiError(0, { error: "offline", message: "The Circuit Pathways server can't be reached. Check this computer is on the school network, and try again." });
     throw new ApiError(err.status, { error: err.code, message: err.message });
   }
 }

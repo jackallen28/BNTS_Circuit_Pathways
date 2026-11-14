@@ -1,41 +1,43 @@
-# Pi Link (prototype): control a Raspberry Pi's pins from the browser
+# Pi Link: PiPath on a student Pi's real pins
 
-A student runs one small program on their Pi. Their browser, on the Circuit Pathways site, then
-switches the Pi's GPIO pins on and off, fades LEDs, and reads buttons and sensors.
+Each **student Pi** runs Circuit Pathways itself (`-mode student-pi` on `http://localhost:8080`) and a small app, Pi
+Link (`site/pipath/remote/circuitpathways_pi.py`). PiPath in that Pi's browser then runs students' programs on the Pi's
+real pins, and the Pi Link page switches pins by hand.
 
 ```
- Pi (circuitpathways_pi.py) ──outgoing──▶  Circuit Pathways site  ◀──outgoing── student's browser
-        pins ◀─ commands ──────────────── (relay, in memory) ◀───── clicks, sliders
-        pins ── pin states ─────────────▶                  ──────▶ the 40-pin header, live
+ Pi Link app (circuitpathways_pi.py) ──▶  Circuit Pathways on the same Pi (relay)  ◀── the Pi's own browser
+        pins ◀─ commands, programs ─────── (in memory, localhost:8080) ◀──────────── PiPath, Pi Link page
+        pins ── pin states, output ───────▶                           ──────────▶ the 40-pin header, Output
 ```
 
-**Why a relay?** Both sides only make *outgoing* connections to the site. That works when school
-WiFi stops laptops from reaching other devices, and it avoids the browser rule that stops an
-`https://` page talking to `http://192.168...` on the local network. No router settings, no IP
-addresses, no certificates on the Pi.
+Everything stays on the Pi, so it works with no network. Both the browser and the Pi app connect to the Pi's own
+server; nothing listens on the network for Pi Link.
+
+## Set it up
+
+The student Pi installer does it all (see `docs/server.md`):
+
+```bash
+curl -fsSL http://pathways.local/install/student-pi.sh | sudo bash
+```
+
+It makes the Pi's own key (`circuitpathways pi-key`, kept in `/var/lib/circuitpathways`), installs Pi Link as a service
+that starts at boot, the `pilink` helper, and the Pi menu and desktop shortcuts, which open the site with this Pi's ID.
 
 ## Try it (no Pi needed)
 
-```
+```bash
 go run ./cmd/circuitpathways -dev
-# in another terminal:
-python3 site/pipath/remote/circuitpathways_pi.py --mock --server http://localhost:8080
 ```
 
-It prints a code such as `K7M-2QX`. On the home page join a class (or sign in as a teacher:
-`teacher-code-dev`), open **PiPath > Pi Link prototype**, and type the code. In `--mock` mode,
-type `set 4 1` or `set 4 0` in the Pi app's terminal to press a pretend button on pin 4.
+and in another terminal, with a key made with the dev secret (`tests/e2e/pi-key.js` shows how):
 
-## On a real Pi
-
-```
-curl -O https://YOUR-SITE/pipath/remote/circuitpathways_pi.py
-python3 circuitpathways_pi.py
+```bash
+python3 site/pipath/remote/circuitpathways_pi.py --mock --key CPK1-... --server http://localhost:8080
 ```
 
-The site hands out the file with its own address already filled in. It needs only Python 3 and
-`gpiozero`, which are already on Raspberry Pi OS. (To start it automatically at boot, a
-`systemd` service can run the same command.)
+It prints the Pi's ID. Open PiPath, choose **Run on: My Raspberry Pi** and type it. In `--mock` mode, type `set 4 1` or
+`set 4 0` in the Pi app's terminal to press a pretend button on pin 4.
 
 ## What it can and can't do
 
@@ -46,27 +48,23 @@ The site hands out the file with its own address already filled in. It needs onl
 | Program commands | `run`, `stdin`, `stop`: run the student's own Python file (see "Running students' programs" below). No shell, no arbitrary files |
 | Checked twice | The site checks every command, and the Pi app checks it again |
 | Fail-safe | If the Pi loses the site for 10 seconds, every output goes off. `Ctrl+C` lets every pin go |
-| Speed | A command takes roughly the round trip to the site (tens to a couple of hundred ms) |
+| Speed | A command takes a few milliseconds (it never leaves the Pi) |
 | Not for | Timing-critical things (servos need PWM hardware timing, ultrasonic echo timing, NeoPixels). Those stay in the simulator or in programs that run on the Pi itself |
 
 ## Privacy and safety (pins)
 
-- The site passes only pin commands and pin states. It keeps them in memory while the Pi is
-  connected and stores nothing. The Pi's label is a plain "Raspberry Pi" (never its host name,
-  which might contain a student's name).
-- A browser needs a **class code** (or teacher sign-in) to connect, and the Pi's **pairing code**
-  (30 random bits, forgotten after the Pi disconnects). Pairing codes can't be guessed quickly:
-  attempts are rate limited. Anyone who sees a code on a neighbour's screen *and* has a class code
-  could connect, so teachers should treat a Pi's code like a seat number: it only matters
-  for that session. One browser controls a Pi at a time; a newer one takes over.
-- Wiring safety is the same as PiPath: HAT off before changing wires, a 330Ω resistor with every
+- The Pi's own server passes only pin commands and pin states, in memory. Nothing is stored. The Pi's label is a plain
+  "Raspberry Pi" or the `CP_NAME` it was installed with (never a student's name).
+- Only this Pi's own browser can reach its server (it listens on `127.0.0.1`). One browser controls the Pi at a time; a
+  newer one takes over.
+- Wiring safety is the same as PiPath: unplug (or take the HAT off) before changing wires, a 330Ω resistor with every
   LED, never 5V on a GPIO pin. The page shows these.
 
 ## Running students' programs (PiPath: Run on: My Raspberry Pi)
 
 The PiPath page sends the student's program (a `.py` file up to 40 KB, plus the lesson's small data files and, if the
 program imports them, PiPath's `pipath_camera` / `pipath_computer` helpers, which the Pi fetches from the site
-itself) to the Pi. The Pi runs it with real Python and `gpiozero`, and streams what it prints back.
+itself) to Pi Link. The Pi runs it with real Python and `gpiozero`, and streams what it prints back.
 
 - One program at a time, in a temporary folder that is deleted afterwards, with a clean environment.
 - As root (the installer's service) it **never** runs a program as root: it needs `RUN_USER` (the installer makes
@@ -85,8 +83,6 @@ Tests: `python3 -m unittest discover raspberry-pi` runs real programs (as `nobod
 ## Next steps (not built yet)
 
 1. **Pin events from the program** (so a "pins" panel could show what the program is driving).
-2. **An SD-card image** with Pi Link installed.
-3. **Camera and sensors: stream readings from sensors the Pi can read well (DHT, distance).
-4. **A teacher view** of which Pis are online in a class (needs a class code to be tied to a Pi).
-5. **Direct mode** on the school network as an alternative when the internet is blocked: the Pi
-   serves the page itself, over its own WiFi hotspot.
+2. **An SD-card image** of a ready student Pi.
+3. **Camera and sensors:** stream readings from sensors the Pi can read well (DHT, distance).
+4. **A teacher view** of which student Pis are on, in the teacher portal.

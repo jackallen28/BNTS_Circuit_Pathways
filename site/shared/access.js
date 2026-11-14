@@ -1,30 +1,26 @@
-// Who may use the apps: a student with a class code, or a signed-in teacher.
-// The class code (or teacher token) is kept in this browser only, until it
-// expires. The server checks it again whenever it is asked to compile.
-
-import { beta, piBeta } from "./beta.js";
+// Who is using the apps: a student who joined a class (their token, first names, school and class), a
+// teacher who signed in, or (with no class) "local": a student whose work is saved in this browser only.
+// The token is kept in this browser until the class ends (a teacher's after 12 hours).
 
 const KEY = "circuitpathways.access";
 
 /**
- * kind "class": a class code (the Go site); "student": a student who joined a saved class (the Cloudflare
- * site), with their first names and school as they joined; "teacher": a teacher's sign-in; "local": no class
- * (the Pi beta, where a class code is optional and work is saved on this device).
- * @returns {{kind: "class"|"student"|"teacher"|"local", value: string, expires_at: number, names?: string[], school?: string, class?: object}|null}
+ * kind "student": a student who joined a class on the school server, with their first names and school as they
+ * joined; "teacher": a teacher's sign-in; "local": no class (work is saved in this browser).
+ * @returns {{kind: "student"|"teacher"|"local", value: string, expires_at: number, names?: string[], school?: string, class?: object}}
  */
-export function getAccess(now = Date.now(), optional = piBeta, test = beta) {
+export function getAccess(now = Date.now()) {
   try {
     const a = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (a && typeof a.value === "string" && a.expires_at > now && ["class", "student", "teacher"].includes(a.kind)) return a; // (a class joined, or a teacher, even in a beta)
-    if (a) localStorage.removeItem(KEY);
+    if (a && typeof a.value === "string" && a.expires_at > now && ["student", "teacher"].includes(a.kind)) return a;
+    if (a) localStorage.removeItem(KEY); // ended, or from an older version
   } catch { /* storage blocked */ }
-  if (test) return { kind: "beta", value: "beta", expires_at: now + 12 * 3600 * 1000 }; // the TEST version needs no class code
-  return optional ? { kind: "local", value: "local", expires_at: now + 12 * 3600 * 1000 } : null;
+  return { kind: "local", value: "local", expires_at: now + 12 * 3600 * 1000 };
 }
 
-/** Is the student in a class (or a teacher), rather than just using this device? */
+/** Is the student in a class (or a teacher), rather than just using this browser? */
 export function inClass(access = getAccess()) {
-  return Boolean(access) && access.kind !== "local" && access.kind !== "beta";
+  return Boolean(access) && access.kind !== "local";
 }
 
 export function setAccess(kind, value, expires_at, extra = {}) {

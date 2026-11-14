@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Circuit Pathways: set up a STUDENT Raspberry Pi, from the school server <%.School%>
+#
+# Run this once on each student Pi (64-bit Raspberry Pi OS with the desktop), with the school server switched on:
+#     curl -fsSL <%.HTTP%>/install/student-pi.sh | sudo bash
+#
+# It installs Circuit Pathways on this Pi, so PiPath and ArduinoPath open from the Pi menu and the desktop and
+# work even when the school network is down (work is saved on the Pi). When the school server can be reached,
+# a student who has joined a class has their work saved to it, and uploading to a board uses its compiler.
+# It also installs Pi Link, so PiPath runs students' programs on this Pi's own pins.
+#
+# Settings go after "sudo", for example:  curl -fsSL <%.HTTP%>/install/student-pi.sh | sudo CP_NAME="Pi 7" bash
+#   CP_NAME="Pi 7"   a label for this Pi (no student names)       CP_RUN=no    pins only, no students' programs
+#   CP_TOOLS=yes     also put the board tools on this Pi (1.5 GB, needs the internet), so uploads work offline
+set -euo pipefail
+
+SCHOOL="<%.School%>"
+HTTP_BASE="<%.HTTP%>"
+SHA256="<%.SHA256%>"
+ARCH="<%.Arch%>"
+NAME="${CP_NAME:-$(hostname)}"
+TOOLS="${CP_TOOLS:-no}"
+PORT=8080
+ROOT="${CP_PREFIX:-}"   # only for testing: install into this folder instead of the real system
+
+say() { printf '\n==> %s\n' "$*"; }
+die() { printf '\nSorry: %s\n' "$*" >&2; exit 1; }
+
+if [[ -z "$ROOT" && "$(id -u)" != 0 ]]; then die "run this with sudo:  curl -fsSL $HTTP_BASE/install/student-pi.sh | sudo bash"; fi
+MACHINE="${CP_MACHINE:-$(uname -m)}"
+case "$MACHINE" in
+  aarch64|arm64) [[ "$ARCH" == arm64 ]] || die "the school server has the $ARCH version of Circuit Pathways, and this Pi needs arm64." ;;
+  x86_64|amd64) [[ "$ARCH" == amd64 ]] || die "this computer needs the amd64 version, and the school server has $ARCH." ;;
+  *) die "this Pi runs 32-bit Raspberry Pi OS. Circuit Pathways needs 64-bit Raspberry Pi OS (Pi 3, 4, 5 or Zero 2 W)." ;;
+esac
+NAME="$(printf '%s' "$NAME" | tr -cd 'A-Za-z0-9 -' | cut -c1-24)"
+NAME="${NAME:-Raspberry Pi}"
+
+say "Downloading Circuit Pathways from the school server"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+curl -fsS --retry 3 -o "$TMP/circuitpathways" "$HTTP_BASE/install/circuitpathways-linux-$ARCH" \
+  || die "couldn't download it from $HTTP_BASE. Is the school server on, and this Pi on the same network?"
+echo "$SHA256  $TMP/circuitpathways" | sha256sum -c --quiet - || die "the download wasn't complete (it doesn't match). Try again."
+
+# (the program lives in /usr/local/lib: /usr/local/bin/circuitpathways is Pi Link's launcher, which opens the site)
+APP=/usr/local/lib/circuitpathways/circuitpathways
+install -d "$ROOT/usr/local/lib/circuitpathways" "$ROOT/etc/circuitpathways" "$ROOT/var/lib/circuitpathways"
+rm -f "$ROOT/usr/local/bin/circuitpathways"   # (an older launcher, remade below)
+install -m 755 "$TMP/circuitpathways" "$ROOT$APP"
+cat > "$ROOT/etc/circuitpathways/school-ca.crt" <<'CA_END'
+<%.CA%>
+CA_END
+printf '# Circuit Pathways on this student Pi: the school server it saves classes to and compiles with.\nSCHOOL_SERVER=%s\n' "$SCHOOL" > "$ROOT/etc/circuitpathways/student-pi.conf"
+if [[ -z "$ROOT" && -d /usr/local/share/ca-certificates ]]; then
+  # so this Pi's own tools trust the school server
+  cp /etc/circuitpathways/school-ca.crt /usr/local/share/ca-certificates/circuitpathways-school.crt
+  update-ca-certificates >/dev/null 2>&1 || true
+fi
+
+if [[ -z "$ROOT" ]]; then
+  id circuitpathways >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin circuitpathways
+fi
+# this Pi's own Pi Link key (made and kept on this Pi)
+KEY="$("$ROOT$APP" pi-key -data "$ROOT/var/lib/circuitpathways")" || die "couldn't make this Pi's key"
+if [[ -z "$ROOT" ]]; then chown -R circuitpathways: /var/lib/circuitpathways; chmod 700 /var/lib/circuitpathways; fi
+
+TOOLFLAG=""
+if [[ "$TOOLS" == yes ]]; then
+  say "Installing the board tools on this Pi (about 1.5 GB: this takes a while)"
+  install -d "$ROOT/opt/circuitpathways"
+  if "$ROOT$APP" -setup -tools "$ROOT/opt/circuitpathways"; then
+    TOOLFLAG="-tools /opt/circuitpathways"
+  else
+    printf '\nNote: the board tools could not be installed. Uploads will use the school server instead.\n'
+  fi
+fi
+
+UNIT="[Unit]
+Description=Circuit Pathways on this student Pi
+After=network.target
+
+[Service]
+User=circuitpathways
+ExecStart=$APP -mode student-pi -addr 127.0.0.1:$PORT -school $SCHOOL -school-ca /etc/circuitpathways/school-ca.crt -data /var/lib/circuitpathways $TOOLFLAG
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/circuitpathways
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target"
+install -d "$ROOT/etc/systemd/system"
+printf '%s\n' "$UNIT" > "$ROOT/etc/systemd/system/circuitpathways.service"
+if [[ -z "$ROOT" ]]; then
+  say "Starting Circuit Pathways on this Pi (it starts by itself every time the Pi turns on)"
+  systemctl daemon-reload
+  systemctl enable --now circuitpathways
+  systemctl restart circuitpathways
+fi
+
+say "Installing Pi Link (students' programs on this Pi's pins) and the shortcuts"
+"$ROOT$APP" pi-installer -server "http://localhost:$PORT" -key "$KEY" > "$TMP/pilink.sh"
+CP_NAME="$NAME" CP_PREFIX="$ROOT" bash "$TMP/pilink.sh"
+
+printf '\n=====================================================\n'
+printf '  This student Pi is ready.\n\n'
+printf '  Students open Circuit Pathways, PiPath or ArduinoPath\n'
+printf '  from the Pi menu or the desktop. It works without the\n'
+printf '  network; work goes to the class on the school server\n'
+printf '  whenever it can be reached.\n\n'
+printf '  School server: %s\n' "$SCHOOL"
+printf '=====================================================\n'

@@ -204,12 +204,14 @@ test("a compile error from the real compiler is explained by the Coach", async (
   await expect(page.locator(".side-panel.guide .clue")).toContainText("semicolon", { timeout: 10_000 });
 });
 
-test("Upload needs a class code: without one the compile is refused", async ({ page, request }) => {
+test("Upload is for everyone on the school network, but a made-up class token is refused", async ({ request }) => {
   const res = await request.post("/api/compile", {
-    headers: { "X-Circuit-Pathways": "1" },
+    headers: { "X-Circuit-Pathways": "1", "X-Access": "s2.made-up" },
     data: { code: "void setup(){}\nvoid loop(){}", board: "uno" },
   });
   expect(res.status()).toBe(401);
+  const none = await request.post("/api/compile", { headers: { "X-Circuit-Pathways": "1" }, data: { code: "void setup(){}\nvoid loop(){}", board: "uno" } });
+  expect(none.status()).toBe(503); // (the dev server has no board tools)
 });
 
 test("Free Play with a Grove kit: add a module, its code goes in, it's in the simulator, and it comes back next time", async ({ page }) => {

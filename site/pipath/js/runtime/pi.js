@@ -19,7 +19,7 @@ export function rememberPiId(id) {
 /** True once the Pi is linked and its app allows running programs. */
 export const piReady = () => getPi().state === "connected" && getPi().canRun;
 
-/** Is the student in a class (so the site lets them reach a Pi)? */
+/** Can this browser reach a Pi? (Always: a class isn't needed. Kept for the callers that ask.) */
 export const hasClass = () => Boolean(getAccess());
 
 /** The helper modules a program imports, which the Pi gets from the website. */

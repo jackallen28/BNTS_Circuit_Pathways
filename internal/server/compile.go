@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/subtle"
 	"net/http"
 	"time"
 
@@ -35,20 +34,24 @@ func (s *Server) handleCompile(w http.ResponseWriter, r *http.Request) {
 	if s.limited(w, r, s.limits.compile) {
 		return
 	}
-	if v := r.Header.Get(accessHeader); !s.Signer.CheckAccess(v, s.Now()) && !(s.Beta && v == "beta") && !s.compileKeyOK(r) {
-		writeError(w, http.StatusUnauthorized, "no_class", "Join a class with your class code to upload to a board.")
+	if !s.accessOK(r, bearer(r)) {
+		writeError(w, http.StatusUnauthorized, "no_class", "Your class has ended, or you've been taken off it. Join again on the home page, or carry on without a class.")
 		return
 	}
 	if s.Compiler == nil {
-		writeError(w, http.StatusServiceUnavailable, "no_tools", "Compiling for real boards is switched off on this site. The simulator still works.")
+		writeError(w, http.StatusServiceUnavailable, "no_tools", "The board tools aren't installed on this server yet, so it can't upload. The simulator still works.")
 		return
 	}
 	var req compileRequest
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if req.Code == "" || len(req.Code) > maxSketchSize {
-		writeError(w, http.StatusBadRequest, "bad_code", "This sketch is too long (the limit is 100 KB).")
+	if len(req.Code) > maxSketchSize {
+		writeError(w, http.StatusRequestEntityTooLarge, "too_big", "This sketch is too long (the limit is 100 KB).")
+		return
+	}
+	if req.Code == "" {
+		writeError(w, http.StatusBadRequest, "bad_code", "There's no code to compile.")
 		return
 	}
 	b, ok := s.Catalogue.Board(req.Board)
@@ -96,10 +99,4 @@ func (s *Server) handleCompile(w http.ResponseWriter, r *http.Request) {
 		out.Artifacts = append(out.Artifacts, artifactJSON{Name: a.Name, Offset: a.Offset, Data: a.Data})
 	}
 	writeJSON(w, http.StatusOK, out)
-}
-
-// compileKeyOK: the request comes from a front end this server compiles for (see Config.CompileKey).
-func (s *Server) compileKeyOK(r *http.Request) bool {
-	k := r.Header.Get("X-Compile-Key")
-	return len(s.CompileKey) >= 16 && subtle.ConstantTimeCompare([]byte(k), []byte(s.CompileKey)) == 1
 }

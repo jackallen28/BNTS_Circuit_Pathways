@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Teacher page - Circuit Pathways</title>
+<title>Teacher portal - Circuit Pathways</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="../img/bnts-mark.svg">
 <link rel="stylesheet" href="../css/site.css">
@@ -16,14 +16,14 @@
 
 <header class="tbar">
   <a class="brand" href="../"><img src="../img/bnts-mark.svg" alt=""><span>Circuit Pathways</span></a>
-  <span class="tbar-title">Teacher page</span>
+  <span class="tbar-title">Teacher portal</span>
   <button type="button" class="btn btn-plain" id="signout">Sign out</button>
 </header>
 
 <main id="main" class="tmain">
-  <section class="tcard" aria-labelledby="h-classes" id="classes-card" hidden>
+  <section class="tcard" aria-labelledby="h-classes" id="classes-card">
     <h2 id="h-classes">1. My classes</h2>
-    <p>Make a class and give students its code. They type it on the home page with their <b>first name(s)</b> and <b>school</b>: that is all that is kept about them, with their work, so you see everyone's work here. When the class ends, the class, the names and the work are deleted.</p>
+    <p>Make a class and give students its code. They type it on the home page with their <b>first name(s)</b> and <b>school</b>: that is all that is kept about them, with their work, on this school's own Circuit Pathways server (nothing goes to the internet). Set the work you want them to do, and follow their progress here. When the class ends, the class, the names and the work are deleted.</p>
     <div class="trow">
       <label>Class name <input id="c-name" maxlength="40" placeholder="e.g. 7B Thursday (no student names)"></label>
       <label>School <input id="c-school" maxlength="60" value="Banyule Nillumbik Tech School"></label>
@@ -47,6 +47,21 @@
         <button type="button" class="btn btn-plain danger" id="r-delete">Delete this class now</button>
       </div>
       <p class="note" id="r-note" role="status"></p>
+      <h3>Set work</h3>
+      <p>Pick projects and activities for this class, in the order you'd like them done. Students see them on the home page, with a link that opens each one.</p>
+      <div class="trow">
+        <label>ArduinoPath project <select id="w-ard"></select></label>
+        <label>PiPath activity <select id="w-pi"></select></label>
+        <label>Note (optional) <input id="w-note" maxlength="200" placeholder="e.g. steps 1 to 3 by Friday"></label>
+        <button type="button" class="btn btn-plain" id="w-add">Add ▸</button>
+      </div>
+      <ol class="w-list" id="w-list"></ol>
+      <div class="trow"><button type="button" class="btn" id="w-save">Save the work for this class</button></div>
+      <p class="note" id="w-note-msg" role="status"></p>
+      <h3>Progress</h3>
+      <p class="small">For the work you set: <b>✓</b> finished, a number is how many steps are done, <b>·</b> opened, blank not started. It updates when students' work is saved (press Refresh).</p>
+      <div class="twrap"><table class="ttable progress" id="p-table"><thead></thead><tbody></tbody></table></div>
+      <h3>Students</h3>
       <div class="twrap"><table class="ttable" id="r-table">
         <thead><tr><th>First name(s)</th><th>School</th><th>Joined</th><th>Last saved work</th><th>Pieces of work</th><th><span class="sr">Actions</span></th></tr></thead>
         <tbody></tbody>
@@ -55,34 +70,9 @@
     </div>
   </section>
 
-  <section class="tcard" aria-labelledby="h-code" id="code-card">
-    <h2 id="h-code">1. Make a class code</h2>
-    <p>Give this code to your students. They type it on the Circuit Pathways home page, then use their own first name and school. Nothing about your class is kept on our server: the code works because of how it is made.</p>
-    <div class="trow">
-      <label>How long should it work?
-        <select id="days">
-          <option value="1">Today</option>
-          <option value="7">1 week</option>
-          <option value="28">4 weeks</option>
-          <option value="70" selected>1 term (10 weeks)</option>
-          <option value="180">Half a year</option>
-          <option value="365">1 year</option>
-        </select>
-      </label>
-      <button type="button" class="btn" id="make">Make a class code ▸</button>
-    </div>
-    <div class="code-box" id="code-box" hidden>
-      <div class="code" id="code" aria-live="polite"></div>
-      <div class="code-note" id="code-note"></div>
-      <button type="button" class="btn btn-plain" id="copy">Copy the code</button>
-    </div>
-    <p class="note" id="make-note" role="status"></p>
-    <p class="small">A class code can't be switched off early, so pick a length that suits the program. Make a new one any time.</p>
-  </section>
-
   <section class="tcard" aria-labelledby="h-file">
-    <h2 id="h-file">2. Class file and student work</h2>
-    <p>A class file (<b>.circuitclass</b>) is saved on your computer, never on our server. It holds the class details and any student work you add, so you can open the class again later.</p>
+    <h2 id="h-file">2. Class files (optional)</h2>
+    <p>A class file (<b>.circuitclass</b>) is saved on your computer. It holds a class's name and the students' work, so you can keep it after the class ends, or look at work students saved as files on a computer that wasn't on the school network.</p>
     <div class="trow">
       <label>Class name <input id="label" maxlength="60" placeholder="e.g. Year 8 Robotics, Term 4"></label>
       <button type="button" class="btn" id="save-class">Save class file ▸</button>
@@ -99,12 +89,12 @@
       <thead><tr><th>First name(s)</th><th>School</th><th>App</th><th>Projects</th><th>Last saved</th><th><span class="sr">Remove</span></th></tr></thead>
       <tbody></tbody>
     </table></div>
-    <p class="small privacy">Student names and schools are only ever read here, in your browser, from files you choose. They are not sent anywhere.</p>
+    <p class="small privacy">Files you add here are only read in your browser. They are not sent anywhere.</p>
   </section>
 
   <section class="tcard" aria-labelledby="h-go">
     <h2 id="h-go">3. Try it yourself</h2>
-    <p>Your teacher sign-in works in both apps without a class code.</p>
+    <p>Open either app to try a project the way your students will.</p>
     <div class="session-actions"><a class="btn" href="../arduinopath/">Open ArduinoPath ▸</a><a class="btn" href="../pipath/">Open PiPath ▸</a></div>
   </section>
 </main>

@@ -3,7 +3,6 @@ package server
 import (
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -46,12 +45,9 @@ func (l *limiter) allow(key string, now time.Time) bool {
 	return true
 }
 
-// clientKey is the address to rate-limit by. Behind Render's proxy that is
-// the first X-Forwarded-For entry; it is only used in memory, never logged.
+// clientKey is the address to rate-limit by: the computer asking, on the school's network. (No proxy
+// header is trusted: on a school network a student could make one up.) It is only kept in memory, never logged.
 func clientKey(r *http.Request) string {
-	if xf := r.Header.Get("X-Forwarded-For"); xf != "" {
-		return strings.TrimSpace(strings.Split(xf, ",")[0])
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

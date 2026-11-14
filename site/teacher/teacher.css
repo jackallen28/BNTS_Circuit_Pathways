@@ -33,3 +33,12 @@
 .work-view { margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,.3); }
 .work-view pre { max-height: 360px; overflow: auto; padding: 10px; border-radius: 8px; background: #0b1020; color: #e6f1ff; font: 13px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
 .work-view h4 { margin: 14px 0 4px; }
+.w-list { margin: 6px 0 0; padding-left: 24px; display: flex; flex-direction: column; gap: 6px; }
+.w-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.w-list .w-title { font-weight: 700; }
+.w-list .w-app { opacity: .75; font-size: 14px; }
+.w-list .w-n { opacity: .85; }
+.w-list button { padding: 4px 10px; font-size: 14px; }
+.ttable.progress td.p-cell, .ttable.progress th.p-cell { text-align: center; min-width: 70px; }
+.ttable.progress td.p-done { color: #9ff0c0; font-weight: 800; }
+.ttable.progress td.p-some { color: #ffe08a; font-weight: 700; }

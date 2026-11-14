@@ -1,4 +1,3 @@
-import { beta } from "../beta.js";
 // Where a student's work is kept: in this browser (IndexedDB), on this
 // computer only. Nothing here ever goes to a server. If the browser won't
 // keep data (a private window, say), a temporary store is used and the
@@ -66,7 +65,6 @@ function idbStore(db) {
 
 /** Opens the browser's store, or a temporary one if the browser won't keep data. */
 export async function openStore(dbName = DB_NAME) {
-  if (beta) return memoryStore(); // the TEST version saves nothing
   try {
     if (typeof indexedDB === "undefined") return memoryStore();
     const db = await new Promise((resolve, reject) => {

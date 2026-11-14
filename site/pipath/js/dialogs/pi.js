@@ -1,7 +1,7 @@
 // The "Link to my Pi" window: type the ID that's on the Pi.
 import { h } from "../dom.js";
 import { dialog } from "../widgets/window.js";
-import { getPi, savedPiId, rememberPiId, hasClass } from "../runtime/pi.js";
+import { getPi, savedPiId, rememberPiId } from "../runtime/pi.js";
 
 /** @returns {Promise<boolean>} true when the Pi is linked and ready to run programs */
 export function linkPiDialog() {
@@ -14,7 +14,6 @@ export function linkPiDialog() {
   async function link() {
     const id = input.value.trim();
     if (!id) return say("Type the ID that's on your Pi first.", true);
-    if (!hasClass()) return say("Join your class from the home page first (you need your class code), then come back.", true);
     say("Linking...");
     try {
       await pi.connect(id);

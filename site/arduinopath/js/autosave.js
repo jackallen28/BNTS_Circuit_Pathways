@@ -5,7 +5,6 @@
 // The saver doesn't know about fetch or IndexedDB: it is given a `send`
 // function and a `store`, so it can be tested in Node.
 
-import { beta } from "../../shared/beta.js";
 export const Status = Object.freeze({
   SAVED: "saved",      // everything is on the server
   PENDING: "pending",  // typed, waiting for the pause before saving
@@ -188,9 +187,9 @@ export class Autosaver {
 /** The words students see for each status. */
 export function statusText(status, detail) {
   switch (status) {
-    case Status.SAVED: return beta ? "" : "Saved ✓";
-    case Status.PENDING: return beta ? "" : "Not saved yet";
-    case Status.SAVING: return beta ? "" : "Saving...";
+    case Status.SAVED: return "Saved ✓";
+    case Status.PENDING: return "Not saved yet";
+    case Status.SAVING: return "Saving...";
     case Status.OFFLINE: return "Offline, will save when you're back";
     case Status.ERROR: return detail || "Couldn't save. Your code is kept in this browser for now.";
     default: return "";

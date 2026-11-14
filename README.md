@@ -6,75 +6,58 @@ It has two apps that run in the student's browser (Chrome or Edge):
 - **PiPath**: Python for the Raspberry Pi (a Windows 95 look).
 - **ArduinoPath**: Arduino and ESP boards, in blocks or C++ (a Windows Vista look).
 
-**This repository is the one home for Circuit Pathways.** The `main` branch holds only the current product. Older and
-experimental work is kept, organised, on the `drafts` branch.
+**It runs on the school's own Raspberry Pi.** One main Pi (the *school server*) serves the site, the classes and the
+compiler to every computer on the school network. Nothing is on the internet.
 
-## Which version is which
+| Who | How they use it |
+|---|---|
+| **Students on laptops** | Open `https://pathways.local` in Chrome or Edge: PiPath (Python on the on-screen Pi) and ArduinoPath (the simulator, and Upload to a board on USB). |
+| **Students on student Pis** | Open PiPath or ArduinoPath from the Pi menu. Each student Pi runs Circuit Pathways itself, so it works offline, and PiPath runs programs on the Pi's real pins. Work goes to the class on the school server whenever it can. |
+| **Teachers** | Sign in on the home page: the teacher portal makes classes, sets work, and shows each student's progress and code. |
 
-The same code runs as three "editions". Pick by who is using it:
-
-| Edition | For | Class code | Where a student's work is saved | Teachers |
-|---|---|---|---|---|
-| **Real site** | Classes | Required | In their class (Cloudflare) or only on their device (Render) | The school's own `TEACHER_CODES` |
-| **Pi beta** | Students on Raspberry Pis | **Optional** | On the Pi; **or in their class** if they join one | School codes, or a code they make up |
-| **TEST** | Colleagues trying it out | Optional | Nothing kept on the computer; **or in their class** if they join one (Cloudflare) | A code they make up |
-
-All three can be hosted on **Cloudflare** (classes saved in a database, deleted when the class ends) or **Render** (the Go
-server, nothing stored). See [`docs/`](docs/README.md) for setting them up.
+Setting it up: [`docs/server.md`](docs/server.md). About to test with real Pis and boards: [`docs/test-day.md`](docs/test-day.md).
 
 ## Where things are
 
 ```
-site/          What the browser loads. The folders match the web addresses: pipath/, arduinopath/, teacher/,
-               shared/ (code both apps use), and the home page.
+site/          What the browser loads. The folders match the web addresses: pipath/, arduinopath/, teacher/
+               (the teacher portal), trust/ (setting up a laptop for https), shared/ (code both apps use), the home page.
 content/       What a teacher can edit, as data: arduinopath/ (boards, parts, projects, errors) and pipath/ (lessons).
-cmd/, internal/, embed.go   The Go server (Render) and the Go tools (Pi keys, the Cloudflare export).
-cloudflare/    The same site as a Cloudflare Worker: classes, the Pi relay, the compile proxy.
-raspberry-pi/  Tests and README for the Pi app. (The app is site/pipath/remote/circuitpathways_pi.py.)
-tests/         js/ (Node tests) and e2e/ (Playwright, in a real browser).
-tools/         build_pipath_data.py (lessons to JSON) and grove_art.mjs (Grove part drawings).
+cmd/, internal/, embed.go   The Go program: the school server and student Pis (classes in SQLite, its own https
+               certificate, the compiler, Pi Link, the installers).
+raspberry-pi/  Tests and README for Pi Link, the app on each student Pi (site/pipath/remote/circuitpathways_pi.py).
+tests/         js/ (Node tests), e2e/ (Playwright, in a real browser), pi-server/ (the school server and a student Pi, for real).
+tools/         build-pi.sh (the Raspberry Pi download), preflight.mjs (is a server ready?), build_pipath_data.py, grove_art.mjs.
 docs/          The documentation: start at docs/README.md.
-Dockerfile*, render*.yaml   Building and hosting on Render.
-.github/workflows/          ci.yml (every test) and cloudflare-deploy.yml (the deploy button).
+.github/workflows/          ci.yml (every test) and release.yml (publish the Raspberry Pi download).
 AGENTS.md      The rules for anyone (or any AI tool) changing the code. Read it first.
 ```
 
-## The other repositories
+## The other repositories and branches
 
-| Repository | What it is |
+| Where | What it is |
 |---|---|
-| **BNTS_Circuit_Pathways** (this one) | The product. Everything new goes here. |
-| **BNTS_PIPath** and **BNTS_ArduinoPath** | The older stand-alone apps (installed on each Pi or laptop). Copied into this repository's `drafts` branch; the original repositories can stay as they are. |
-| **jackallen** | A personal catch-all (many unrelated projects). Not part of Circuit Pathways. |
-| **BNTS_FidgetCAD** | A different project. |
+| **BNTS_Circuit_Pathways**, branch **`main`** (this) | The product. Everything new goes here. |
+| branch **`drafts`** | Older and experimental work in `draft/`: the cloud hosting this replaced (Cloudflare, Render, the TEST and Pi beta editions), the first laptop app, the offline PiPath and ArduinoPath, WastePath and the bin monitor. Not deployed, not tested. `draft/README.md` explains each. |
+| **BNTS_PIPath**, **BNTS_ArduinoPath** | The older stand-alone apps (copied into `drafts`). |
+| **jackallen** | A personal catch-all, not part of Circuit Pathways. **BNTS_FidgetCAD** is a different project. |
 
-## Branches
-
-- **`main`**: the current work. Everything is built from here. (Set it as the default branch in Settings > Branches.)
-- **`drafts`**: older and experimental work in a `draft/` folder: the first laptop app and showcase website, the offline
-  PiPath and ArduinoPath, WastePath and the bin monitor. Not deployed, not tested. `draft/README.md` explains each.
-- **`claude/inspiring-hamilton-mfxok0`**: a frozen copy of `main` as it was before the folders were reorganised. Anything
-  still deploying from it keeps working until it is pointed at `main`. It can be deleted afterwards.
-- **`BNTS_CircuitPath`**, **`BNTS_PiPath`**: the two original branches, kept as they were (they share no history with
-  `main`; the same work is now on `drafts`).
-
-## Try it
+## Try it on a computer
 
 ```bash
-go run ./cmd/circuitpathways -dev                 # http://localhost:8080  (teacher code: teacher-code-dev)
-go run ./cmd/circuitpathways -dev -beta           # the TEST edition (make up your own teacher code)
-npm ci && npm test                       # the JavaScript tests
-go test ./...                            # the Go tests
+go run ./cmd/circuitpathways -dev                 # the school server on http://localhost:8080 (teacher code: teacher-code-dev)
+go run ./cmd/circuitpathways -dev -mode student-pi -addr :8090 -school http://localhost:8080   # a student Pi beside it
+npm ci && npm test                                # the JavaScript tests
+go test ./...                                     # the Go tests
+bash tests/pi-server/smoke.sh                     # the school server (https) and a student Pi installed from it, for real
 CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test   # the browser tests
+bash tools/build-pi.sh                            # the Raspberry Pi download, in dist/
 ```
-
-About to test with a real Pi and Arduino? Follow [`docs/test-day.md`](docs/test-day.md); its first step after setting up is
-`node tools/preflight.mjs <site address> --pi <Pi ID>`, which checks the site is ready.
 
 The full list of commands, and what must pass before a change is committed, is in [`AGENTS.md`](AGENTS.md).
 
 ## The rules that never change
 
-No AI anywhere. No accounts, cookies, analytics or CDN files. Only a first name (or names) and a school are ever asked
-for. Student-facing text is plain English at about a Year 7 reading level, in Australian spelling. See
-[`AGENTS.md`](AGENTS.md) for the full list.
+No AI anywhere. No accounts, cookies, analytics or CDN files, and nothing on the internet. Only a first name (or names)
+and a school are ever asked for, and they are deleted when the class ends. Student-facing text is plain English at about
+a Year 7 reading level, in Australian spelling. See [`AGENTS.md`](AGENTS.md) for the full list.

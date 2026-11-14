@@ -1,7 +1,7 @@
-// The teacher page. Signing in gives a teacher token (kept in this browser
-// for 12 hours). A class code is made by the server from a signature; the
-// class name, the class file and every student's work stay on the teacher's
-// computer, read and written only in this browser.
+// The teacher portal, on the school's own Circuit Pathways server. Signing in gives a teacher token (kept in
+// this browser for 12 hours). Classes, the work a teacher sets, and students' first names, school and work are
+// kept on the school server until the class ends. Class files (.circuitclass) are an optional copy on the
+// teacher's own computer.
 
 import { getAccess, clearAccess, postJSON } from "/shared/access.js";
 import { writeZip, readZip } from "/shared/local/zip.js";
@@ -11,7 +11,7 @@ import { joinNames } from "/shared/local/validate.js";
 const $ = (s) => document.querySelector(s);
 
 const access = getAccess();
-if (!access || access.kind !== "teacher") location.replace("/");
+if (access.kind !== "teacher") location.replace("/");
 
 // ---- the sky, as on the home page
 {
@@ -32,48 +32,9 @@ $("#signout").addEventListener("click", () => {
 const fmt = (ms) => new Date(ms).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const say = (id, text, kind = "") => { const n = $(id); n.textContent = text; n.className = `note ${kind}`; };
 
-// ---- 1. a class code
-let cls = null; // { code, expires_at }
+const cls = null; // (class files from older versions kept a class code; classes now live on the school server)
 
-function showCode() {
-  $("#code-box").hidden = !cls;
-  if (!cls) return;
-  $("#code").textContent = cls.code;
-  $("#code-note").textContent = `Works until the end of ${fmt(cls.expires_at - 12 * 3600 * 1000)}.`;
-}
-
-$("#make").addEventListener("click", async () => {
-  const btn = $("#make");
-  btn.disabled = true;
-  say("#make-note", "Making a code...");
-  try {
-    const res = await postJSON("/api/teacher/class", { days: Number($("#days").value) }, { Authorization: `Bearer ${access.value}` });
-    cls = { code: res.code, expires_at: res.expires_at };
-    showCode();
-    say("#make-note", "");
-  } catch (err) {
-    if (err.status === 401) {
-      clearAccess();
-      location.replace("/");
-      return;
-    }
-    say("#make-note", err.status === undefined ? "Circuit Pathways can't be reached. Check your internet connection." : err.message, "bad");
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-$("#copy").addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(cls.code);
-    $("#copy").textContent = "Copied ✓";
-  } catch {
-    $("#copy").textContent = "Select the code and copy it";
-  }
-  setTimeout(() => { $("#copy").textContent = "Copy the code"; }, 2500);
-});
-
-// ---- 2. the class file and student work
+// ---- 2. class files and student work from files
 /** @type {{ file: string, bytes: Uint8Array, names: string[], school: string, projects: number, updated: number }[]} */
 let students = [];
 
@@ -201,15 +162,13 @@ $("#open-class").addEventListener("change", async (e) => {
     if (manifest.version > 1) throw new Error("This class file is from a newer Circuit Pathways.");
     const info = JSON.parse(dec.decode(entries.get("class.json") ?? enc.encode("{}")));
     $("#label").value = String(info.label ?? "").slice(0, 60);
-    cls = info.code && info.expires_at > Date.now() ? { code: info.code, expires_at: info.expires_at } : null;
-    showCode();
     students = [];
     for (const [n, b] of entries) {
       if (n.startsWith("students/") && isStudentFile(n)) await addStudentFile(n.slice(9), b).catch(() => {});
     }
     students.sort((a, b) => joinNames(a.names).localeCompare(joinNames(b.names)));
     drawStudents();
-    say("#file-note", `Class opened${info.code && !cls ? ". Its class code has finished, so make a new one above" : ""}.`, "good");
+    say("#file-note", "Class file opened.", "good");
   } catch (err) {
     say("#file-note", /newer/.test(err.message) ? err.message : "That file can't be opened. Pick a .circuitclass file saved from this page.", "bad");
   }
@@ -220,10 +179,9 @@ $("#save-all").addEventListener("click", () => {
   download(writeZip(files), `Everyone_${new Date().toISOString().slice(0, 10)}.zip`, "application/zip");
 });
 
-showCode();
 
 
-// ---- saved classes (the Cloudflare site keeps classes: first names, school and work, until the class ends)
+// ---- 1. classes on the school server: first names, school and work, until the class ends
 const auth = { Authorization: `Bearer ${access?.value ?? ""}` };
 const day = 24 * 3600 * 1000;
 const isoDay = (ms) => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -281,7 +239,11 @@ async function openClass(code) {
   openCode = code;
   openWork = null;
   $("#r-work").hidden = true;
-  const { class: c, students: list } = await api("GET", `/api/teacher/class/${code}`);
+  const { class: c, students: list, tasks: set } = await api("GET", `/api/teacher/class/${code}`);
+  tasks = (set ?? []).map((t) => ({ app: t.app, item: t.item, note: t.note ?? "" }));
+  drawTasks();
+  say("#w-note-msg", "");
+  drawProgress().catch(() => {});
   $("#roster").hidden = false;
   $("#r-title").textContent = `${c.name} (${c.school}): ${list.length} student${list.length === 1 ? "" : "s"}`;
   $("#r-code").textContent = c.code;
@@ -359,12 +321,7 @@ async function saveFilesFor() {
 }
 
 async function initSavedClasses() {
-  let info = {};
-  try { info = await (await fetch("/api/info", { credentials: "omit" })).json(); } catch { /* the Go site */ }
-  if (!info.classes) return;
-  $("#classes-card").hidden = false;
-  $("#code-card").hidden = true;
-  $("#h-file").textContent = "2. Class file and student work";
+  await setWorkUI();
   $("#c-ends").value = isoDay(Date.now() + 70 * day);
   $("#c-ends").min = isoDay(Date.now() + day);
   $("#c-ends").max = isoDay(Date.now() + 399 * day);
@@ -380,6 +337,7 @@ async function initSavedClasses() {
     } catch (e) { say("#c-note", e.message, "bad"); }
   });
   $("#r-refresh").addEventListener("click", () => openClass(openCode));
+  $("#w-save").addEventListener("click", saveTasks);
   $("#r-copy").addEventListener("click", () => navigator.clipboard.writeText($("#r-code").textContent).catch(() => {}));
   $("#r-end").addEventListener("click", async () => {
     try {
@@ -414,6 +372,139 @@ async function initSavedClasses() {
     say("#r-note", n ? `Added ${n} save file${n === 1 ? "" : "s"} to the class file below. Press Save class file to keep a copy.` : "Nobody has saved any work yet.", n ? "good" : "");
   });
   await loadClasses();
+}
+
+
+
+// ---- set work, and progress on it
+/** @type {{ app: string, item: string, note: string }[]} */
+let tasks = [];
+const names = new Map(); // "app/item" -> title
+const stepCounts = new Map(); // "app/item" -> number of steps
+const appName = (app) => (app === "pipath" ? "PiPath" : "ArduinoPath");
+const titleOf = (t) => names.get(`${t.app}/${t.item}`) ?? t.item;
+
+async function setWorkUI() {
+  const [ap, pp] = await Promise.all([
+    fetch("/arduinopath/data/catalogue.json").then((r) => r.json()).catch(() => ({ projects: [] })),
+    fetch("/pipath/data/catalog.json").then((r) => r.json()).catch(() => ({ projects: [] })),
+  ]);
+  const fill = (sel, app, list, free) => {
+    sel.replaceChildren(new Option("Choose...", ""), new Option(free, "freeplay"));
+    names.set(`${app}/freeplay`, free);
+    for (const p of list) {
+      sel.append(new Option(p.title, p.id));
+      names.set(`${app}/${p.id}`, p.title);
+      if (p.step_count) stepCounts.set(`${app}/${p.id}`, p.step_count);
+    }
+  };
+  fill($("#w-ard"), "arduinopath", [...(ap.projects ?? [])].sort((a, b) => (a.order ?? 99) - (b.order ?? 99)), "Free Play (their own project)");
+  fill($("#w-pi"), "pipath", (pp.projects ?? []).filter((p) => p.status !== "planned"), "Free Play (their own program)");
+  $("#w-add").addEventListener("click", () => {
+    const note = $("#w-note").value.trim();
+    for (const [sel, app] of [[$("#w-ard"), "arduinopath"], [$("#w-pi"), "pipath"]]) {
+      if (!sel.value) continue;
+      if (!tasks.some((t) => t.app === app && t.item === sel.value)) tasks.push({ app, item: sel.value, note });
+      sel.value = "";
+    }
+    $("#w-note").value = "";
+    drawTasks();
+    say("#w-note-msg", "Not saved yet: press Save the work for this class.");
+  });
+}
+
+function drawTasks() {
+  $("#w-list").replaceChildren(...tasks.map((t, i) => {
+    const li = document.createElement("li");
+    const title = Object.assign(document.createElement("span"), { className: "w-title", textContent: titleOf(t) });
+    const app = Object.assign(document.createElement("span"), { className: "w-app", textContent: appName(t.app) });
+    const note = Object.assign(document.createElement("span"), { className: "w-n", textContent: t.note ? `"${t.note}"` : "" });
+    const move = (d) => () => {
+      const j = i + d;
+      if (j < 0 || j >= tasks.length) return;
+      [tasks[i], tasks[j]] = [tasks[j], tasks[i]];
+      drawTasks();
+      say("#w-note-msg", "Not saved yet: press Save the work for this class.");
+    };
+    li.append(title, app, note,
+      button("▲", move(-1)), button("▼", move(1)),
+      button("Remove", () => { tasks.splice(i, 1); drawTasks(); say("#w-note-msg", "Not saved yet: press Save the work for this class."); }));
+    return li;
+  }));
+  if (!tasks.length) {
+    const li = document.createElement("li");
+    li.textContent = "No work set yet. Students can still pick any project.";
+    $("#w-list").replaceChildren(li);
+  }
+}
+
+async function saveTasks() {
+  try {
+    const res = await api("PUT", `/api/teacher/class/${openCode}/tasks`, { tasks });
+    tasks = res.tasks.map((t) => ({ app: t.app, item: t.item, note: t.note ?? "" }));
+    drawTasks();
+    say("#w-note-msg", tasks.length ? "Saved. Students see this work on their home page." : "Saved: no work is set for this class.", "good");
+    await drawProgress();
+  } catch (e) { say("#w-note-msg", e.message, "bad"); }
+}
+
+/** How far a student is through one piece of work, from the progress their app saved. */
+export function progressOf(work, task, steps) {
+  if (task.item === "freeplay") {
+    const n = work.filter((w) => w.app === task.app && w.kind === "sketch" && (w.item === "freeplay" || w.item.startsWith("freeplay"))).length;
+    return n ? { text: "·", cls: "p-some", title: "Started" } : { text: "", cls: "", title: "Not started" };
+  }
+  const p = work.find((w) => w.app === task.app && w.item === task.item && w.kind === "progress");
+  const code = work.find((w) => w.app === task.app && w.item === task.item && w.kind === "sketch");
+  if (!p) return code ? { text: "·", cls: "p-some", title: "Opened" } : { text: "", cls: "", title: "Not started" };
+  let data = {};
+  try { data = JSON.parse(p.body); } catch { /* old */ }
+  let done = 0;
+  let finished = false;
+  if (task.app === "pipath") {
+    done = Array.isArray(data.steps_done) ? data.steps_done.length : 0;
+    finished = data.status === "complete" || Boolean(data.completed);
+  } else {
+    const list = Array.isArray(data.steps) ? data.steps : [];
+    done = list.filter((s) => s?.done).length;
+    finished = Boolean(data.finished) || (steps > 0 && done >= steps);
+  }
+  if (finished) return { text: "✓", cls: "p-done", title: "Finished" };
+  if (done) return { text: steps ? `${done}/${steps}` : String(done), cls: "p-some", title: `${done} step${done === 1 ? "" : "s"} done` };
+  return { text: "·", cls: "p-some", title: "Opened" };
+}
+
+async function drawProgress() {
+  const table = $("#p-table");
+  if (!tasks.length) { table.hidden = true; return; }
+  table.hidden = false;
+  // PiPath lessons say how many steps they have in their own files
+  await Promise.all(tasks.filter((t) => t.app === "pipath" && t.item !== "freeplay" && !stepCounts.has(`pipath/${t.item}`)).map(async (t) => {
+    try {
+      const l = await (await fetch(`/pipath/data/lessons/${encodeURIComponent(t.item)}.json`)).json();
+      if (Array.isArray(l.steps)) stepCounts.set(`pipath/${t.item}`, l.steps.length);
+    } catch { /* fine */ }
+  }));
+  openWork = null;
+  const { students: list } = await classWork();
+  const head = document.createElement("tr");
+  head.append(Object.assign(document.createElement("th"), { textContent: "First name(s)" }));
+  for (const t of tasks) head.append(Object.assign(document.createElement("th"), { className: "p-cell", textContent: titleOf(t), title: appName(t.app) }));
+  table.tHead.replaceChildren(head);
+  table.tBodies[0].replaceChildren(...list.map((st) => {
+    const tr = document.createElement("tr");
+    tr.append(Object.assign(document.createElement("td"), { textContent: joinNames(st.names) }));
+    for (const t of tasks) {
+      const p = progressOf(st.work, t, stepCounts.get(`${t.app}/${t.item}`) ?? 0);
+      tr.append(Object.assign(document.createElement("td"), { className: `p-cell ${p.cls}`, textContent: p.text, title: p.title }));
+    }
+    return tr;
+  }));
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.append(Object.assign(document.createElement("td"), { textContent: "Nobody has joined yet.", colSpan: tasks.length + 1 }));
+    table.tBodies[0].replaceChildren(tr);
+  }
 }
 
 initSavedClasses().catch((e) => say("#c-note", e.message, "bad"));

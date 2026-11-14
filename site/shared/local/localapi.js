@@ -1,7 +1,7 @@
 // The ArduinoPath (and PiPath) "server" that lives in the browser. It answers the same
 // calls the desktop app's server did (profiles, settings, progress, sketches,
 // save files), keeping everything in this browser's own storage. With a class
-// link (a student who joined a class on the Cloudflare site, see cloud.js), work
+// link (a student who joined a class on the school's Circuit Pathways server, see cloud.js), work
 // is also copied to their class; otherwise nothing about a student is sent anywhere.
 
 import {
@@ -70,6 +70,12 @@ export function createLocalApi({
       return;
     }
     const cat = await catalogue();
+    // Work done here while the school server couldn't be reached (or before this browser was closed) goes up now:
+    // anything newer here than the class's copy.
+    const theirs = new Map(work.filter((x) => x.app === cloudApp).map((x) => [`${x.kind}/${x.item}`, x.updated_at]));
+    const newer = (kind, item, at) => !(theirs.get(`${kind}/${item}`) >= at);
+    for (const sk of await store.listSketches(st.id)) if (newer("sketch", sk.project_id, sk.updated_at)) upload(st, "sketch", sk.project_id, sk.code, sk.updated_at);
+    for (const pr of await store.listProgress(st.id)) if (newer("progress", pr.project_id, pr.updated_at)) upload(st, "progress", pr.project_id, JSON.stringify(pr.data), pr.updated_at);
     for (const w of work.filter((x) => x.app === cloudApp)) {
       try {
         if (w.kind === "sketch" && validProjectId(w.item) && validSketch(w.body)) {
@@ -163,7 +169,7 @@ export function createLocalApi({
       const st = await need();
       st.last_seen = now();
       await store.putStudent(st);
-      // a student who joined a class after starting here (the Pi beta): link this profile and send up what they've done
+      // a student who joined a class after starting here: link this profile and send up what they've done
       if (!st.cloud && cloud?.link?.()) await syncClass(st);
       return meOf(st);
     },

@@ -47,14 +47,14 @@ import urllib.error
 import urllib.request
 
 VERSION = "0.2.0"
-DEFAULT_SERVER = os.environ.get("CIRCUITPATHWAYS_URL", "https://circuit-pathways.onrender.com")
+DEFAULT_SERVER = os.environ.get("CIRCUITPATHWAYS_URL", "http://localhost:8080")
 KEY_RE = re.compile(r"^CPK1-([0-9A-Z]{8})-([0-9A-Z]{10})$")
 
 MIN_PIN, MAX_PIN = 2, 27
 FAILSAFE_SECONDS = 10      # no connection for this long: every output goes off
 POLL_HZ = 20               # how often inputs are read
 HEARTBEAT_SECONDS = 2      # state is re-sent this often even if nothing changed
-HEARTBEAT_WS_SECONDS = 20  # ...or this often over a WebSocket (the Cloudflare site), where changes still go at once
+HEARTBEAT_WS_SECONDS = 20  # ...or this often over a WebSocket (a server that offers one), where changes still go at once
 WS_PING_SECONDS = 25       # a WebSocket that has been quiet this long gets a "ping"
 WS_DEAD_SECONDS = 70       # ...and one with no answer for this long is given up and reconnected
 MAX_COMMANDS_PER_SECOND = 200
@@ -802,7 +802,7 @@ class Server:
         self.id = pi_id(self.key)
         self.name = name
         self.open = opener
-        self.use_ws = True   # try a WebSocket first (the Cloudflare site); fall back to a stream (the Go site)
+        self.use_ws = True   # try a WebSocket first (if the server offers one); otherwise the event stream (the Circuit Pathways server)
         self.ws = None
         self.ws_factory = WebSocket
 

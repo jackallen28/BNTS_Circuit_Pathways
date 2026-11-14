@@ -79,7 +79,7 @@ func TestPiOverTheRelay(t *testing.T) {
 	defer ts.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	class, _, _ := s.Signer.NewClass(time.Now(), 2)
+	class := "local"
 
 	// a made-up key is turned away; a real one opens the Pi's command stream
 	if resp, _ := http.Get(ts.URL + "/api/pi/pi/events"); resp.StatusCode != 403 {
@@ -101,9 +101,12 @@ func TestPiOverTheRelay(t *testing.T) {
 		t.Fatalf("send: %d", r.StatusCode)
 	}
 
-	// a browser without a class code is turned away; the wrong code isn't found
-	if r, _ := http.Get(ts.URL + "/api/pi/events?code=" + reg.Code); r.StatusCode != 401 {
-		t.Fatalf("no class code: %d", r.StatusCode)
+	// a browser with a made-up token is turned away (no class at all is fine); the wrong code isn't found
+	if r, _ := http.NewRequest("GET", ts.URL+"/api/pi/events?code="+reg.Code, nil); r != nil {
+		r.Header.Set(accessHeader, "s2.made-up")
+		if resp, _ := http.DefaultClient.Do(r); resp.StatusCode != 401 {
+			t.Fatalf("a made-up token: %d", resp.StatusCode)
+		}
 	}
 	if r, _ := http.NewRequest("GET", ts.URL+"/api/pi/events?code=ZZZZ-ZZZZ", nil); r != nil {
 		r.Header.Set(accessHeader, class)
@@ -122,8 +125,8 @@ func TestPiOverTheRelay(t *testing.T) {
 
 	// browser -> Pi
 	cmd := map[string]any{"code": reg.Code, "cmd": map[string]any{"op": "write", "pin": 17, "value": 1}}
-	if r := jsonPost(t, ts.URL+"/api/pi/command", cmd, nil); r.StatusCode != 401 {
-		t.Fatalf("command without class: %d", r.StatusCode)
+	if r := jsonPost(t, ts.URL+"/api/pi/command", cmd, map[string]string{accessHeader: "t2.made-up"}); r.StatusCode != 401 {
+		t.Fatalf("command with a made-up token: %d", r.StatusCode)
 	}
 	if r := jsonPost(t, ts.URL+"/api/pi/command", cmd, map[string]string{accessHeader: class}); r.StatusCode != 204 {
 		t.Fatalf("command: %d", r.StatusCode)
@@ -189,7 +192,7 @@ func TestProgramsAndOutputOverTheRelay(t *testing.T) {
 	defer ts.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	class, _, _ := s.Signer.NewClass(time.Now(), 2)
+	class := "local"
 	classAuth := map[string]string{accessHeader: class}
 	id, key, _ := s.PiKeys.New()
 	code := pilink.DisplayID(id)
@@ -203,8 +206,8 @@ func TestProgramsAndOutputOverTheRelay(t *testing.T) {
 
 	// a program goes to the Pi exactly as sent
 	run := map[string]any{"op": "run", "rid": 3, "name": "program.py", "code": "name = input()\nprint('Hi', name)\n", "files": map[string]string{"words.txt": "aGk="}, "support": []string{"pipath_computer"}}
-	if r := jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": run}, nil); r.StatusCode != 401 {
-		t.Fatalf("a program without a class code: %d", r.StatusCode)
+	if r := jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": run}, map[string]string{accessHeader: "s2.made-up"}); r.StatusCode != 401 {
+		t.Fatalf("a program with a made-up token: %d", r.StatusCode)
 	}
 	if r := jsonPost(t, ts.URL+"/api/pi/command", map[string]any{"code": code, "cmd": run}, classAuth); r.StatusCode != 204 {
 		t.Fatalf("run: %d", r.StatusCode)

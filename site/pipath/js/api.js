@@ -2,7 +2,6 @@
 // (the same code ArduinoPath uses); the lessons come from the website as JSON.
 
 import { createCloud } from "../../shared/local/cloud.js";
-import { beta } from "../../shared/beta.js";
 import { createLocalApi, tabSession, LocalError } from "/shared/local/localapi.js";
 import { openStore } from "/shared/local/store.js";
 import { ValidationError } from "/shared/local/validate.js";
@@ -67,11 +66,10 @@ const localPromise = storePromise.then((store) => createLocalApi({
   store, catalogue: catalog, session: tabSession("circuitpathways.pi.student"), version: "web",
   app: { name: "PiPath", format: "pipath-save", ext: "pipath", school: "Banyule Nillumbik Tech School", oldFormats: [] },
   settings: policy,
-  cloud: createCloud(), // (in the TEST version too: a student who joins a class there has their work saved to it)
+  cloud: createCloud(),
 }));
 
 export async function storageIsTemporary() {
-  if (beta) return false; // the TEST version saves nothing, and says so
   return !(await storePromise).persistent;
 }
 

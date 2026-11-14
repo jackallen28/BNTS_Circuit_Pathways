@@ -1,5 +1,5 @@
 // Settings: help level, what to show, text size, saving and opening your work, the curriculum, About.
-import { beta, TEST_WORK_NOTE, buildLabel } from "../../../shared/beta.js";
+import { buildLabel } from "../../../shared/edition.js";
 import { h } from "../dom.js";
 import { download, joinNames } from "../dom.js";
 import { api } from "../api.js";
@@ -31,8 +31,8 @@ export function openSettings({ startTab = "help", projectId = null, onChanged = 
       h("select", { class: "input", "aria-label": "Code text size", onchange: (e) => { document.documentElement.style.setProperty("--code-size", `${e.target.value}px`); save({ code_size: Number(e.target.value) }); } },
         [13, 15, 18, 22, 26].map((n) => h("option", { value: n, text: `${n} px${n === 15 ? " (normal)" : ""}`, selected: (s().code_size ?? 15) === n }))),
     ]],
-    work: ["My work", () => beta ? [h("p", { text: TEST_WORK_NOTE })] : [
-      h("p", { text: "Your work is saved in this browser, on this computer. To take it home or use another computer, save it as a file." }),
+    work: ["My work", () => [
+      h("p", { text: "Your work is saved in this browser, on this computer. If you have joined a class, it is saved with your class on the school server too, so you can carry on on any computer. To take it home, save it as a file." }),
       h("p", {}, h("button", { class: "btn", type: "button", id: "save-work", text: "Save my work", onclick: async () => { const { bytes, name } = await api.exportMyWork(); download(bytes, name); } })),
       h("p", {}, h("label", { class: "btn", style: { display: "inline-block" } }, "Open my work ", h("input", { type: "file", id: "open-work", accept: ".pipath,.zip", hidden: true, onchange: (e) => openWork(e.target) }))),
       h("p", { class: "small muted", text: "Only your first name and school are in the file." }),
@@ -45,7 +45,7 @@ export function openSettings({ startTab = "help", projectId = null, onChanged = 
       show(cur.find((p) => p.id === (projectId ?? cur[0].id)));
       return [h("p", { text: "Victorian Curriculum: Digital Technologies, Levels 9 and 10." }), sel, detail];
     }],
-    about: ["About", () => [markdown("**PiPath** was developed by the Banyule Nillumbik Tech School and reviewed by teachers. It is **not hosted on AI**: every hint was written by people. Your Python runs in your browser, and your work is saved in this browser. If you join a class, your first name(s), school and work are also kept with your class for your teacher, and deleted when the class ends. It aims to open up Python to every student by adapting to what each student needs.\n\nPart pictures and the school logo belong to their owners. Python runs with Pyodide (MPL-2.0)." + (buildLabel() ? `\n\nThis is: ${buildLabel()}.` : ""))]],
+    about: ["About", () => [markdown("**PiPath** was developed by the Banyule Nillumbik Tech School and reviewed by teachers. It is **not hosted on AI**: every hint was written by people. Your Python runs in your browser (or on your Raspberry Pi), and your work is saved in this browser. If you join a class, your first name(s), school and work are also kept with your class on the school's own Circuit Pathways server, for your teacher, and deleted when the class ends. Nothing goes to the internet. It aims to open up Python to every student by adapting to what each student needs.\n\nPart pictures and the school logo belong to their owners. Python runs with Pyodide (MPL-2.0)." + (buildLabel() ? `\n\nThis is: ${buildLabel()}.` : ""))]],
   };
 
   async function openWork(input) {

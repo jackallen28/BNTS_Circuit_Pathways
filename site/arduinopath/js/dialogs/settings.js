@@ -1,7 +1,6 @@
 // Settings: how much help, which board, nudges; Save my work / Open my
 // work; Curriculum; About. Students can open it from every screen.
 
-import { beta, TEST_WORK_NOTE } from "../../../shared/beta.js";
 import { api } from "../api.js";
 import { h, icon, joinNames, download } from "../dom.js";
 import { openDialog, messageBox } from "../widgets/window.js";
@@ -113,7 +112,6 @@ export function openSettings({ tab = "me", onSaved = () => {}, projectId = null 
   }
 
   function renderWork() {
-    if (beta) return h("p", { text: TEST_WORK_NOTE });
     const fileInput = h("input", { type: "file", accept: ".circuit", class: "visually-hidden", onchange: (e) => openMyWork(e.target) });
     return h("div", {},
       h("fieldset", { class: "groupbox" },

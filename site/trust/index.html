@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up this computer - Circuit Pathways</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../img/bnts-mark.svg">
+<link rel="stylesheet" href="../css/site.css">
+<link rel="stylesheet" href="../css/launch.css">
+<link rel="stylesheet" href="trust.css">
+</head>
+<body data-view="trust">
+<a class="skip" href="#main">Skip to the content</a>
+<div class="sky" aria-hidden="true"></div>
+<main id="main" class="trust">
+  <a class="back" href="/">◂ Circuit Pathways</a>
+  <h1>Set up this computer for Circuit Pathways</h1>
+  <p class="lead">Circuit Pathways runs on your school's own server. To upload to a board, and for Python programs that ask questions, your browser needs the server's <b>secure address</b> (https). Do this once on each computer, then use <a id="secure-link" href="/">the secure address</a>.</p>
+  <p class="status" id="status" role="status">Checking this computer...</p>
+
+  <section class="step">
+    <h2>1. Download the school server's certificate</h2>
+    <p><a class="btn" href="/ca.crt" download="circuit-pathways-school.crt">Download the certificate ▸</a></p>
+    <p class="small">It only lets your computer trust this school server (and only on the school's own network). Its fingerprint, if IT asks, is:<br><code id="fingerprint">...</code></p>
+  </section>
+
+  <section class="step">
+    <h2>2. Trust it</h2>
+    <details open id="win"><summary>Windows (Chrome or Edge)</summary>
+      <ol>
+        <li>Open the file you downloaded (<b>circuit-pathways-school.crt</b>) and press <b>Install Certificate...</b></li>
+        <li>Choose <b>Current User</b> (no administrator needed) and press <b>Next</b>.</li>
+        <li>Choose <b>Place all certificates in the following store</b>, press <b>Browse...</b>, pick <b>Trusted Root Certification Authorities</b>, then <b>OK</b> and <b>Next</b>.</li>
+        <li>Press <b>Finish</b>, then <b>Yes</b> to the security warning.</li>
+        <li>Close every Chrome or Edge window, then open the secure address.</li>
+      </ol>
+    </details>
+    <details id="mac"><summary>Mac</summary>
+      <ol>
+        <li>Open the file you downloaded. <b>Keychain Access</b> opens: add it to the <b>login</b> keychain.</li>
+        <li>In Keychain Access, double-click <b>Circuit Pathways school server</b>, open <b>Trust</b>, and set <b>When using this certificate</b> to <b>Always Trust</b>. Close it and type your Mac password.</li>
+        <li>Quit Chrome or Edge, then open the secure address.</li>
+      </ol>
+    </details>
+    <details id="cros"><summary>Chromebook</summary>
+      <ol>
+        <li>Open <b>chrome://certificate-manager</b> (type it in the address bar).</li>
+        <li>Under <b>Local certificates</b> (or <b>Authorities</b>), press <b>Import</b>, pick the file, and tick <b>Trust this certificate for identifying websites</b>.</li>
+        <li>Open the secure address.</li>
+      </ol>
+    </details>
+    <details id="it"><summary>For IT: every laptop at once</summary>
+      <p>Deploy the certificate to the <b>Trusted Root Certification Authorities</b> store with Intune or Group Policy (or the Google Admin console for Chromebooks). It is limited (name constraints) to <b>.local</b> names and private network addresses, so it can't vouch for any internet site.</p>
+      <p>Instead of the certificate, the Chrome / Edge policy <b>OverrideSecurityRestrictionsOnInsecureOrigin</b> with <code id="origin-policy">http://pathways.local</code> also works (uploading and Python work on the plain address).</p>
+    </details>
+  </section>
+
+  <section class="step">
+    <h2>3. Check it</h2>
+    <p><button type="button" class="btn" id="check">Check this computer ▸</button></p>
+    <p class="note" id="check-note" role="status"></p>
+  </section>
+</main>
+<script type="module" src="trust.js"></script>
+</body>
+</html>

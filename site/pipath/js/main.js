@@ -2,8 +2,6 @@
 import { h, fill } from "./dom.js";
 import { state } from "./state.js";
 import { api, catalog, config, storageIsTemporary } from "./api.js";
-import { showTestTag } from "../../shared/beta.js";
-import { getAccess } from "/shared/access.js";
 import { takePiFromUrl } from "/shared/thispi.js";
 
 takePiFromUrl(); // opened from a Raspberry Pi's own shortcut
@@ -38,15 +36,19 @@ async function route() {
   cleanup?.();
   cleanup = null;
   const hash = location.hash || "#/";
-  if (!state.me && hash !== "#/") return go("#/");
+  if (!state.me && hash !== "#/") {
+    // (a link to an activity, such as work the teacher set: open it once the student has picked their name)
+    try { sessionStorage.setItem("circuitpathways.after", hash); } catch { /* fine */ }
+    return go("#/");
+  }
   document.documentElement.style.setProperty("--code-size", `${state.me?.settings?.code_size ?? 15}px`);
   if (!state.me) {
     return loginScreen(root, {
-      onLoggedIn: async (me) => { state.me = me; await loadProgress(); go(me.settings.help_level ? "#/activities" : "#/setup"); },
+      onLoggedIn: async (me) => { state.me = me; await loadProgress(); go(me.settings.help_level ? afterLogin() : "#/setup"); },
       onCreated: (me) => { state.me = me; state.progress = {}; go("#/setup"); },
     });
   }
-  if (hash === "#/setup") return setupScreen(root, { onDone: () => go("#/activities") });
+  if (hash === "#/setup") return setupScreen(root, { onDone: () => go(afterLogin()) });
   const common = {
     openSettings: (opts) => openSettings({ ...opts, onChanged: () => {} }),
     logOut,
@@ -81,9 +83,13 @@ async function route() {
   document.title = "PiPath";
 }
 
+function afterLogin() {
+  let hash = null;
+  try { hash = sessionStorage.getItem("circuitpathways.after"); sessionStorage.removeItem("circuitpathways.after"); } catch { /* fine */ }
+  return /^#\/(activity\/[a-z0-9_]+|free)$/.test(hash ?? "") ? hash : "#/activities";
+}
+
 async function start() {
-  showTestTag();
-  if (!getAccess()) { location.replace("/?need=class"); return; }
   try {
     [state.catalog, state.config] = await Promise.all([catalog(), config()]);
   } catch (err) {

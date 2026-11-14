@@ -9,7 +9,7 @@ import { getAccess } from "/shared/access.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// The Cloudflare site relays over WebSockets; the Go site over a stream of events. /api/info says which.
+// The Circuit Pathways server relays over a stream of events (a server could offer WebSockets: /api/info says which).
 let relayKind;
 async function relay() {
   relayKind ??= fetch("/api/info", { credentials: "omit" }).then((r) => r.json()).then((i) => (i.relay === "ws" ? "ws" : "sse")).catch(() => "sse");
@@ -57,7 +57,7 @@ export class PiRemote extends EventTarget {
     if ((await relay()) === "ws") return this._connectWS(access.value);
     const res = await fetch(`/api/pi/events?code=${encodeURIComponent(this.code)}`, {
       headers: { "X-Access": access.value }, signal: this.abort.signal, credentials: "omit",
-    }).catch(() => { throw new Error("Circuit Pathways can't be reached. Check your internet connection."); });
+    }).catch(() => { throw new Error("The Circuit Pathways server can't be reached. Check this computer is on the school network."); });
     if (!res.ok) {
       this._setState("idle");
       const body = await res.json().catch(() => ({}));

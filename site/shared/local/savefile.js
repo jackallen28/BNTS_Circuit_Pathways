@@ -88,7 +88,7 @@ export async function readSaveFile(bytes, now = Date.now(), { formats = [FORMAT,
     manifest,
     profile: {
       names: Array.isArray(profile.names) ? profile.names.map(String) : [], school: String(profile.school ?? ""), settings: profile.settings,
-      // the student's link to their class on the Cloudflare site (optional; older files don't have it)
+      // the student's link to their class on the school server (optional; older files don't have it)
       class_link: typeof profile.class_link === "string" && /^s2\.[0-9a-f]{32}\.[0-9a-f]{32}$/.test(profile.class_link) ? profile.class_link : null,
     },
     sketches,

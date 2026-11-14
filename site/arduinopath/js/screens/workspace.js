@@ -6,7 +6,6 @@
 // English, and the adaptive Coach nudges when a student seems stuck.
 // Free Play is the same screen without the guide.
 
-import { beta } from "../../../shared/beta.js";
 import { api } from "../api.js";
 import { h, icon, clear, fill, download } from "../dom.js";
 import { appWindow, tool, separator, spacer, messageBox } from "../widgets/window.js";
@@ -92,7 +91,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
       portSelect,
       checkBtn,
       separator(),
-      beta ? null : tool("download", "Download .ino", () => downloadIno()),
+      tool("download", "Download .ino", () => downloadIno()),
       webPageBtn,
       spacer(),
       tool("settings", "Settings", () => openSettings({ onSaved: settingsChanged, projectId: isFreePlay ? undefined : projectId })),
