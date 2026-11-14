@@ -1,0 +1,52 @@
+name: Deploy to Cloudflare
+
+# Run it from the Actions tab ("Run workflow"). It needs two repository secrets:
+#   CLOUDFLARE_API_TOKEN  (a token with "Edit Cloudflare Workers" and D1 edit permission)
+#   CLOUDFLARE_ACCOUNT_ID
+# The Worker's own secrets (CLASS_SECRET, TEACHER_CODES, PI_KEY_SECRET...) are set once in
+# Cloudflare with `npx wrangler secret put`, never here. See cloudflare/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Which site"
+        type: choice
+        options: [real, test, pi]
+        default: real
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-deploy-${{ inputs.site }}
+
+defaults:
+  run:
+    working-directory: cloudflare
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Tests first
+        run: npm test
+      - name: Deploy the real site (database changes first)
+        if: inputs.site == 'real'
+        run: npm run deploy
+      - name: Deploy the TEST site
+        if: inputs.site == 'test'
+        run: npm run deploy:test
+      - name: Deploy the Pi beta (Raspberry Pi students; same database as the real site)
+        if: inputs.site == 'pi'
+        run: npm run deploy:pi

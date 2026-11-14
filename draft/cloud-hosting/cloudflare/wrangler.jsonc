@@ -1,0 +1,72 @@
+// Circuit Pathways on Cloudflare Workers. See README.md in this folder.
+{
+  "name": "circuit-pathways",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // dist/ is made by build.sh: the site, ArduinoPath's data and _headers
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "run_worker_first": ["/api/*", "/teacher*", "/pipath/remote/*"]
+  },
+  "d1_databases": [
+    // replace database_id with the id `npx wrangler d1 create circuit-pathways` prints
+    { "binding": "DB", "database_name": "circuit-pathways", "database_id": "REPLACE-WITH-YOUR-D1-ID", "migrations_dir": "migrations" }
+  ],
+  "durable_objects": { "bindings": [{ "name": "PIHUB", "class_name": "PiHub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PiHub"] }],
+  "ratelimits": [
+    { "name": "LIMIT_JOIN", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+    { "name": "LIMIT_SIGNIN", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "LIMIT_CLASS", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } },
+    { "name": "LIMIT_WORK", "namespace_id": "1004", "simple": { "limit": 120, "period": 60 } },
+    { "name": "LIMIT_COMPILE", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } }
+  ],
+  // the daily clean-up of classes that have ended (03:17 UTC, early afternoon in Melbourne)
+  "triggers": { "crons": ["17 3 * * *"] },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "vars": { "DEFAULT_SCHOOL": "Banyule Nillumbik Tech School" },
+  // logs keep method, path and status only: the Worker never logs request bodies
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "env": {
+    // the Pi beta: the site for students using Raspberry Pis. A class code is optional: without one, work is
+    // saved on the Pi only; with one it syncs to the SAME database as the real site, so a class a teacher makes
+    // there is the class students join here. Set the same secrets on both Workers (see README.md).
+    "pi": {
+      "name": "circuit-pathways-pi",
+      "vars": { "PI_BETA": "1", "DEFAULT_SCHOOL": "Banyule Nillumbik Tech School" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "circuit-pathways", "database_id": "REPLACE-WITH-YOUR-D1-ID", "migrations_dir": "migrations" }
+      ],
+      "durable_objects": { "bindings": [{ "name": "PIHUB", "class_name": "PiHub" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PiHub"] }],
+      "ratelimits": [
+        { "name": "LIMIT_JOIN", "namespace_id": "3001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "LIMIT_SIGNIN", "namespace_id": "3002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "LIMIT_CLASS", "namespace_id": "3003", "simple": { "limit": 20, "period": 60 } },
+        { "name": "LIMIT_WORK", "namespace_id": "3004", "simple": { "limit": 120, "period": 60 } },
+        { "name": "LIMIT_COMPILE", "namespace_id": "3005", "simple": { "limit": 20, "period": 60 } }
+      ],
+      "triggers": { "crons": [] }
+    },
+    // the TEST (beta) version: nothing saved on the device; a class joined (beta teacher mode) is saved to the class
+    "test": {
+      "name": "circuit-pathways-test",
+      "vars": { "BETA": "1", "DEFAULT_SCHOOL": "Banyule Nillumbik Tech School" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "circuit-pathways-test", "database_id": "REPLACE-WITH-YOUR-TEST-D1-ID", "migrations_dir": "migrations" }
+      ],
+      "durable_objects": { "bindings": [{ "name": "PIHUB", "class_name": "PiHub" }] },
+      "ratelimits": [
+        { "name": "LIMIT_JOIN", "namespace_id": "2001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "LIMIT_SIGNIN", "namespace_id": "2002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "LIMIT_CLASS", "namespace_id": "2003", "simple": { "limit": 20, "period": 60 } },
+        { "name": "LIMIT_WORK", "namespace_id": "2004", "simple": { "limit": 120, "period": 60 } },
+        { "name": "LIMIT_COMPILE", "namespace_id": "2005", "simple": { "limit": 20, "period": 60 } }
+      ],
+      "triggers": { "crons": [] }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+# Render Blueprint: Circuit Pathways, PAID version with the Arduino compilers (Upload to real boards).
+# Use it by choosing this file as the Blueprint path in Render. The free version is render.yaml.
+# In Render: New > Blueprint, pick this
+# repository and branch. Then set TEACHER_CODES (the one secret you choose).
+services:
+  - type: web
+    name: circuit-pathways
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # The ESP32 compiler needs about 1.5 GB of memory: use at least the Standard plan.
+    plan: standard
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      # Signs class codes and teacher sign-ins. Made once; never share or change it
+      # (changing it stops every class code that is already out working).
+      - key: CLASS_SECRET
+        generateValue: true
+      # One or more teacher codes, separated by commas, each at least 8 characters.
+      - key: TEACHER_CODES
+        sync: false
+      # Signs the keys of your Raspberry Pis (Pi Link). Keep the same value for as long as Pis
+      # in the field use their keys. Made by you once (see docs/deploy-render.md).
+      - key: PI_KEY_SECRET
+        sync: false
+      # Optional: IDs of Pi keys to switch off (lost or stolen Pis), separated by commas.
+      - key: REVOKED_PI_IDS
+        sync: false

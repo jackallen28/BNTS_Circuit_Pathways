@@ -1,0 +1,8 @@
+# Copy to .dev.vars for `npm run dev` (never commit .dev.vars). On Cloudflare set these as secrets:
+#   npx wrangler secret put CLASS_SECRET   (and the others)
+CLASS_SECRET=dev-class-secret-change-me-0123456789
+TEACHER_CODES=teacher-code-dev
+PI_KEY_SECRET=dev-pi-key-secret-do-not-use-in-production
+# Optional: a Circuit Pathways Docker server that compiles for this site (it needs the same COMPILE_KEY)
+# COMPILE_URL=https://your-compiler.example
+# COMPILE_KEY=a-long-random-text
