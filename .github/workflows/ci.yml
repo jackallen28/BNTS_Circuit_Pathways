@@ -52,7 +52,7 @@ jobs:
           retention-days: 3
 
   # The real compilers, for every board: every board's upload file comes out
-  # right, and a broken sketch comes back with a line number.
+  # right, a broken sketch comes back with a line number, and every Web Page Designer sketch compiles.
   compile:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -61,10 +61,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: actions/cache@v4
-        with:
-          path: ~/circuitpathways-tools
-          key: tools-${{ hashFiles('internal/arduino/requirements.json') }}
+      # No tools cache: restoring the 1.5 GB cache killed the runner mid-restore (no log, twice in three runs).
+      # Downloading fresh takes about four minutes and has been reliable.
+      - name: Free some disk space (the compilers are big)
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
       - run: go run ./cmd/circuitpathways -setup -warm -tools "$HOME/circuitpathways-tools"
       - run: go test -count=1 -timeout 60m -run TestCompileEveryBoardForReal -v ./internal/arduino
         env:
