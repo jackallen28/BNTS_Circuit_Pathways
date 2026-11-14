@@ -19,6 +19,15 @@ export class PiHub extends DurableObject {
     return this.ctx.getWebSockets(tag);
   }
 
+  /**
+   * The Pi's live connection: the newest one that is open. After a Pi reconnects, its old connection can still be
+   * listed while it closes; a command sent to that one is lost, so never use "the first one".
+   */
+  livePi() {
+    const open = this.sockets("pi").filter((s) => (s.readyState ?? 1) === 1);
+    return open[open.length - 1] ?? null;
+  }
+
   toBrowsers(ev) {
     const text = typeof ev === "string" ? ev : JSON.stringify(ev);
     for (const ws of this.sockets("browser")) {
@@ -29,7 +38,7 @@ export class PiHub extends DurableObject {
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === "/command") {
-      const pi = this.sockets("pi")[0];
+      const pi = this.livePi();
       if (!pi) return Response.json({ error: "pi_not_found", message: "That Pi isn't connected. Check the ID on your Pi, and that it is switched on." }, { status: 404 });
       const now = Date.now();
       this.recent = this.recent.filter((t) => now - t < 1000);
@@ -57,10 +66,11 @@ export class PiHub extends DurableObject {
     }
     this.ctx.acceptWebSocket(server, ["browser"]);
     const saved = (await this.ctx.storage.get(["name", "hello"])) ?? new Map();
-    const online = this.sockets("pi").length > 0;
+    const live = this.livePi();
+    const online = Boolean(live);
     server.send(JSON.stringify({ type: "connected", data: { name: saved.get("name") ?? "Raspberry Pi", pi_online: online } }));
     if (online && saved.get("hello")) server.send(saved.get("hello"));
-    const state = this.sockets("pi")[0]?.deserializeAttachment()?.state;
+    const state = live?.deserializeAttachment()?.state;
     if (online && state) server.send(state);
     return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": "cp-access" } });
   }
@@ -82,7 +92,7 @@ export class PiHub extends DurableObject {
 
   async webSocketClose(ws) {
     const [tag] = this.ctx.getTags(ws);
-    if (tag === "pi" && this.sockets("pi").filter((s) => s !== ws).length === 0) this.toBrowsers({ type: "pi-offline" });
+    if (tag === "pi" && !this.sockets("pi").some((s) => s !== ws && (s.readyState ?? 1) === 1)) this.toBrowsers({ type: "pi-offline" });
   }
 
   async webSocketError(ws) {
