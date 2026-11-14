@@ -130,6 +130,12 @@ case "${1:-home}" in
   *) PAGE=/ ;;
 esac
 URL="$SITE$PAGE?pi=$ID"
+# Just after the Pi starts, Circuit Pathways may still be starting: wait for it (up to half a minute) so a
+# double-click always opens the app, never an error page.
+if [[ "$SITE" =~ ^http://(localhost|127\.0\.0\.1)(:|/|$) ]] && command -v curl >/dev/null && ! curl -fsS -m 2 "$SITE/healthz" >/dev/null 2>&1; then
+  command -v notify-send >/dev/null && notify-send -t 4000 "Circuit Pathways" "Starting up, one moment..." 2>/dev/null || true
+  for _ in $(seq 1 30); do curl -fsS -m 2 "$SITE/healthz" >/dev/null 2>&1 && break; sleep 1; done
+fi
 # Flags that suit a Pi in a classroom: no first-run page, no password-keyring prompt, no translate bar,
 # and a big disk cache so the site's large files (Python) are only downloaded once.
 FLAGS=(--no-first-run --no-default-browser-check --password-store=basic --disable-features=Translate --disk-cache-size=268435456)
@@ -172,7 +178,24 @@ EOF
       [[ -d "$d" ]] || continue
       u="$(stat -c %U "$d")"
       install -m 755 -o "$u" -g "$(id -gn "$u" 2>/dev/null || echo "$u")" /usr/share/applications/circuitpathways.desktop "$d/circuitpathways.desktop" 2>/dev/null || true
+      # trusted, so a double-click opens it with no "Execute?" question
+      sudo -u "$u" gio set "$d/circuitpathways.desktop" metadata::trusted true 2>/dev/null || true
     done
+    # The Pi's file manager (which draws the desktop) runs a shortcut on a double-click without asking first.
+    quick_exec() { # libfm.conf
+      local f="$1"
+      install -d "$(dirname "$f")"
+      if [[ -f "$f" ]] && grep -q '^quick_exec=' "$f"; then sed -i 's/^quick_exec=.*/quick_exec=1/' "$f"
+      elif [[ -f "$f" ]] && grep -q '^\[config\]' "$f"; then sed -i 's/^\[config\]/[config]\nquick_exec=1/' "$f"
+      else printf '[config]\nquick_exec=1\n' >> "$f"; fi
+    }
+    for h in /home/*; do
+      [[ -d "$h/Desktop" ]] || continue
+      u="$(stat -c %U "$h")"
+      quick_exec "$h/.config/libfm/libfm.conf"
+      chown -R "$u": "$h/.config/libfm" 2>/dev/null || true
+    done
+    quick_exec /etc/skel/.config/libfm/libfm.conf   # (and for anyone added later)
     command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
   fi
 fi

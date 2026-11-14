@@ -62,6 +62,12 @@ The teacher's priorities, which everything must respect:
   Windows Update adds the CH340 / CP210x drivers, and WebUSB can't claim a chip that has a driver.
 - **Faster on a Pi**: vendored files (Python, Blockly, esptool, logos) are cached a week (`cacheControlFor`);
   the Pi launcher passes Chromium flags for classrooms (no keyring prompt, big disk cache, low-memory mode on <=2 GB).
+- **ESP boards with their own WiFi** (`internal/store/boards.go`, `site/teacher/boards.js`, `site/arduinopath/js/myboard.js`):
+  the teacher portal flashes each school ESP board with its own WiFi name and password and records its chip; a student
+  claims one with its sticker code; ArduinoPath fills in `MY_WIFI_NAME` / `MY_WIFI_PASSWORD` and only uploads to that
+  board (`flash/esp.js` reads the MAC first).
+- **Updates at start-up** (`cmd/circuitpathways/update.go`): the school server from the newest GitHub release, each
+  student Pi from the school server, checked by SHA-256.
 - **Student Pis** (`internal/setup/student-pi.sh.tmpl`, `internal/pilink/install.sh.tmpl`, `site/shared/thispi.js`):
   the installer adds Pi menu and desktop shortcuts that open `http://localhost:8080` with `?pi=<ID>`, so PiPath on that
   Pi runs programs on it. Work is saved on the Pi and synced to the student's class.
@@ -184,7 +190,9 @@ One program, two modes (`-mode school`, the default, and `-mode student-pi`). Se
 | `POST /api/compile` | compiles for a board with arduino-cli. Anyone on the network; a token that is sent must be real |
 | `GET /api/pi/events?code=` (SSE), `POST /api/pi/command` | browser side of the Pi relay (a student Pi) |
 | `GET /api/pi/pi/events` (SSE), `POST /api/pi/pi/send` | Pi side (needs the Pi's key in `X-Pi-Key`) |
-| `GET /install/student-pi.sh`, `/install/circuitpathways-linux-<arch>`, `/ca.crt` | the school server sets up student Pis and laptops |
+| `GET /install/student-pi.sh`, `/install/circuitpathways-linux-<arch>`, `/install/version`, `/ca.crt` | the school server sets up (and updates) student Pis, and laptops |
+| `/api/teacher/boards` (`GET`, `POST`), `/api/teacher/boards/<id>` (`DELETE`, `/sketch`, `/flashed`, `/release`) | the school's ESP boards: own WiFi, sticker code, chip (MAC) |
+| `/api/student/board` (`GET`, `POST` a sticker code, `DELETE`) | a student's own ESP board |
 | `GET /healthz`, `GET /api/info` | health; edition (`school`/`student-pi`), name, build, compile, relay, online, tls, fingerprint |
 
 Rules the server enforces: security headers on everything; **strict CSP** (`/arduinopath/` and `/pipath/` use

@@ -21,6 +21,7 @@ type Installer struct {
 	Program   string // the path of this program (os.Executable)
 	CAPEM     []byte
 	HTTPSPort string // "443" or another port
+	Version   string // this program's version and build, for student Pis updating themselves
 
 	once sync.Once
 	sum  string
@@ -29,6 +30,7 @@ type Installer struct {
 
 func (in *Installer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /install/student-pi.sh", in.handleScript)
+	mux.HandleFunc("GET /install/version", in.handleVersion)
 	mux.HandleFunc("GET /install/{file}", in.handleProgram)
 	mux.HandleFunc("GET /ca.crt", in.handleCA)
 	mux.HandleFunc("GET /install/school-ca.crt", in.handleCA)
@@ -50,6 +52,17 @@ func (in *Installer) checksum() (string, error) {
 		in.sum = hex.EncodeToString(h.Sum(nil))
 	})
 	return in.sum, in.err
+}
+
+// handleVersion tells a student Pi which version the school server has, so it can update itself to match.
+func (in *Installer) handleVersion(w http.ResponseWriter, r *http.Request) {
+	sum, err := in.checksum()
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "no_program", "This server can't hand out Circuit Pathways.")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]string{"sha256": sum, "arch": runtime.GOARCH, "os": runtime.GOOS, "version": in.Version})
 }
 
 func (in *Installer) handleCA(w http.ResponseWriter, r *http.Request) {

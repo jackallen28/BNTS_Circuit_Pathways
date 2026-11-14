@@ -185,7 +185,7 @@ func serve(log *slog.Logger, o options) error {
 		cfg.TLS = true
 		if exe, err := os.Executable(); err == nil {
 			_, port, _ := net.SplitHostPort(o.httpsAddr)
-			cfg.Install = &server.Installer{Program: exe, CAPEM: authority.CAPEM(), HTTPSPort: port}
+			cfg.Install = &server.Installer{Program: exe, CAPEM: authority.CAPEM(), HTTPSPort: port, Version: strings.TrimSpace(Version + " " + Commit)}
 		}
 	}
 

@@ -25,7 +25,7 @@ const (
 	MaxStudentsPerClass   = 200
 	MaxClassesPerTeacher  = 60
 	MaxTasksPerClass      = 40
-	schemaVersion         = 2
+	schemaVersion         = 3
 	alphabet              = "0123456789ABCDEFGHJKMNPQRSTVWXYZ" // Crockford's base 32: no I, L, O or U
 	day                   = 24 * time.Hour
 	classCodeLen          = 10
@@ -104,7 +104,7 @@ func Open(path string) (*Store, error) {
 	if path == ":memory:" {
 		db.SetMaxOpenConns(1) // every connection would be a different empty database
 	}
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.Exec(schema + boardsSchema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("making the database: %w", err)
 	}
@@ -394,6 +394,9 @@ func (s *Store) SetEnd(ctx context.Context, code string, ends int64) error {
 func (s *Store) DeleteClass(ctx context.Context, code string) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
 		c := NormaliseCode(code)
+		if err := releaseBoardsOf(ctx, tx, "class_code = ?", c); err != nil {
+			return err
+		}
 		for _, q := range []string{
 			"DELETE FROM work WHERE student_id IN (SELECT id FROM students WHERE class_code = ?)",
 			"DELETE FROM students WHERE class_code = ?",
@@ -412,6 +415,9 @@ func (s *Store) DeleteClass(ctx context.Context, code string) error {
 func (s *Store) RemoveStudent(ctx context.Context, code, id string) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
 		c := NormaliseCode(code)
+		if err := releaseBoardsOf(ctx, tx, "id = ? AND class_code = ?", id, c); err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(ctx, "DELETE FROM work WHERE student_id = (SELECT id FROM students WHERE id = ? AND class_code = ?)", id, c); err != nil {
 			return err
 		}
@@ -461,6 +467,9 @@ func (s *Store) Seen(ctx context.Context, id string, now time.Time) error {
 // DeleteStudent takes a student off their class with all their work (the student asked).
 func (s *Store) DeleteStudent(ctx context.Context, id string) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE boards SET student_id = NULL WHERE student_id = ?", id); err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(ctx, "DELETE FROM work WHERE student_id = ?", id); err != nil {
 			return err
 		}
@@ -610,7 +619,7 @@ func (s *Store) CleanUp(ctx context.Context, now time.Time) (int, error) {
 // Wipe deletes every class, student, piece of work and task (the end of a program).
 func (s *Store) Wipe(ctx context.Context) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
-		for _, q := range []string{"DELETE FROM work", "DELETE FROM students", "DELETE FROM tasks", "DELETE FROM classes"} {
+		for _, q := range []string{"UPDATE boards SET student_id = NULL", "DELETE FROM work", "DELETE FROM students", "DELETE FROM tasks", "DELETE FROM classes"} {
 			if _, err := tx.ExecContext(ctx, q); err != nil {
 				return err
 			}
@@ -663,4 +672,16 @@ func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error) error {
 // TaskNoteOK says whether a teacher's note on a task is short enough.
 func TaskNoteOK(s string) bool {
 	return len([]rune(s)) <= maxTaskNoteCharacters && !strings.ContainsAny(s, "<>\x00")
+}
+
+// joinJSONNames turns a JSON list of first names into "Mia and Sam".
+func joinJSONNames(raw string) string {
+	var names []string
+	if json.Unmarshal([]byte(raw), &names) != nil || len(names) == 0 {
+		return ""
+	}
+	if len(names) == 1 {
+		return names[0]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }

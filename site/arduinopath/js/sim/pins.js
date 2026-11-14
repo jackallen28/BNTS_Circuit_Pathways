@@ -66,6 +66,9 @@ export function rolesIn(code, plan) {
   return roles;
 }
 
+/** The WiFi name and password a sketch gets before ArduinoPath knows the student's board (and in tests). */
+export const DEFAULT_WIFI = { name: "ArduinoPath-Board", password: "circuit123" };
+
 /**
  * What {{pins}} becomes: a #define for each role the code uses (and
  * ANALOG_MAX when it's used), for this board. Mirrors PinHeader in
@@ -79,6 +82,8 @@ export function pinHeader(project, board, code = "") {
   let out = `// Pins for your ${board.name} (from the Wiring Wizard)\n`;
   for (const role of rolesIn(code, plan)) out += `#define ${role} ${plan[role]}\n`;
   if (/\bANALOG_MAX\b/.test(code)) out += `#define ANALOG_MAX ${board.analog_max ?? 0}\n`;
+  // the board's own WiFi (ArduinoPath puts the student's real board's name and password in: myboard.js)
+  if (/\bMY_WIFI_(NAME|PASSWORD)\b/.test(code)) out += `#define MY_WIFI_NAME "${DEFAULT_WIFI.name}"  // your board's own WiFi\n#define MY_WIFI_PASSWORD "${DEFAULT_WIFI.password}"\n`;
   return out;
 }
 

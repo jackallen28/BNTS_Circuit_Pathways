@@ -10,6 +10,7 @@ import (
 	"circuitpathways"
 	"circuitpathways/internal/arduino"
 	"circuitpathways/internal/content"
+	"circuitpathways/internal/setup"
 )
 
 // A real compile for every board, with the real compilers. It runs only when
@@ -67,6 +68,13 @@ func TestCompileEveryBoardForReal(t *testing.T) {
 				res, arts, err := tools.Compile(ctx, string(code), b.FQBN, b.BuildProperties)
 				if err != nil || !res.OK || len(arts) == 0 {
 					t.Errorf("%s doesn't compile: %v\n%s", filepath.Base(f), err, res.Output)
+				}
+			}
+			// the set-up sketch the teacher portal flashes onto each of the school's ESP boards
+			if b.Family != "avr" {
+				code := setup.BoardSketch("ESP-07", "CP-ESP07-K3QX", "abcdefgh23")
+				if res, arts, err := tools.Compile(ctx, code, b.FQBN, b.BuildProperties); err != nil || !res.OK || len(arts) == 0 {
+					t.Errorf("the board set-up sketch doesn't compile: %v\n%s", err, res.Output)
 				}
 			}
 			// a student's sketch with a mistake comes back as an error with a line number, and no file

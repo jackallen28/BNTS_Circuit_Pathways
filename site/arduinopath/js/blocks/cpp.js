@@ -61,7 +61,8 @@ export function toBlocks(code) {
       const text = src.slice(t.pos, toks[end - 1].end);
       const def = /^#\s*define\s+(\w+)\b/.exec(text);
       const inc = /^#\s*include\s*<Servo\.h>/.test(text);
-      const keep = !(def && (ROLES.includes(def[1]) || def[1] === "ANALOG_MAX")) && !inc;
+      // (the pin header, and the board's own WiFi, are made again from the blocks: toCode and myboard.js)
+      const keep = !(def && (ROLES.includes(def[1]) || ["ANALOG_MAX", "MY_WIFI_NAME", "MY_WIFI_PASSWORD"].includes(def[1]))) && !inc;
       if (keep) top.push(raw("ap_raw_top", text));
       i = end;
       continue;

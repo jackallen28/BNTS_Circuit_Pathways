@@ -6,6 +6,8 @@ import { h, icon, joinNames, download } from "../dom.js";
 import { openDialog, messageBox } from "../widgets/window.js";
 import { aboutContent } from "./about.js";
 import { state, visibleBoards } from "../state.js";
+import { getAccess } from "/shared/access.js";
+import { myBoard, claimBoard, giveBackBoard } from "../myboard.js";
 
 /** Text or Blocks: how a student likes to write code (switch any time above the code). */
 export const CODING_STYLES = [
@@ -50,7 +52,7 @@ export function boardOptions() {
 }
 
 /**
- * Opens Settings on a tab ("me", "work", "curriculum" or "about"). Opened
+ * Opens Settings on a tab ("me", "work", "board", "curriculum" or "about"). Opened
  * from a project, Curriculum starts on that project. Resolves when closed.
  */
 export function openSettings({ tab = "me", onSaved = () => {}, projectId = null } = {}) {
@@ -60,6 +62,7 @@ export function openSettings({ tab = "me", onSaved = () => {}, projectId = null 
   const tabs = [
     { id: "me", label: "Help and board", render: renderMe },
     { id: "work", label: "My work", render: renderWork },
+    { id: "board", label: "My ESP board", render: renderBoard },
     { id: "curriculum", label: "Curriculum", render: () => curriculumContent(projectId) },
     { id: "about", label: "About", render: () => aboutContent() },
   ];
@@ -123,6 +126,58 @@ export function openSettings({ tab = "me", onSaved = () => {}, projectId = null 
         h("p", { text: "Open a .circuit file you saved before. Projects you don't have here are added. If the file has a newer copy of a project, you'll be asked first." }),
         h("button", { class: "pill purple", type: "button", onclick: () => fileInput.click() }, icon("open"), "Open my work"),
         fileInput));
+  }
+
+  /** The student's own ESP board: its WiFi name and password, and claiming one with the code on its sticker. */
+  function renderBoard() {
+    const box = h("div", {}, h("p", { text: "Looking for your board..." }));
+    const say = h("p", { class: "note", role: "status" });
+    const inClass = getAccess().kind === "student";
+    async function draw() {
+      const b = await myBoard();
+      const rows = [
+        ["WiFi name", b.ssid],
+        ["WiFi password", b.password],
+      ];
+      const table = h("table", { class: "kv" }, rows.map(([k, v]) => h("tr", {}, h("th", { text: k }), h("td", {}, h("code", { text: v })))));
+      const parts = [];
+      if (b.source === "school") {
+        parts.push(h("fieldset", { class: "groupbox" },
+          h("legend", { text: `Your board: ${b.label}` }),
+          h("p", { text: "Your WiFi projects use this board's own WiFi, so only you can join it. Upload only works with this board: another student's board is turned away." }),
+          table,
+          h("p", {}, h("button", { class: "pill", type: "button", onclick: async () => {
+            const answer = await messageBox({ kind: "warn", instruction: `Give ${b.label} back?`, text: "Another student can then claim it. You can claim a board again any time.",
+              buttons: [{ id: "yes", label: "Give it back" }, { id: "no", label: "Cancel", default: true }] });
+            if (answer !== "yes") return;
+            try { await giveBackBoard(); await draw(); } catch (err) { say.textContent = err.message; }
+          } }, "Give this board back"))));
+      } else {
+        parts.push(h("fieldset", { class: "groupbox" },
+          h("legend", { text: "Your WiFi" }),
+          h("p", { text: "When your ESP board makes its own WiFi, it uses this name and password (made just for you, on this computer). They go at the top of your code, after #define MY_WIFI_NAME." }),
+          table));
+      }
+      if (inClass) {
+        const input = h("input", { class: "textbox", maxlength: 12, placeholder: "e.g. K7M2-QX9P", "aria-label": "Board code", autocomplete: "off", spellcheck: "false" });
+        parts.push(h("fieldset", { class: "groupbox" },
+          h("legend", { text: b.source === "school" ? "Use a different board" : "Use my school board" }),
+          h("p", { text: "Your teacher set up the school's ESP boards. Type the code on your board's sticker." }),
+          h("p", {}, input, " ", h("button", { class: "pill purple", type: "button", onclick: async () => {
+            say.textContent = "Checking...";
+            try {
+              const got = await claimBoard(input.value);
+              say.textContent = `${got.label} is yours now.`;
+              await draw();
+            } catch (err) { say.textContent = err.message; }
+          } }, "Use this board")), say));
+      } else {
+        parts.push(h("p", { class: "muted", text: "Using one of the school's ESP boards? Join your class on the home page first, then type the code on its sticker here." }));
+      }
+      box.replaceChildren(...parts);
+    }
+    draw().catch(() => box.replaceChildren(h("p", { text: "Your board couldn't be found. Try again in a moment." })));
+    return box;
   }
 
   async function save() {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"circuitpathways/internal/auth"
+	"circuitpathways/internal/pilink"
 	"circuitpathways/internal/store"
 	"circuitpathways/internal/tlsca"
 )
@@ -28,10 +29,15 @@ const commandHelp = `circuitpathways looks after the school server. Commands (ru
   certificate                 make the https certificate if needed, and print its fingerprint
   pi-key                      (a student Pi) this Pi's own Pi Link key
   pi-installer -server URL -key KEY   (a student Pi) the Pi Link installer
+  pi-app -server URL          (a student Pi) the Pi Link app, for that address
+  self-update -from school|github ...  update to the school server's version (a student Pi) or the newest release
 
 Each takes -data DIR (default ` + defaultData + `).`
 
 func command(name string, args []string) error {
+	if name == "self-update" {
+		return updateCommand(args)
+	}
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	data := fs.String("data", env("CIRCUITPATHWAYS_DATA", defaultData), "the data folder")
 	serverURL := fs.String("server", "", "pi-installer: the site the Pi links to")
@@ -49,7 +55,7 @@ func command(name string, args []string) error {
 		}
 	}
 	codes := filepath.Join(*data, "teacher-codes.txt")
-	if name != "pi-key" && name != "pi-installer" {
+	if name != "pi-key" && name != "pi-installer" && name != "pi-app" {
 		if err := becomeOwner(*data); err != nil {
 			return fmt.Errorf("couldn't act as the owner of %s: %w", *data, err)
 		}
@@ -180,6 +186,16 @@ func command(name string, args []string) error {
 			return err
 		}
 		fmt.Println(k)
+		return nil
+	case "pi-app":
+		if *serverURL == "" {
+			return errors.New("usage: circuitpathways pi-app -server http://localhost:8080")
+		}
+		src, err := piAppSource()
+		if err != nil {
+			return err
+		}
+		fmt.Print(strings.ReplaceAll(string(src), pilink.PlaceholderServer, strings.TrimRight(*serverURL, "/")))
 		return nil
 	case "pi-installer":
 		if *serverURL == "" || *key == "" {

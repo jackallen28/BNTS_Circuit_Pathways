@@ -53,8 +53,12 @@ export async function compile(code, board, variant, onUpdate = () => {}) {
   return job;
 }
 
-/** Compiles the code, then uploads it to the board on port (an id from listPorts / requestPort). */
-export async function upload(code, board, variant, port, onUpdate = () => {}) {
+/**
+ * Compiles the code, then uploads it to the board on port (an id from listPorts / requestPort).
+ * opts.mustBe: (an ESP board) the MAC address of the only board this may go to, and opts.notYours what to say if
+ * it's another; opts.onChip hears the chip and MAC address found.
+ */
+export async function upload(code, board, variant, port, onUpdate = () => {}, { mustBe = "", notYours = "", onChip = () => {} } = {}) {
   onUpdate({ state: "compiling", output: "" });
   const res = await serverCompile(code, board, variant);
   if (!res.ok) {
@@ -77,12 +81,12 @@ export async function upload(code, board, variant, port, onUpdate = () => {}) {
       await flashAvr(port, new TextDecoder().decode(b64(hex.data)), { baud: settings.baud || 115200, onProgress, onLog });
     } else if (settings.protocol === "esptool") {
       if (!res.artifacts?.length) throw new Error("The compiler didn't make a program for the board.");
-      await flashEsp(port, res.artifacts.map((a) => ({ data: b64(a.data), offset: a.offset })), { baud: settings.baud, onProgress, onLog });
+      await flashEsp(port, res.artifacts.map((a) => ({ data: b64(a.data), offset: a.offset })), { baud: settings.baud, onProgress, onLog, mustBe, notYours, onChip });
     } else {
       throw new Error("Uploading to this board from the website isn't ready yet. You can still check your code and use the simulator.");
     }
   } catch (err) {
-    const message = ws.friendlyError(err);
+    const message = err?.code === "not_your_board" ? err.message : ws.friendlyError(err);
     const job = { ...compileJob(res, "upload"), state: "failed", output: log, error: message };
     onUpdate(job);
     return job;

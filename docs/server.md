@@ -91,12 +91,40 @@ and adds **Circuit Pathways**, **PiPath** and **ArduinoPath** to the Pi menu and
 Options go after `sudo`: `CP_NAME="Pi 7"` (a label, no student names), `CP_RUN=no` (pins only, no students' programs),
 `CP_TOOLS=yes` (the board tools on this Pi too, so uploading works even offline; 1.5 GB).
 
+**Double-click to open:** the **Circuit Pathways** icon on the student Pi's desktop opens straight into the app (no
+"Execute?" question: the installer sets the Pi's file manager to run shortcuts on a double-click). Just after the Pi
+starts, it waits a moment for Circuit Pathways to be ready.
+
 **Offline:** if the school server can't be reached, students carry on. Their work is saved on the Pi, the home page says
 the server can't be reached, and everything goes to their class when it can. Joining a class and uploading (without
 `CP_TOOLS=yes`) need the server.
 
 On a Pi, ArduinoPath uploads through Chromium. If it can't open the USB port:
 `sudo usermod -aG dialout <username>`, then log out and in.
+
+## The school's ESP boards (unique WiFi for each board)
+
+ESP boards (NodeMCU, D1 mini, ESP32...) make their own WiFi in the WiFi projects. So that one student's phone can't
+join (or control) another student's board, each of the school's boards gets **its own WiFi name and password**, and
+ArduinoPath only uploads to a student's **own** board.
+
+1. In the **teacher portal**, under **3. ESP boards**, pick the board type and a label (the next free one, such as
+   `ESP-01`, is filled in), plug the board into your laptop, and press **Plug it in, then set it up**. (Use the secure
+   address, `https://pathways.local`, in Chrome or Edge.) The portal asks the server for the board's WiFi name (such as
+   `CP-ESP01-K3QX`), a random password and a sticker code, compiles a small set-up sketch, uploads it, and records the
+   board's chip (its MAC address). The board then makes its WiFi straight away, so you can check it with a phone.
+2. Write the label on the board, and **Print stickers** (the label, the code and the WiFi name; no password).
+3. A student (in one of your classes) opens **ArduinoPath > Settings > My ESP board** and types the code on the
+   sticker. That board is theirs: Settings shows its WiFi name and password, which ArduinoPath puts in their code (the
+   `#define MY_WIFI_NAME` and `MY_WIFI_PASSWORD` lines; a hotspot with any other name is changed to the board's), and
+   **Upload** reads the chip of the board that's plugged in and stops if it isn't theirs ("This isn't your board").
+4. When a student leaves the class (or the class ends), their board is free for someone else. **Free it** gives a board
+   back by hand; **Flash again** sets it up again (its WiFi doesn't change).
+
+Students without a class (or a school board) get a WiFi name and password made just for their browser, so two boards
+still never share one. Boards belong to the teacher who set them up, and only that teacher's students can claim them.
+The check is in ArduinoPath, so it stops mistakes and casual borrowing; a student who flashed a board with other
+software (the Arduino IDE) could still change it.
 
 ## Teachers and classes
 
@@ -136,9 +164,29 @@ On a Pi, ArduinoPath uploads through Chromium. If it can't open the USB port:
 | See its log | `journalctl -u circuitpathways -n 50` (requests show method, path, status and time only) |
 | Restart it | `sudo systemctl restart circuitpathways` |
 | Check it's ready (from any computer with Node 18+) | `node tools/preflight.mjs http://pathways.local --teacher-code CODE` |
-| Update it | Copy the new download over and run `sudo bash install-server.sh` again (classes and codes are kept), then run the student Pi command again on each student Pi |
+| Update it | It updates itself each time it starts (see **Updates** below). By hand: copy the new download over and run `sudo bash install-server.sh` again (classes and codes are kept) |
 | Install or repair the board tools | `sudo -u circuitpathways circuitpathways -setup -warm -tools /opt/circuitpathways`, then restart |
 | The certificate's fingerprint | `sudo circuitpathways certificate` |
+
+## Updates (every time a Pi starts)
+
+- **The school server** updates itself from the newest **GitHub release** each time it starts (the
+  `circuitpathways-update` service, before Circuit Pathways starts). A release is made by **Actions > Release**, or by
+  itself when `VERSION` changes on `main`. While the repository is **private**, the server needs a read-only token:
+  make a *fine-grained personal access token* on GitHub with **Contents: Read-only** for this repository only, then on the
+  server:
+
+  ```bash
+  echo "github_pat_..." | sudo tee /etc/circuitpathways/update-token > /dev/null && sudo chmod 600 /etc/circuitpathways/update-token
+  ```
+
+  (or give it at install: `sudo CP_UPDATE_TOKEN=github_pat_... bash install-server.sh`). No internet, or no token: it
+  starts the version it has, and says why in `journalctl -u circuitpathways-update`. `CP_UPDATES=no` switches it off.
+- **Each student Pi** updates itself from the school server each time it starts (over https, checked against the
+  program's SHA-256), and refreshes its Pi Link app. So after the school server updates, every student Pi has the same
+  version the next time it starts. With no network it starts the version it has.
+- A new program is only used when its checksum matches, and it replaces the old one in one step. Classes, work and
+  settings are never touched by an update.
 
 The server listens on ports 80 (the plain address: the trust page, the student Pi installer, and the site) and 443 (the
 secure address). It needs no inbound access from the internet, and makes no outbound requests except when you install
@@ -169,11 +217,14 @@ it with its Pi Link, the preflight, and the server going away) and checks every 
 ## How it works (for whoever changes the code)
 
 - `cmd/circuitpathways`: the program. `-mode school` (the default) or `-mode student-pi`; the `teacher`, `status`,
-  `backup`, `wipe`, `certificate`, `pi-key` and `pi-installer` commands; `-setup` for the board tools.
+  `backup`, `wipe`, `certificate`, `pi-key`, `pi-installer`, `pi-app` and `self-update` commands; `-setup` for the board tools.
+- ESP boards: `internal/store/boards.go`, `internal/server/boards.go`, `internal/setup/board.go` (the set-up sketch),
+  `site/teacher/boards.js` (flashing from the portal), `site/arduinopath/js/myboard.js` (the student's board, its WiFi
+  in their code, and the chip check on Upload, in `js/flash/esp.js`).
 - `internal/server`: the site and API. `classes.go` (teachers, classes, set work, students' work), `upstream.go` (a
   student Pi passing classes and compiles to the school server, and noticing when it's gone), `install.go` (the student Pi
   installer, the program and the certificate), `compile.go`, `pi.go` (the Pi Link relay).
-- `internal/store`: SQLite (pure Go, no cgo), with a schema version. `internal/auth`: teacher and student tokens
+- `internal/store`: SQLite (pure Go, no cgo), with a schema version (3: classes, set work, boards). `internal/auth`: teacher and student tokens
   (HMAC-signed with the server's own secret in its data folder) and the teacher codes file. `internal/tlsca`: the
   server's own certificate authority and certificate. `internal/setup`: the installers.
 - The pages are unchanged from the hosted versions: the classes API is the same (see the `drafts` branch,

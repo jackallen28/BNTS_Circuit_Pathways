@@ -114,6 +114,10 @@ func PinHeader(p Project, b Board, code string) string {
 	if regexp.MustCompile(`\bANALOG_MAX\b`).MatchString(code) {
 		fmt.Fprintf(&sb, "#define ANALOG_MAX %s\n", strconv.Itoa(b.pins().AnalogMax))
 	}
+	// the board's own WiFi (the browser puts the student's real board's name and password in)
+	if regexp.MustCompile(`\bMY_WIFI_(NAME|PASSWORD)\b`).MatchString(code) {
+		sb.WriteString("#define MY_WIFI_NAME \"ArduinoPath-Board\"  // your board's own WiFi\n#define MY_WIFI_PASSWORD \"circuit123\"\n")
+	}
 	return sb.String()
 }
 

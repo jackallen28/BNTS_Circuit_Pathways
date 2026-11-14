@@ -14,6 +14,8 @@
 #   CP_SCHOOL="..."        the school's name, filled in for new classes
 #   CP_TOOLS=no            skip the board tools (1.5 GB download): the simulators work, uploading to boards doesn't
 #   CP_TEACHER="Ms Lee"    a label for the first teacher code
+#   CP_UPDATES=no          don't update from the newest release each time the Pi starts
+#   CP_UPDATE_TOKEN=...    a read-only GitHub token, so it can read the (private) repository's releases
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,6 +23,7 @@ WANT_HOST="${CP_HOSTNAME:-pathways}"
 SCHOOL="${CP_SCHOOL:-Banyule Nillumbik Tech School}"
 TOOLS="${CP_TOOLS:-yes}"
 FIRST="${CP_TEACHER:-First teacher}"
+UPDATES="${CP_UPDATES:-yes}"
 DATA=/var/lib/circuitpathways
 TOOLDIR=/opt/circuitpathways
 
@@ -75,6 +78,27 @@ else
 fi
 sudo -u circuitpathways /usr/local/bin/circuitpathways certificate -data "$DATA" > /dev/null
 
+# Each time the Pi starts, it first updates itself to the newest release (from GitHub, over the internet), then
+# starts Circuit Pathways. Student Pis then update themselves from it. No internet: it starts the version it has.
+if [[ -n "${CP_UPDATE_TOKEN:-}" ]]; then
+  ( umask 077; printf '%s\n' "$CP_UPDATE_TOKEN" > /etc/circuitpathways/update-token )
+fi
+cat > /etc/systemd/system/circuitpathways-update.service <<UPDATE_END
+[Unit]
+Description=Update Circuit Pathways from its newest release
+Wants=network-online.target
+After=network-online.target
+Before=circuitpathways.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/circuitpathways/circuitpathways self-update -from github
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
+UPDATE_END
+
 cat > /etc/systemd/system/circuitpathways.service <<UNIT_END
 [Unit]
 Description=Circuit Pathways school server
@@ -100,6 +124,7 @@ MemoryMax=85%
 WantedBy=multi-user.target
 UNIT_END
 systemctl daemon-reload
+if [[ "$UPDATES" == yes ]]; then systemctl enable circuitpathways-update; else systemctl disable circuitpathways-update 2>/dev/null || true; fi
 systemctl enable --now circuitpathways
 systemctl restart circuitpathways
 sleep 2
@@ -127,6 +152,9 @@ cat <<DONE
 
   The certificate's fingerprint (to check on a laptop):
       $FP
+  Updates: each time this Pi starts it updates from the newest release
+  (needs the internet, and a read-only token while the repository is
+  private: see docs/server.md). Student Pis update from this Pi.
   Status: sudo circuitpathways status    Logs: journalctl -u circuitpathways
 =====================================================================
 DONE

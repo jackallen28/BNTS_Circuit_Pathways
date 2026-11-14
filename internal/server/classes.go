@@ -344,6 +344,8 @@ func (s *Server) handleStudent(w http.ResponseWriter, r *http.Request) {
 		}, err
 	}
 	switch {
+	case r.URL.Path == "/api/student/board":
+		s.handleStudentBoard(w, r, st)
 	case r.URL.Path == "/api/student/me" && r.Method == http.MethodGet:
 		s.Store.Seen(ctx, st.ID, s.Now())
 		out, err := me()

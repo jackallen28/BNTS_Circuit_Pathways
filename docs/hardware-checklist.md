@@ -72,6 +72,20 @@ Plug in the Uno and wire three LEDs as the Wiring Wizard shows.
 - [ ] **ESP32 DevKit**: Upload Blink (hold **BOOT** if it says **Failed to connect**), then Serial Chatbot step 1.
 - [ ] **Web page** button (ESP boards only): design a page, press **Put it in my code**, upload, and open it from a phone.
 
+## 5b. The school's ESP boards (each with its own WiFi)
+
+- [ ] Teacher portal (https), **3. ESP boards**: plug in a NodeMCU, press **Plug it in, then set it up**, pick the board.
+      It compiles, uploads, and the table shows **✓** under Flashed. A phone sees the board's WiFi (`CP-ESP01-...`) and
+      joins it with the password in the table; the page there shows the board's label.
+- [ ] Set up an ESP32 the same way. **Print stickers** prints a sheet of labels and codes (no passwords).
+- [ ] As a student in your class: **ArduinoPath > Settings > My ESP board**, type the NodeMCU's code: it shows the
+      board's WiFi name and password.
+- [ ] **Phone-controlled LED** on that NodeMCU: the code's `MY_WIFI_NAME` line has the board's WiFi; **Upload**, then
+      the phone joins that WiFi and the buttons work.
+- [ ] Plug in the ESP32 (another student's board) and press **Upload**: it stops with "This isn't your board", and the
+      ESP32 keeps its program.
+- [ ] A second student types the NodeMCU's code: it says someone else has that board.
+
 ## 6. Parts, with the Wiring Wizard's Test on a real board
 
 - [ ] **Button Night Light**: pressing the real button ticks its row by itself.
@@ -95,7 +109,11 @@ Plug in the Uno and wire three LEDs as the Wiring Wizard shows.
 
 ## 8. A student Pi as a student's computer
 
-- [ ] **Circuit Pathways**, **PiPath** and **ArduinoPath** are in the Pi menu (Education) and on the desktop.
+- [ ] **Circuit Pathways**, **PiPath** and **ArduinoPath** are in the Pi menu (Education), and **Circuit Pathways** is
+      on the desktop. Double-click it: the app opens, with no "Execute?" question.
+- [ ] Restart the Pi and double-click the icon straight away: it says it's starting, then opens.
+- [ ] Updates: `journalctl -u circuitpathways-update -b` on the student Pi says it's up to date (or updated) from the
+      school server. On the school server it says up to date, updated, or why not (no internet, or no token).
 - [ ] Opening PiPath from the shortcut shows no ID to type. The home page names the Pi.
 - [ ] Join the class from the Pi's home page (with a new first name): the set work shows, as on the laptop.
 - [ ] In PiPath, **Run on: My Raspberry Pi** is already chosen. Wire an LED on GPIO 17 with a 330Ω resistor, run

@@ -12,9 +12,13 @@ async function load() {
 /**
  * @param {string} portId
  * @param {{ data: Uint8Array, offset: number }[]} files
- * @param {{baud?: number, onProgress?: (pct: number, what: string) => void, onLog?: (s: string) => void}} opts
+ * @param {{baud?: number, onProgress?: (pct: number, what: string) => void, onLog?: (s: string) => void,
+ *   mustBe?: string, notYours?: string, onChip?: (c: {chip: string, mac: string}) => void}} opts
+ *   mustBe: the MAC address of the only board this may flash (a student's own school board); notYours: what to say if
+ *   it's another one. onChip hears which chip and MAC address it found (the teacher portal records it).
+ * @returns {Promise<{chip: string, mac: string}>}
  */
-export async function flashEsp(portId, files, { baud = 460800, onProgress = () => {}, onLog = () => {} } = {}) {
+export async function flashEsp(portId, files, { baud = 460800, onProgress = () => {}, onLog = () => {}, mustBe = "", notYours = "", onChip = () => {} } = {}) {
   const { ESPLoader, Transport } = await load();
   const port = getPort(portId);
   const transport = new Transport(port, false);
@@ -29,6 +33,12 @@ export async function flashEsp(portId, files, { baud = 460800, onProgress = () =
     onLog("Connecting to the board...\n(If this stalls, hold the BOOT or FLASH button while it connects.)\n");
     const chip = await loader.main();
     onLog(`Found ${chip}.\n`);
+    const mac = normaliseMac(await loader.chip.readMac(loader));
+    onChip({ chip, mac });
+    if (mustBe && mac !== normaliseMac(mustBe)) {
+      // a student's school board: only theirs may be flashed (nothing has been written to this one)
+      throw Object.assign(new Error(notYours || "This isn't your board."), { code: "not_your_board" });
+    }
     const total = files.reduce((n, f) => n + f.data.length, 0);
     let done = 0;
     const sizes = files.map((f) => f.data.length);
@@ -42,7 +52,9 @@ export async function flashEsp(portId, files, { baud = 460800, onProgress = () =
     });
     await loader.after();
     onProgress(100, "Done");
+    return { chip, mac };
   } catch (err) {
+    if (err?.code === "not_your_board") throw err;
     const m = String(err?.message || err);
     if (/timeout|failed to connect|no serial data|wrong boot mode/i.test(m)) {
       throw new Error("Failed to connect to the board: timed out. Hold the BOOT (or FLASH) button on the board, press Upload again, and let go once it says Connecting. Check you chose the right board too.");
@@ -51,4 +63,10 @@ export async function flashEsp(portId, files, { baud = 460800, onProgress = () =
   } finally {
     try { await transport.disconnect(); } catch { /* already closed */ }
   }
+}
+
+/** "A4:CF:12:0B:9E:01" or "a4cf120b9e01" → "a4:cf:12:0b:9e:01" ("" if it isn't a MAC address). */
+export function normaliseMac(s) {
+  const hex = String(s ?? "").toLowerCase().replace(/[^0-9a-f]/g, "");
+  return hex.length === 12 ? hex.match(/../g).join(":") : "";
 }

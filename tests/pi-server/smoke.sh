@@ -41,7 +41,8 @@ for f in usr/local/lib/circuitpathways/circuitpathways etc/circuitpathways/schoo
 done
 grep -q "^SERVER=http://localhost:8080$" "$WORK/root/etc/circuitpathways-pi.conf"
 grep -q -- "-mode student-pi" "$WORK/root/etc/systemd/system/circuitpathways.service"
-echo "installed: the program, the certificate, the service, Pi Link and the shortcuts"
+grep -q -- "self-update -from school" "$WORK/root/etc/systemd/system/circuitpathways-update.service"
+echo "installed: the program, the certificate, the service, the update at start-up, Pi Link and the shortcuts"
 
 step "3. the student Pi starts and reaches the school server; its Pi Link connects"
 SCHOOL="$(sed -n 's/^SCHOOL="\(.*\)"$/\1/p' "$WORK/student-pi.sh")"
@@ -57,6 +58,15 @@ RUNAS=(); [[ "$(id -u)" == 0 ]] && RUNAS=(--run-user nobody)
 python3 -u "$WORK/root/opt/circuitpathways-pi/circuitpathways_pi.py" --mock --key "$KEY" --server "http://localhost:$PIPORT" --run-dir "$WORK/run" "${RUNAS[@]}" > "$WORK/piapp.log" 2>&1 &
 PIDS+=($!)
 sleep 3
+
+step "3b. updating at start-up: up to date, and a damaged Pi Link app is put right"
+APP="$WORK/root/usr/local/lib/circuitpathways/circuitpathways"
+echo "# damaged" > "$WORK/root/opt/circuitpathways-pi/circuitpathways_pi.py"
+"$APP" self-update -from school -school "$SCHOOL" -school-ca "$WORK/root/etc/circuitpathways/school-ca.crt" -target "$APP" \
+  -pi-app "$WORK/root/opt/circuitpathways-pi/circuitpathways_pi.py" -pi-server http://localhost:8080 2>&1 | tee "$WORK/update.txt"
+grep -q "up to date" "$WORK/update.txt"
+grep -q 'CIRCUITPATHWAYS_URL", "http://localhost:8080"' "$WORK/root/opt/circuitpathways-pi/circuitpathways_pi.py"
+curl -fsS --cacert "$WORK/ca.crt" "https://localhost:$HTTPS/install/version" | grep -q '"sha256"'
 
 step "4. the preflight on both"
 NOCOMPILE=(--no-compile); [[ -n "${TOOLS:-}" ]] && NOCOMPILE=()

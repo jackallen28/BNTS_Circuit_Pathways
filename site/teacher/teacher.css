@@ -42,3 +42,14 @@
 .ttable.progress td.p-cell, .ttable.progress th.p-cell { text-align: center; min-width: 70px; }
 .ttable.progress td.p-done { color: #9ff0c0; font-weight: 800; }
 .ttable.progress td.p-some { color: #ffe08a; font-weight: 700; }
+.b-log { max-height: 180px; overflow: auto; padding: 10px; border-radius: 8px; background: #0b1020; color: #e6f1ff; font: 12px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+.ttable td code { font: 13px ui-monospace, Consolas, monospace; user-select: all; }
+.stickers { display: none; }
+@media print {
+  body > *:not(.stickers) { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .stickers { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8mm; padding: 6mm; }
+  .sticker { border: 1px dashed #888; border-radius: 3mm; padding: 4mm; font: 11pt system-ui, sans-serif; break-inside: avoid; }
+  .sticker b { display: block; font-size: 20pt; }
+  .sticker code { font: 700 14pt ui-monospace, Consolas, monospace; letter-spacing: .08em; }
+}

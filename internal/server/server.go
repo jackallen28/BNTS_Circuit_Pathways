@@ -150,6 +150,8 @@ func New(cfg Config) *Server {
 		mux.HandleFunc("GET /api/teacher/classes", s.handleTeacherClasses)
 		mux.HandleFunc("POST /api/teacher/class", s.handleNewClass)
 		mux.HandleFunc("/api/teacher/class/", s.handleTeacherClass)
+		mux.HandleFunc("/api/teacher/boards", s.handleTeacherBoards)
+		mux.HandleFunc("/api/teacher/boards/", s.handleTeacherBoard)
 		mux.HandleFunc("POST /api/class/join", s.handleJoin)
 		mux.HandleFunc("/api/student/", s.handleStudent)
 		mux.HandleFunc("POST /api/compile", s.handleCompile)

@@ -21,6 +21,7 @@ import { review } from "../review.js";
 import * as realboard from "../realboard.js";
 import { boardHelp } from "../dialogs/boardhelp.js";
 import { pinPlan } from "../sim/pins.js";
+import { myBoard, applyWifi, isEspBoard, notYourBoard } from "../myboard.js";
 import { blocksView } from "../blocks/view.js";
 import { withGrove, pickPort, freeRole, addGroveCode, shieldFor } from "/shared/grove/grove.js";
 import { splitText, showExplanation, starterFor, demoFor, blanks, baudOf, simDiagnostics, checklist, allDone, firstFailing, canSkip, openingStep } from "../guide.js";
@@ -699,6 +700,21 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     return rp;
   }
 
+  /**
+   * The code with the student's own board's WiFi in it (myboard.js): their school board's WiFi name and password, or
+   * this browser's own. The text in the editor is updated too, so they can see it.
+   */
+  let wifiId = null;
+  async function wifiCode() {
+    wifiId = await myBoard();
+    const fixed = applyWifi(code(), wifiId);
+    if (fixed !== code() && editor && state.me.settings.coding !== "blocks") {
+      editor.value = fixed;
+      saver.change(fixed);
+    }
+    return fixed;
+  }
+
   async function run() {
     if (!editor) return;
     closeBoardSerial();
@@ -710,7 +726,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     runKind = "run";
     studentResult = null;
     setRunning(true);
-    const res = await panelRp.run(code(), { label: "Running your code" });
+    const res = await panelRp.run(await wifiCode(), { label: "Running your code" });
     if (closed) return;
     if (!res.ok) {
       runKind = null;
@@ -828,7 +844,7 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     con.setOutput(`Checking your code for ${b.name}...\n(The compiler is on the Circuit Pathways website. The first check of the day can take a minute.)\n`);
     setBusy(true);
     try {
-      const job = await realboard.compile(code(), b, state.me.settings.board_variant, (j) => con.setOutput(jobText(j)));
+      const job = await realboard.compile(await wifiCode(), b, state.me.settings.board_variant, (j) => con.setOutput(jobText(j)));
       afterCompile(job, b, con, false);
     } catch (err) {
       showClue({ title: "Checking didn't work", explain: err.message, hints: [] });
@@ -860,10 +876,18 @@ export function workspaceScreen(root, { projectId, openSettings, back }) {
     con.setOutput(`Compiling for ${b.name}...\n`);
     setBusy(true);
     try {
-      const job = await realboard.upload(code(), b, state.me.settings.board_variant, port, (j) => {
+      const sketch = await wifiCode();
+      // a student's own school ESP board: only that board may be flashed (the uploader checks its chip)
+      const mine = isEspBoard(b) && wifiId?.source === "school" && wifiId.mac ? { mustBe: wifiId.mac, notYours: notYourBoard(wifiId) } : {};
+      const job = await realboard.upload(sketch, b, state.me.settings.board_variant, port, (j) => {
         con.setOutput(jobText(j));
         con.setStatus(j.state === "uploading" ? `Uploading ${j.progress || 0}%` : j.state === "compiling" ? "Compiling..." : "", "");
-      });
+      }, mine);
+      if (job.error && /isn't your board/.test(job.error)) {
+        con.setStatus("Not your board", "bad");
+        showClue({ title: "That isn't your board", explain: job.error, hints: [] });
+        return;
+      }
       if (!afterCompile(job, b, con, true)) return;
       con.setStatus("Uploaded ✓", "good");
       realboard.rememberPort(port);

@@ -73,6 +73,14 @@ failing, lots of tries, or a quiet spell) and offers a hint, the goal or the ful
 harder level after a few steps done first try, or an easier one when a student is struggling. Students can switch
 these nudges off in Settings.
 
+## The school's ESP boards
+
+Set up each ESP board once in the teacher portal (**3. ESP boards**): plug it into your laptop and press **Plug it in,
+then set it up**. It gets a label, **its own WiFi name and password**, and a code: **Print stickers** and stick them on.
+Students type the code in **ArduinoPath > Settings > My ESP board**. Their WiFi projects then use that board's own
+WiFi (so only they can join it), and **Upload only works with their own board**. When a student leaves, their board is
+free again; **Free it** does it by hand. Details: [`server.md`](server.md).
+
 ## Seeing your class's work
 
 In the **teacher portal**, open a class:

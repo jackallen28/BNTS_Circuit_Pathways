@@ -92,12 +92,32 @@
     <p class="small privacy">Files you add here are only read in your browser. They are not sent anywhere.</p>
   </section>
 
+  <section class="tcard" aria-labelledby="h-boards" id="boards-card">
+    <h2 id="h-boards">3. ESP boards</h2>
+    <p>Set up each of the school's ESP boards once. It gets a label, <b>its own WiFi name and password</b>, and a code for its sticker. A student claims a board in ArduinoPath (<b>Settings &gt; My ESP board</b>) with that code. Then their WiFi projects use that board's own WiFi, so nobody else can join it, and <b>Upload only works with their board</b>: another student's is turned away.</p>
+    <p class="note bad" id="b-insecure" hidden>To flash boards, open the teacher portal at the secure address (https), in Chrome or Edge.</p>
+    <div class="trow">
+      <label>Board <select id="b-kind"></select></label>
+      <label>Label (written on the board) <input id="b-label" maxlength="16" placeholder="ESP-01"></label>
+      <button type="button" class="btn" id="b-setup">Plug it in, then set it up ▸</button>
+    </div>
+    <p class="note" id="b-note" role="status" aria-live="polite"></p>
+    <pre class="b-log" id="b-log" hidden></pre>
+    <div class="twrap"><table class="ttable" id="b-table" hidden>
+      <thead><tr><th>Label</th><th>Board</th><th>WiFi name</th><th>Password</th><th>Sticker code</th><th>Who has it</th><th>Flashed</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="trow"><button type="button" class="btn btn-plain" id="b-print" hidden>Print stickers</button></div>
+  </section>
+
   <section class="tcard" aria-labelledby="h-go">
-    <h2 id="h-go">3. Try it yourself</h2>
+    <h2 id="h-go">4. Try it yourself</h2>
     <p>Open either app to try a project the way your students will.</p>
     <div class="session-actions"><a class="btn" href="../arduinopath/">Open ArduinoPath ▸</a><a class="btn" href="../pipath/">Open PiPath ▸</a></div>
   </section>
 </main>
+<div class="stickers" id="stickers" aria-hidden="true"></div>
 <script type="module" src="teacher.js"></script>
+<script type="module" src="boards.js"></script>
 </body>
 </html>

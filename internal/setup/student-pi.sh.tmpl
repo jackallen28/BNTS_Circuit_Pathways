@@ -93,11 +93,28 @@ PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target"
+# Each time the Pi starts, it first updates itself to the school server's version (and refreshes Pi Link), so
+# every student Pi is always up to date. With no network it just starts the version it has.
+UPDATE="[Unit]
+Description=Update Circuit Pathways from the school server
+Wants=network-online.target
+After=network-online.target
+Before=circuitpathways.service circuitpathways-pi.service
+
+[Service]
+Type=oneshot
+ExecStart=$APP self-update -from school -school $SCHOOL -school-ca /etc/circuitpathways/school-ca.crt -pi-app /opt/circuitpathways-pi/circuitpathways_pi.py -pi-server http://localhost:$PORT
+TimeoutStartSec=200
+
+[Install]
+WantedBy=multi-user.target"
 install -d "$ROOT/etc/systemd/system"
 printf '%s\n' "$UNIT" > "$ROOT/etc/systemd/system/circuitpathways.service"
+printf '%s\n' "$UPDATE" > "$ROOT/etc/systemd/system/circuitpathways-update.service"
 if [[ -z "$ROOT" ]]; then
   say "Starting Circuit Pathways on this Pi (it starts by itself every time the Pi turns on)"
   systemctl daemon-reload
+  systemctl enable circuitpathways-update
   systemctl enable --now circuitpathways
   systemctl restart circuitpathways
 fi
@@ -111,6 +128,7 @@ printf '  This student Pi is ready.\n\n'
 printf '  Students open Circuit Pathways, PiPath or ArduinoPath\n'
 printf '  from the Pi menu or the desktop. It works without the\n'
 printf '  network; work goes to the class on the school server\n'
-printf '  whenever it can be reached.\n\n'
+printf '  whenever it can be reached. It updates itself\n'
+printf '  from the school server each time it starts.\n\n'
 printf '  School server: %s\n' "$SCHOOL"
 printf '=====================================================\n'

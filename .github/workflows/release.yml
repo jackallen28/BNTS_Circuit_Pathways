@@ -1,9 +1,14 @@
 name: Release (the Raspberry Pi download)
 
-# Press "Run workflow" in Actions > Release. It tests everything, builds circuitpathways-pi-VERSION.tar.gz (the
-# school server's download) and publishes it as a GitHub release named after VERSION. Change VERSION first.
+# Runs when VERSION changes on main (or press "Run workflow" in Actions > Release). It tests everything, builds
+# circuitpathways-pi-VERSION.tar.gz (a new school server's download) and the programs with their SHA256SUMS, and
+# publishes them as a GitHub release named after VERSION. Every school server updates itself to the newest release
+# the next time it starts, and student Pis then update from their school server.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [VERSION]
 
 permissions:
   contents: write
@@ -20,10 +25,15 @@ jobs:
       - run: bash tests/pi-server/smoke.sh
       - name: Build the Raspberry Pi download
         run: ARCHES="arm64 amd64" bash tools/build-pi.sh
+      - name: The programs on their own, and their checksums (each school server updates itself from these)
+        run: |
+          cp dist/circuitpathways-pi/circuitpathways-linux-* dist/
+          (cd dist && sha256sum circuitpathways-linux-arm64 circuitpathways-linux-amd64 > SHA256SUMS && cat SHA256SUMS)
       - name: Publish it
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           V="$(tr -d '[:space:]' < VERSION)"
-          gh release create "v$V" "dist/circuitpathways-pi-$V.tar.gz" --target "$GITHUB_SHA" --title "Circuit Pathways $V" \
-            --notes "The school server's download for Raspberry Pi (64-bit Raspberry Pi OS). Unpack it on the server Pi and run: sudo bash install-server.sh. See docs/server.md."
+          gh release create "v$V" "dist/circuitpathways-pi-$V.tar.gz" dist/circuitpathways-linux-arm64 dist/circuitpathways-linux-amd64 dist/SHA256SUMS \
+            --target "$GITHUB_SHA" --title "Circuit Pathways $V" \
+            --notes "The school server's download for Raspberry Pi (64-bit Raspberry Pi OS). New server: unpack the .tar.gz on the server Pi and run: sudo bash install-server.sh. A school server that is already set up updates itself to this release the next time it starts, and student Pis then update from it. See docs/server.md."
