@@ -10,11 +10,13 @@ from tkinter import messagebox, ttk
 from .learning import (
     CUSTOM_HAND, SYMBOL, TRAINABLE, Recognizer, default_training_folder, empty_classes, load_classes,
 )
+from .programs import build_program_picker
 from .robot import Magician, MotionStopped, Pose, POSITION_LIMIT_MM, ROTATION_LIMIT_DEG, StopUnconfirmed, serial_ports
 from .theme import BORDER, DARK, DARKER, GREEN, INK, MUTED, PANEL, PURPLE, WHITE
 from .theme import Theme, gradient, icon
 from .trainer import TrainingWindow
 from .vision import Camera, Detection, GestureGate, HAND, POSE
+from .workcell import Workcell
 
 DEMO_A, DEMO_B = Pose(220, -28, 80, 0), Pose(220, 28, 80, 0)
 SOURCE = {HAND: ("Thumb up", "Victory sign", "Closed fist"),
@@ -29,6 +31,7 @@ class Studio:
         self.root, self.models = root, models
         self.training_folder = training_folder if training_folder is not None else default_training_folder()
         self.training_window = self.classifier = None
+        self.workcell = self.program_menu = None
         self.theme = Theme(root)
         self.demo = True
         self.armed = self.homed = self.closing = False
@@ -80,6 +83,7 @@ class Studio:
         root.minsize(860, 550)
         outer = tk.Canvas(root, bg="#254d71", borderwidth=0, highlightthickness=0)
         outer.pack(fill="both", expand=True)
+        self.desktop = outer
         shell = tk.Frame(outer, bg="#e9eff8", highlightbackground="#a8bbd4", highlightthickness=1)
         shell_id = outer.create_window(18, 15, anchor="nw", window=shell)
 
@@ -117,6 +121,8 @@ class Studio:
 
         toolbar = tk.Frame(shell, bg="#edf3fa", padx=12, pady=4)
         toolbar.pack(fill="x")
+        self.program_button = self._button(toolbar, "Programs", self.show_programs)
+        self.program_button.pack(side="left", padx=(0, 11))
         self.demo_button = self._button(toolbar, "Demo", lambda: self.set_mode(True), "Purple")
         self.demo_button.pack(side="left")
         self.live_button = self._button(toolbar, "USB hardware", lambda: self.set_mode(False))
@@ -229,7 +235,7 @@ class Studio:
 
     def _render(self):
         connected = self.robot is not None
-        idle = self.busy is None and not self.closing and self.training_window is None
+        idle = self.busy is None and not self.closing and self.training_window is None and self.workcell is None
         live = not self.demo
         mode = self.input_mode.get()
         trainable = mode in TRAINABLE
@@ -254,8 +260,9 @@ class Studio:
         camera_action = "Stop camera" if self.camera else "Start camera"
         self.preview_button.configure(text="Closing…" if self.camera_closing else camera_action)
         self._set_button(self.preview_button, not self.closing and self.training_window is None
-                         and self.camera_closing is None and (not self.armed or self.camera is not None))
+                         and self.camera_closing is None and self.workcell is None and (not self.armed or self.camera is not None))
         self._set_button(self.training_button, idle and not self.armed and self.camera_closing is None)
+        self._set_button(self.program_button, idle and not self.armed and camera_idle)
         simulate = self._simulated_input()
         if simulate and not self.sim_panel.winfo_manager():
             self.sim_panel.pack(fill="x", side="bottom", before=self.camera_panel, pady=(6, 0))
@@ -454,8 +461,33 @@ class Studio:
         self._draw_preview()
         self._render()
 
+    def show_programs(self):
+        if (self.armed or self.busy or self.camera or self.camera_closing
+                or self.training_window or self.workcell or self.program_menu):
+            return
+        self.program_menu = build_program_picker(self)
+        self.desktop.pack_forget()
+        self.program_menu.pack(fill="both", expand=True)
+
+    def open_program(self, name):
+        if self.program_menu:
+            self.program_menu.destroy()
+            self.program_menu = None
+            self.desktop.pack(fill="both", expand=True)
+        if name == "train":
+            self.open_training()
+        elif name in ("sort", "inspect") and not (self.workcell or self.camera or self.camera_closing):
+            self.workcell = Workcell(self, name)
+            self.workcell.window.wait_visibility()
+            self.workcell.window.grab_set()
+            self._render()
+
+    def end_workcell(self):
+        self.workcell = None
+        self._render()
+
     def open_training(self):
-        if self.armed or self.busy or self.closing or self.training_window or self.camera_closing:
+        if self.armed or self.busy or self.closing or self.training_window or self.workcell or self.camera_closing:
             return
         mode = self.input_mode.get()
         if mode not in TRAINABLE:
@@ -554,7 +586,7 @@ class Studio:
         if self.armed:
             self.stop("Controls disarmed.")
             return
-        if self.busy or self.closing or self.training_window:
+        if self.busy or self.closing or self.training_window or self.workcell:
             return
         if not self._simulated_input() and (not self._tracking_ready()
                 or self.input_mode.get() in TRAINABLE and self.classifier is None):
@@ -602,7 +634,7 @@ class Studio:
         elif self.armed:
             self.gate.reset()
             return
-        if not self.armed or self.training_window:
+        if not self.armed or self.training_window or self.workcell:
             return
         action = self.gate.observe(detection)
         if action == "Stop":
@@ -724,6 +756,10 @@ class Studio:
     def quit(self):
         if self.closing:
             return
+        if self.workcell:
+            self.workcell.close()
+            if self.workcell:
+                return
         if self.training_window:
             self.training_window.close()
             if self.training_window:
@@ -765,5 +801,6 @@ def main():
                         help="folder for local training profiles")
     args = parser.parse_args()
     root = tk.Tk()
-    Studio(root, args.models.resolve(), args.training_data.resolve())
+    studio = Studio(root, args.models.resolve(), args.training_data.resolve())
+    studio.show_programs()
     root.mainloop()

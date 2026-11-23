@@ -6,7 +6,7 @@ from time import monotonic
 
 HEADER = b"\xaa\xaa"
 GET_POSE, GET_ALARMS, GET_HOME, HOME = 10, 20, 30, 31
-COORDINATE_SPEED, COMMON_SPEED, MOVE = 81, 83, 84
+SUCTION, COORDINATE_SPEED, COMMON_SPEED, MOVE = 62, 81, 83, 84
 QUEUE_START, QUEUE_STOP, QUEUE_FORCE_STOP, QUEUE_CLEAR, QUEUE_INDEX = 240, 241, 242, 245, 246
 READ, WRITE, QUEUED_WRITE, LINEAR = 0, 1, 3, 2
 POSITION_LIMIT_MM, ROTATION_LIMIT_DEG = 100, 25
@@ -177,3 +177,44 @@ class Magician:
         if not position.near(target, mm=POSITION_LIMIT_MM, degrees=ROTATION_LIMIT_DEG):
             raise RobotError("The requested move exceeds the demo's travel limit.")
         return self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop, timeout=15)
+
+
+    def set_suction(self, enabled):
+        self._request(SUCTION, WRITE, bytes((1, int(enabled))))
+
+    def sort_chip(self, pick, drop, park, stop):
+        """Execute one taught tabletop transfer and finish at the park pose."""
+        self.check_alarms()
+        if not self.pose().near(park, mm=4, degrees=5):
+            raise RobotError("Place the suction tool at its taught park position first.")
+        if any(not 12 <= park.z - pose.z <= 75 or abs(park.r - pose.r) > 5
+               for pose in (pick, drop)):
+            raise RobotError("Park must be 12 to 75 mm above pickup and drop-off, with the same rotation.")
+        near_pick = Pose(pick.x, pick.y, park.z, park.r)
+        near_drop = Pose(drop.x, drop.y, park.z, park.r)
+        path = (near_pick, pick, near_pick, near_drop, drop, near_drop, park)
+        if any(dist(a.xyz(), b.xyz()) > 150 for a, b in zip((park, *path), path)):
+            raise RobotError("A transfer segment exceeds 150 mm. Move the tray or bins closer.")
+        holding = False
+        try:
+            for index, target in enumerate(path):
+                self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop, timeout=15)
+                if stop.is_set():
+                    self.stop()
+                    raise MotionStopped("Sorting stopped.")
+                if index == 1:
+                    holding = True
+                    self.set_suction(True)
+                    stop.wait(0.35)
+                elif index == 4:
+                    self.set_suction(False)
+                    holding = False
+                    stop.wait(0.2)
+            if stop.is_set():
+                self.stop()
+                raise MotionStopped("Sorting stopped.")
+        except Exception as error:
+            if holding:
+                raise RobotError(f"{error} Suction may still be on. Check the tool before release.") from error
+            raise
+        return self.pose()

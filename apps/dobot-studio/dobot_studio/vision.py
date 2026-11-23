@@ -10,6 +10,7 @@ from .learning import (
 )
 
 HAND, POSE = "Hand gestures", "Body poses"
+TABLETOP = "Tabletop view"
 MODEL_FILES = {HAND: "gesture_recognizer.task", CUSTOM_HAND: "gesture_recognizer.task",
                POSE: "pose_landmarker_lite.task"}
 GESTURES = {"Thumb_Up": "A", "Victory": "B", "Closed_Fist": "Stop"}
@@ -119,9 +120,10 @@ class Camera:
             import cv2
             from PIL import Image
 
-            if self.mode == SYMBOL:
+            if self.mode in (SYMBOL, TABLETOP):
                 detector_context = nullcontext()
-                hog = new_symbol_descriptor()
+                if self.mode == SYMBOL:
+                    hog = new_symbol_descriptor()
             else:
                 model = self.models / MODEL_FILES[self.mode]
                 if not model.is_file():
@@ -160,7 +162,9 @@ class Camera:
                     height, width = rgb.shape[:2]
                     features, sample_hint = None, ""
                     cmd, label, tracked = None, "", False
-                    if self.mode == SYMBOL:
+                    if self.mode == TABLETOP:
+                        label = "Overhead camera"
+                    elif self.mode == SYMBOL:
                         region = symbol_region(width, height)
                         features, sample_hint = symbol_features(rgb, region, hog)
                         x, y, size = region
@@ -191,7 +195,7 @@ class Camera:
                             cv2.circle(rgb, (cx, cy), 5, (255, 255, 255), 1)
                     # Preserve the orientation of printed and drawn symbols in the preview.
                     preview = Image.fromarray(rgb)
-                    if self.mode != SYMBOL:
+                    if self.mode not in (SYMBOL, TABLETOP):
                         preview = preview.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
                     with self.lock:
                         if self.mode in TRAINABLE:
