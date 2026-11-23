@@ -10,7 +10,9 @@ from tkinter import messagebox, ttk
 from .learning import (
     CUSTOM_HAND, SYMBOL, TRAINABLE, Recognizer, default_training_folder, empty_classes, load_classes,
 )
+from .block_program import BlockProgram
 from .programs import build_program_picker
+from .teach_program import TeachProgram
 from .robot import Magician, MotionStopped, Pose, POSITION_LIMIT_MM, ROTATION_LIMIT_DEG, StopUnconfirmed, serial_ports
 from .theme import BORDER, DARK, DARKER, GREEN, INK, MUTED, PANEL, PURPLE, WHITE
 from .theme import Theme, gradient, icon
@@ -476,8 +478,14 @@ class Studio:
             self.desktop.pack(fill="both", expand=True)
         if name == "train":
             self.open_training()
-        elif name in ("sort", "inspect") and not (self.workcell or self.camera or self.camera_closing):
-            self.workcell = Workcell(self, name)
+        elif name in ("sort", "inspect", "math", "blocks", "teach") and not (
+                self.workcell or self.camera or self.camera_closing or self.armed or self.busy):
+            if name == "blocks":
+                self.workcell = BlockProgram(self)
+            elif name == "teach":
+                self.workcell = TeachProgram(self)
+            else:
+                self.workcell = Workcell(self, name)
             self.workcell.window.wait_visibility()
             self.workcell.window.grab_set()
             self._render()

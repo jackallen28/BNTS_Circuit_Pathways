@@ -6,10 +6,12 @@ from time import monotonic
 
 HEADER = b"\xaa\xaa"
 GET_POSE, GET_ALARMS, GET_HOME, HOME = 10, 20, 30, 31
-SUCTION, COORDINATE_SPEED, COMMON_SPEED, MOVE = 62, 81, 83, 84
+SUCTION, GRIPPER, COORDINATE_SPEED, COMMON_SPEED, MOVE = 62, 63, 81, 83, 84
 QUEUE_START, QUEUE_STOP, QUEUE_FORCE_STOP, QUEUE_CLEAR, QUEUE_INDEX = 240, 241, 242, 245, 246
 READ, WRITE, QUEUED_WRITE, LINEAR = 0, 1, 3, 2
 POSITION_LIMIT_MM, ROTATION_LIMIT_DEG = 100, 25
+SUCTION_TOOL, GRIPPER_TOOL = "Suction cup", "Gripper"
+ATTACHMENTS = (SUCTION_TOOL, GRIPPER_TOOL)
 
 
 class RobotError(Exception):
@@ -182,11 +184,23 @@ class Magician:
     def set_suction(self, enabled):
         self._request(SUCTION, WRITE, bytes((1, int(enabled))))
 
-    def sort_chip(self, pick, drop, park, stop):
-        """Execute one taught tabletop transfer and finish at the park pose."""
+    def set_gripper(self, closed):
+        self._request(GRIPPER, WRITE, bytes((1, int(closed))))
+
+    def set_attachment(self, attachment, holding):
+        if attachment == SUCTION_TOOL:
+            self.set_suction(holding)
+        elif attachment == GRIPPER_TOOL:
+            self.set_gripper(holding)
+        else:
+            raise RobotError("Select a supported attachment.")
+
+    def sort_chip(self, pick, drop, park, stop, attachment=SUCTION_TOOL):
         self.check_alarms()
+        if attachment not in ATTACHMENTS:
+            raise RobotError("Select a supported attachment.")
         if not self.pose().near(park, mm=4, degrees=5):
-            raise RobotError("Place the suction tool at its taught park position first.")
+            raise RobotError("Place the fitted tool at its taught park position first.")
         if any(not 12 <= park.z - pose.z <= 75 or abs(park.r - pose.r) > 5
                for pose in (pick, drop)):
             raise RobotError("Park must be 12 to 75 mm above pickup and drop-off, with the same rotation.")
@@ -197,6 +211,10 @@ class Magician:
             raise RobotError("A transfer segment exceeds 150 mm. Move the tray or bins closer.")
         holding = False
         try:
+            if stop.is_set():
+                raise MotionStopped("Transfer stopped.")
+            if attachment == GRIPPER_TOOL:
+                self.set_gripper(False)
             for index, target in enumerate(path):
                 self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop, timeout=15)
                 if stop.is_set():
@@ -204,10 +222,10 @@ class Magician:
                     raise MotionStopped("Sorting stopped.")
                 if index == 1:
                     holding = True
-                    self.set_suction(True)
+                    self.set_attachment(attachment, True)
                     stop.wait(0.35)
                 elif index == 4:
-                    self.set_suction(False)
+                    self.set_attachment(attachment, False)
                     holding = False
                     stop.wait(0.2)
             if stop.is_set():
@@ -215,6 +233,6 @@ class Magician:
                 raise MotionStopped("Sorting stopped.")
         except Exception as error:
             if holding:
-                raise RobotError(f"{error} Suction may still be on. Check the tool before release.") from error
+                raise RobotError(f"{error} The fitted tool may still hold a part. Check before release.") from error
             raise
         return self.pose()

@@ -9,6 +9,9 @@ PROGRAMS = (
     ("train", "Recognition training", "Teach your own hand signs and printed or drawn symbols."),
     ("sort", "Chip sorting", "Use the overhead camera to route colour or labelled chips to bins."),
     ("inspect", "Assembly inspection", "Compare tabletop stages and check what has changed."),
+    ("blocks", "3D Block Lab", "Build a stepped pyramid or box, or rebuild mixed stacks by colour."),
+    ("math", "Equation Lab", "Read arithmetic from a chip tray and place an answer."),
+    ("teach", "Micro:bit Teach", "Record and replay a path with tilt and tool commands."),
 )
 
 
@@ -47,16 +50,15 @@ def build_program_picker(studio):
 
     tiles = tk.Frame(card, bg=PANEL)
     tiles.pack(fill="x")
-    for col in range(2):
+    for col in range(3):
         tiles.columnconfigure(col, weight=1, uniform="program")
     for index, (key, title, description) in enumerate(PROGRAMS):
-        row, col = divmod(index, 2)
+        row, col = divmod(index, 3)
         tile = tk.Frame(tiles, bg="#edf4fb", highlightbackground=BORDER,
                         highlightthickness=1, padx=10, pady=8)
-        tile.grid(row=row, column=col, sticky="nsew", padx=(0, 5) if col == 0 else (5, 0),
-                  pady=(0, 9) if row == 0 else 0)
+        tile.grid(row=row, column=col, sticky="nsew", padx=4, pady=(0, 7))
         studio._button(tile, title, lambda program=key: studio.open_program(program),
                        "Purple" if key == "control" else "Teal").pack(fill="x")
         studio._label(tile, description, size=9, fg=MUTED, bg="#edf4fb",
-                      wraplength=290, justify="left").pack(fill="x", pady=(6, 2))
+                      wraplength=210, justify="left").pack(fill="x", pady=(6, 2))
     return canvas

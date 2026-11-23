@@ -7,7 +7,7 @@ with the teal, purple and glass styling of CircuitPath.
 
 ## Program overview
 
-![Dobot Studio startup screen with a tile for each of the four programs](docs/images/program-picker.png)
+![Dobot Studio startup screen with seven program tiles](docs/images/program-picker.png)
 
 | Program | What you can do |
 | --- | --- |
@@ -15,9 +15,13 @@ with the teal, purple and glass styling of CircuitPath.
 | [Recognition training](#train-custom-hand-signs-or-symbols) | Collect labelled examples of hand signs or symbols, check recognition, and map classes to actions. |
 | [Chip sorting](#sort-tabletop-chips) | Scan a calibrated tray, estimate chip areas, and route colour or labelled chips to two taught bins. |
 | [Assembly inspection](#inspect-a-tabletop-assembly) | Compare the tabletop with saved reference stages and review changes before building, repairing, or disassembling. |
+| [3D Block Lab](#3d-block-lab) | Build a stepped pyramid or box, or separate mixed stacks and rebuild them by colour. |
+| [Equation Lab](#equation-lab) | Read rows of number and operator chips, calculate answers, and place matching chips. |
+| [Micro:bit Teach](#microbit-teach) | Use a Micro:bit to jog the arm, record tool actions, edit the path, and replay it. |
 
 Use **Programs** to return to the picker when the camera and motion controls are idle.
-Mount the USB camera overhead for the two tabletop programs. The screenshots show
+Mount the USB camera overhead for sorting, equation reading and assembly inspection.
+Use a fixed angled view for 3D Block Lab. The screenshots show
 the running desktop app in Demo mode. The training and tabletop views use
 synthetic camera inputs.
 
@@ -136,10 +140,10 @@ accepts a different local model folder.
 
 The sample tray routes red chips to Bin A and blue chips to Bin B.
 
-Use the Dobot suction cup with flat, nonporous chips of equal thickness. The
-sorter handles one chip per approved transfer, selected from isolated chips in
-a fixed pickup area. Demo mode exercises routing with a webcam and synthetic
-arm coordinates.
+Select **Suction cup** or **Gripper** in the workcell. Use suction for flat,
+nonporous chips and the gripper for thicker chips with accessible sides. Use
+pieces of the same thickness. The sorter moves one isolated chip per approved
+transfer. Demo mode combines camera routing with simulated arm coordinates.
 
 1. Fix the overhead camera square to the tray. Use stable, even lighting and a
    matte surface that contrasts with the chips. Put three widely spaced marks
@@ -148,7 +152,7 @@ arm coordinates.
    open **Programs → Chip sorting**. Start the overhead camera and **Capture
    empty tray** with the reference marks in place. In Demo, use **Demo
    coordinates**. On the arm, select each mark, click its centre in the preview,
-   hand-guide the suction cup to the same XY at chip-contact height, and click
+   hand-guide the fitted tool to the same XY at pickup height, and click
    **Teach point**. Teach **Bin A**, **Bin B** and **Park** the same way with the
    arm. Teach the bins at release height outside the pickup triangle, and park
    the tool outside the triangle at a clear travel height 12–75 mm above both
@@ -166,7 +170,7 @@ arm coordinates.
 
 If the camera moves, the tray or tool changes height, or lighting changes
 substantially, capture the empty tray and teach the marks again. A stop during
-pickup may leave suction active. Support the chip before using **Release suction**.
+pickup may leave suction active. Support the chip before using **Release tool**.
 Use the hardware stop if the USB connection fails. Exercise the full path with
 an empty workspace and then one test chip before sorting a mixed tray.
 
@@ -197,6 +201,106 @@ faults, or execute a repair or assembly sequence.
 For STEM activities, compare colour or label counts before and after sorting,
 compare measured chip areas against known dimensions, or use the inspection
 grid for a manufacturing quality-control exercise.
+
+## 3D Block Lab
+
+![3D Block Lab demo showing two rebuilt stacks separated by colour](docs/images/block-lab.png)
+
+Choose **Stepped pyramid**, **Block box**, or **Rebuild by colour**. **Next transfer**
+advances one block and **Play demo** runs the challenge with a simulated arm.
+Use **Rotate view** to see the supporting layers. In the colour challenge, the
+planner removes exposed cubes to the rack before rebuilding a red structure and
+a blue structure.
+
+For hardware, print the [fixture and marker cards](docs/block-fixture.pdf)
+at **Actual Size** and check the 120 mm scale line. Use light, rigid 20 mm cubes
+with a 12 mm ArUco marker centred on each top face. IDs 0–3 are red and 4–7 blue.
+IDs 8–9 are additional red cubes for the build challenges. In hardware use
+only the cubes and fixture the program knows.
+
+1. Fix the webcam at an angle where it can see the cube tops and all four marker
+   anchors. Orient the anchor cards as shown on the fixture. Place them at
+   exactly 20 mm above the board and select **Calibrate layer 1**. Raise the same
+   anchors to 40 mm at the same XY positions and select **Calibrate layer 2**.
+   Return the anchors to 20 mm and keep them visible.
+2. Connect and home the arm. Select the fitted attachment in Block Lab. Put a
+   reference cube at the left datum and hand-guide the tool to its pickup
+   contact pose. Select **Left datum** and click **Teach tool pose**. Repeat for
+   the right datum, 120 mm away. Teach **Park** outside the assembly at a
+   clearance height at least 12 mm above the highest cube. Set the same tool
+   rotation at both datums and Park. Re-teach after changing the tool.
+3. Start the build challenges with a clear target zone and five or eight cubes
+   in the rack. For **Rebuild by colour**, start with IDs 0–7 in the two-level
+   rows nearest the rack in the build zones, as shown by the Demo setup. Return
+   the tool to Park and keep the scene still.
+4. Review each **Next transfer**. Confirm travel clearance and, with the
+   gripper, clearance for both jaws around the source and destination.
+   After returning to Park, the app checks the marker at the expected position
+   and height before the next transfer. Check the fixture if it reports an
+   ambiguous marker or unconfirmed placement.
+
+The camera distinguishes two calibrated heights on this known fixture.
+Use the angled view and taught geometry for tagged block activities. Camera
+calibration, attachment clearance, and pick-and-place reliability need a
+bench check with the actual Dobot before classroom operation.
+
+## Equation Lab
+
+![Equation Lab recognising 4 plus 7 and showing the result 11 beside the answer-chip bank](docs/images/equation-lab.png)
+
+1. In **Recognition training**, train **Printed/drawn symbols** using your
+   physical number and operator chips. Use labels such as `0`–`9`, `Plus`,
+   `Minus`, `Times`, `Divide` and `Equals`. Map maths classes to
+   **No action**. For Neutral, use a blank card. Keep the same chip print
+   and orientation for training and reading.
+2. Start the overhead camera and capture the empty tray. Teach the three
+   pickup marks under **Sort chips** or select **Demo coordinates**.
+   In **Equation Lab**, select **Set divider** and click the camera preview
+   between the equation area and the answer bank.
+3. Lay out one or more separated rows fully inside the calibrated triangle.
+   The app reads left to right, joins adjacent digits into one number, and uses
+   standard operator precedence. An equals sign or `= ?` at the end is
+   optional. Select **Read equations**, then choose the row to check.
+   Fractions are displayed exactly.
+4. For physical placement, place matching answer chips below the divider.
+   Teach **Bin A** as the first answer spot and **Bin B** as the far end of a
+   clear answer line outside the pickup triangle. Teach **Park** and select
+   the fitted tool. For a whole-number answer, **Place next answer chip**
+   moves one matching digit or minus chip at a time, 30 mm apart. Confirm each
+   move and check the answer line before moving to another equation.
+
+## Micro:bit Teach
+
+![Micro:bit Teach with a plotted path and a recorded movement and tool timeline](docs/images/microbit-teach.png)
+
+1. Flash [microbit/teach.py](microbit/teach.py) onto the BBC micro:bit using
+   MicroPython. Connect it to the Pi by USB and keep the cable clear of the
+   robot. The Micro:bit normally appears as `/dev/ttyACM0`. The separate
+   Dobot port is usually `/dev/ttyUSB0`.
+2. Open **Micro:bit Teach** in **USB hardware** mode and connect both devices.
+   Select the fitted **Suction cup** or **Gripper**, then **Home**. If needed,
+   hand-guide the tool to a clear centre and click **Set centre**. Hold the
+   Micro:bit still in neutral and select **Start**.
+3. Tilt to jog and return to neutral to stop requesting moves. Enable
+   **Hold A+B to jog** before Start if you prefer a hand-held clutch.
+   **XY plane** jogs two horizontal axes. **Z height** uses tilt for small
+   height changes. Hold **A** briefly on its own to turn suction on or close
+   the gripper. Hold **B** briefly to release. The accelerometer supplies
+   tilt input. The app records the resulting tool path in taught coordinates.
+4. Click **Record**, then jog and operate the tool. **Pause** suspends after
+   the current step. **Resume** continues, and **Stop** ends teaching.
+   Select a timeline step and **Cut from selected** to remove its tail.
+   **Save** and **Open** use local JSON path files.
+5. Fit the recorded tool and position it at the first recorded pose.
+   **Play / replay** moves through the recorded poses and tool actions.
+   From the recorded end, **Return to start** retraces positions.
+   Support and release any load before returning. Clear the workspace for
+   every replay. Demo mode uses the on-screen arrows and A/B controls.
+
+The two Dobot attachments use the same USB serial driver as the arm. The app
+sends the manufacturer’s suction and pneumatic gripper commands for the selected
+tool. The Micro:bit sends teaching input over its USB UART. These workflows use
+the Pi setup dependencies already listed above. [Dobot serial protocol](https://download.dobot.cc/development-protocol/dobot-magician/pdf/en/Dobot-Magician-Communication-Protocol-V1.1.3.pdf) · [Micro:bit USB UART](https://microbit-micropython.readthedocs.io/en/latest/uart.html)
 
 ## References
 

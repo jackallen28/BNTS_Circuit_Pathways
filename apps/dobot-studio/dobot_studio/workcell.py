@@ -7,8 +7,9 @@ from time import monotonic
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from .math_lab import EquationLab
 from .learning import SYMBOL, Recognizer, load_classes, new_symbol_descriptor
-from .robot import MotionStopped, Pose
+from .robot import ATTACHMENTS, GRIPPER_TOOL, SUCTION_TOOL, MotionStopped, Pose
 from .tabletop import COLOURS, Calibration, find_chips, inspect_assembly, inspection_view, same_chip
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .vision import Camera, TABLETOP
@@ -51,8 +52,9 @@ class Workcell:
         self.stage_name, self.stage_note, self.stage_ref = tk.StringVar(), tk.StringVar(), tk.StringVar()
         self.goal = tk.StringVar(value="Build")
         self.device = tk.StringVar(value=studio.camera_device.get())
+        self.attachment = tk.StringVar(value=SUCTION_TOOL)
         self._build()
-        self.tabs.select(self.inspect_tab if program == "inspect" else self.sort_tab)
+        self.tabs.select({"inspect": self.inspect_tab, "math": self.math_tab}.get(program, self.sort_tab))
         self.window.after(50, self._tick)
 
     def _build(self):
@@ -92,6 +94,9 @@ class Workcell:
         self.inspect_tab = tk.Frame(self.tabs, bg=PANEL, padx=8, pady=7)
         self.tabs.add(self.sort_tab, text="Sort chips")
         self.tabs.add(self.inspect_tab, text="Inspect assembly")
+        self.math_tab = tk.Frame(self.tabs, bg=PANEL, padx=8, pady=7)
+        self.tabs.add(self.math_tab, text="Equation lab")
+        self.math = EquationLab(self, self.math_tab)
         self.tabs.bind("<<NotebookTabChanged>>", lambda _event: self._draw())
 
         guide = ("Choose a mark, click it in the camera, and teach the tool position."
@@ -137,7 +142,7 @@ class Workcell:
         self.sort_button = ui._button(controls, "Sort next", self.sort_next, "Teal")
         self.sort_button.pack(side="left", padx=5)
         if not ui.demo:
-            self.release_button = ui._button(controls, "Release suction", self.release)
+            self.release_button = ui._button(controls, "Release tool", self.release)
             self.release_button.pack(side="left")
 
         form = tk.Frame(self.inspect_tab, bg=PANEL)
@@ -170,6 +175,11 @@ class Workcell:
         footer.pack(fill="x", pady=(6, 0))
         self.stop_button = ui._button(footer, "Stop  ·  Esc", self.stop, "Stop")
         self.stop_button.pack(side="right")
+        if not ui.demo:
+            self.attachment_box = ttk.Combobox(footer, values=ATTACHMENTS, textvariable=self.attachment,
+                                               width=11, state="readonly")
+            self.attachment_box.pack(side="right", padx=5)
+            self.attachment_box.bind("<<ComboboxSelected>>", self.change_attachment)
         ui._label(footer, textvariable=self.status, size=9, bg="#dce9f6", wraplength=740,
                   justify="left").pack(side="left", fill="x", expand=True)
         self._controls()
@@ -191,6 +201,15 @@ class Workcell:
         self.chips = []
         self.findings = []
         self.pending_mark = None
+        self.math.divider = None
+        self.math.reset()
+
+    def change_attachment(self, _event=None):
+        self.poses.clear()
+        self.chips = []
+        self.math.reset()
+        self.status.set("Attachment changed. Teach pickup marks, bins and Park for the fitted tool.")
+        self._controls()
 
     def toggle_camera(self):
         if self.busy:
@@ -233,13 +252,18 @@ class Workcell:
 
     def _select_mark(self, event):
         label = self.teaching.get()
-        if self._inspection() or self.busy or label not in MARKS or self.image_area is None:
+        if self._inspection() or self.busy or self.image_area is None:
             return
         left, top, width, height, scale = self.image_area
         x, y = event.x - left, event.y - top
         if 0 <= x < width and 0 <= y < height:
+            if self.tabs.select() == str(self.math_tab):
+                self.math.click(y / scale)
+                return
+            if label not in MARKS:
+                return
             self.pending_mark = label, (x / scale, y / scale)
-            self.status.set(f"{label} selected. Align the suction tool at this mark, then click Teach point.")
+            self.status.set(f"{label} selected. Align the fitted tool at this mark, then click Teach point.")
             self._draw()
 
     def _start_job(self, name, action):
@@ -314,6 +338,13 @@ class Workcell:
             if a == b:
                 raise ValueError("Choose two different bin colours.")
             return find_chips(frame, self.empty, calibration, {a: "A", b: "B"})
+        return self.recognise_text()
+
+    def recognise_text(self):
+        frame = self._fresh_frame()
+        if self.empty is None:
+            raise ValueError("Capture the empty tray before scanning.")
+        calibration = self._calibration()
         if self.classifier is None:
             classes = load_classes(self.studio.training_folder, SYMBOL)
             if len(classes) < 2:
@@ -350,10 +381,12 @@ class Workcell:
                 raise ValueError("Teach both bins and the park pose.")
             if not self.studio.demo and (not self.studio.robot or not self.studio.homed):
                 raise ValueError("Connect and home the Dobot before sorting.")
+            tool = self.attachment.get()
+            instruction = "Check that the selected tool is fitted and the path is clear."
+            if tool == GRIPPER_TOOL:
+                instruction += " Confirm jaw clearance and a grippable chip."
             if not self.studio.demo and not messagebox.askokcancel(
-                    "Sort one chip", "Check that the suction cup is fitted, the two bins and tray are clear "
-                    "of hands, and the tool is parked at its taught travel height.",
-                    parent=self.window):
+                    "Sort one chip", instruction, parent=self.window):
                 return
             chip = next((value for value in self._recognise() if same_chip(previous, value)), None)
             if chip is None:
@@ -375,19 +408,19 @@ class Workcell:
                 if self.stop_event.wait(0.7):
                     raise MotionStopped("Demo transfer stopped.")
                 return park
-            return self.studio.robot.sort_chip(pick, drop, park, self.stop_event)
+            return self.studio.robot.sort_chip(pick, drop, park, self.stop_event, tool)
 
         self._start_job("sort", perform)
 
     def release(self):
         if self.busy or not self.studio.robot:
             return
-        if messagebox.askokcancel("Release suction", "Anything attached to the cup may fall. "
-                                  "Support the chip before releasing it.", parent=self.window):
-            self._start_job("release", lambda: self.studio.robot.set_suction(False))
+        if messagebox.askokcancel("Release tool", "Support the chip before releasing it.", parent=self.window):
+            tool = self.attachment.get()
+            self._start_job("release", lambda: self.studio.robot.set_attachment(tool, False))
 
     def stop(self):
-        if self.busy == "sort":
+        if self.busy in ("sort", "math"):
             self.stop_event.set()
             self.status.set("Stopping the transfer…")
 
@@ -554,6 +587,9 @@ class Workcell:
                 x, y = point(*location)
                 canvas.create_oval(x-5, y-5, x+5, y+5, outline="#c9faff", fill="#287888")
                 canvas.create_text(x+7, y-3, text=name, fill=WHITE, anchor="sw")
+            if self.tabs.select() == str(self.math_tab) and self.math.divider is not None:
+                first, last = point(0, self.math.divider), point(w, self.math.divider)
+                canvas.create_line(*first, *last, fill="#72e1e2", width=2, dash=(6, 4))
             for chip in self.chips:
                 x, y, w, h = chip.bounds
                 first, last = point(x, y), point(x+w, y+h)
@@ -573,9 +609,11 @@ class Workcell:
         ui._set_button(self.teach_button, enabled)
         ui._set_button(self.scan_button, enabled)
         ui._set_button(self.sort_button, enabled and any(chip.bin_name for chip in self.chips))
-        ui._set_button(self.stop_button, self.busy == "sort")
+        ui._set_button(self.stop_button, self.busy in ("sort", "math"))
         if not ui.demo:
+            self.attachment_box.configure(state="readonly" if enabled else "disabled")
             ui._set_button(self.release_button, enabled and ui.robot is not None)
+        self.math._render()
 
     def _tick(self):
         while True:
@@ -585,7 +623,7 @@ class Workcell:
                 break
             if job == "camera":
                 self.status.set(str(error))
-                if self.busy == "sort":
+                if self.busy in ("sort", "math"):
                     self.stop_event.set()
                 if self.camera:
                     self.studio.camera_closing = self.camera
@@ -597,7 +635,9 @@ class Workcell:
                 self.busy = None
                 if error:
                     self.status.set(str(error))
-                    if job == "sort" and not self.studio.demo:
+                    if job == "math":
+                        self.math.complete(error)
+                    if job in ("sort", "math") and not self.studio.demo:
                         self.studio.homed = False
                         self.studio.points.clear()
                 elif job == "teach":
@@ -613,8 +653,12 @@ class Workcell:
                     self.transfer_count += 1
                     action = "Simulated transfers" if self.studio.demo else "Completed transfer commands"
                     self.status.set(f"{action}: {self.transfer_count}. Check the chip and scan again.")
+                elif job == "math":
+                    if data:
+                        self.studio.position = data
+                    self.math.complete(None)
                 elif job == "release":
-                    self.status.set("Suction release acknowledged.")
+                    self.status.set("Tool release acknowledged.")
                 self._controls()
         if self.camera:
             latest = self.camera.read()
@@ -623,7 +667,7 @@ class Workcell:
                 self.last_frame = latest[0].timestamp
                 self.frame = np.asarray(latest[1])
                 self._draw()
-        if self.busy == "sort" and not self.stop_event.is_set() and monotonic() - self.last_frame > 0.8:
+        if self.busy in ("sort", "math") and not self.stop_event.is_set() and monotonic() - self.last_frame > 0.8:
             self.stop_event.set()
             self.status.set("Overhead camera stalled. Stopping the transfer.")
         self.window.after(50, self._tick)

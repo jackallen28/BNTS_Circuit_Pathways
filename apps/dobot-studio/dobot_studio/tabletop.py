@@ -142,8 +142,9 @@ def find_chips(frame, empty, calibration, colour_bins, classifier=None, descript
     return sorted(chips, key=lambda chip: (chip.centre[1], chip.centre[0]))
 
 
-def same_chip(before, after):
-    return (before.bin_name and before.bin_name == after.bin_name and before.label == after.label
+def same_chip(before, after, require_bin=True):
+    return ((not require_bin or before.bin_name and before.bin_name == after.bin_name)
+            and before.label == after.label
             and math.dist(before.centre, after.centre) <= 10
             and 0.8 <= after.area_mm2 / before.area_mm2 <= 1.2)
 

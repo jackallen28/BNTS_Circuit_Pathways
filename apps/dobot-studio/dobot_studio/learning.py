@@ -92,8 +92,8 @@ def valid_name(name):
 def check_classes(classes):
     if NEUTRAL not in classes or classes[NEUTRAL].action != NO_ACTION:
         raise ValueError("Keep Neutral as a no-action example class.")
-    if not any(group.action != NO_ACTION for group in classes.values()):
-        raise ValueError("Add a class mapped to Position A, Position B or Stop.")
+    if len(classes) < 2:
+        raise ValueError("Add at least one named example class.")
     short = [name for name, group in classes.items() if len(group.vectors) < MIN_EXAMPLES]
     if short:
         raise ValueError(f"Capture {MIN_EXAMPLES} examples for each class. Still needed: " + ", ".join(short))
