@@ -7,7 +7,7 @@ with the teal, purple and glass styling of CircuitPath.
 
 ## Program overview
 
-![Dobot Studio startup screen with seven program tiles](docs/images/program-picker.png)
+![Dobot Studio startup screen with eight program tiles](docs/images/program-picker.png)
 
 | Program | What you can do |
 | --- | --- |
@@ -18,9 +18,10 @@ with the teal, purple and glass styling of CircuitPath.
 | [3D Block Lab](#3d-block-lab) | Build a stepped pyramid or box, or separate mixed stacks and rebuild them by colour. |
 | [Equation Lab](#equation-lab) | Read rows of number and operator chips, calculate answers, and place matching chips. |
 | [Micro:bit Teach](#microbit-teach) | Use a Micro:bit to jog the arm, record tool actions, edit the path, and replay it. |
+| [Tic-tac-toe](#tic-tac-toe) | Play a cross on a printed mat and have the Dobot place its nought after checking the overhead view. |
 
 Use **Programs** to return to the picker when the camera and motion controls are idle.
-Mount the USB camera overhead for sorting, equation reading and assembly inspection.
+Mount the USB camera overhead for sorting, equation reading, assembly inspection and tic-tac-toe.
 Use a fixed angled view for 3D Block Lab. The screenshots show
 the running desktop app in Demo mode. The training and tabletop views use
 synthetic camera inputs.
@@ -301,6 +302,52 @@ The two Dobot attachments use the same USB serial driver as the arm. The app
 sends the manufacturer’s suction and pneumatic gripper commands for the selected
 tool. The Micro:bit sends teaching input over its USB UART. These workflows use
 the Pi setup dependencies already listed above. [Dobot serial protocol](https://download.dobot.cc/development-protocol/dobot-magician/pdf/en/Dobot-Magician-Communication-Protocol-V1.1.3.pdf) · [Micro:bit USB UART](https://microbit-micropython.readthedocs.io/en/latest/uart.html)
+
+## Tic-tac-toe
+
+![Tic-tac-toe Demo with a human cross and the Dobot’s noughts on the screen](docs/images/tictactoe-demo.png)
+
+Choose **Tic-tac-toe** from the picker. In Demo mode click an empty cell to
+play X. The simulated Dobot replies as O. On the physical mat the overhead
+camera reads the board and sees which reserve slots still hold noughts.
+
+[Download the 300 mm print set](printables/tictactoe-300mm.zip) or
+[browse individual OBJs and Bambu Studio instructions](printables/tictactoe/README.md).
+The set contains a **300 × 300 mm** mat, four **150 × 150 mm** tiles, and
+flush, two-colour **Ø25 mm** playing pieces. Keep the supplied print
+orientation so each mark begins in the first layer. Flip the pieces mark
+side up for camera recognition and suction.
+
+![Printed mat layout showing cells A1 to C3, reserve slots, markers and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
+
+### Set up the physical game
+
+1. Secure the mat and its four paper markers on a flat table. Mount the webcam
+   overhead and frame all four markers. Select **USB hardware**, connect the
+   Magician with the suction cup fitted, and home it.
+2. Open **Tic-tac-toe** and start the camera. Remove all the pieces, then choose
+   **Capture empty mat**. The camera view labels the nine play cells and all
+   five reserve slots.
+3. Select each position from **A1** through **C3** and then **Reserve 1** through
+   **Reserve 5**. Rest a sample piece in that recess and hand-guide the cup to
+   the centre of its flat top. Click **Teach tool position**. The picker advances
+   to the next position. Teach **Park** at a clear height above the printed
+   Park guide, with the same tool rotation as the pickup and drop positions.
+   Return the tool to Park and remove the sample piece. Recalibrate if the mat
+   or camera moves.
+4. Load at least four noughts into the reserve slots and select **New game**.
+   Place one cross and move your hand away before choosing **Read my cross**.
+   Review the Dobot’s selected cell, then choose **Place Dobot nought** and
+   confirm the transfer. The camera checks the nought’s destination and the
+   cleared reserve slot before the next turn.
+5. Use **Stop** or Escape for an interrupted transfer. Support any held piece
+   before using **Release suction**. Watch a single test lift and placement
+   before playing a full match.
+
+![Overhead camera view with cell and reserve labels after a verified nought placement](docs/images/tictactoe-camera.png)
+
+The camera and suction examples use simulated hardware. Print scale, camera
+contrast, reach and suction sealing need checking with the physical setup.
 
 ## References
 

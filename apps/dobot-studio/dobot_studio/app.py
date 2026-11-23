@@ -13,6 +13,7 @@ from .learning import (
 from .block_program import BlockProgram
 from .programs import build_program_picker
 from .teach_program import TeachProgram
+from .tictactoe_program import TicTacToeProgram
 from .robot import Magician, MotionStopped, Pose, POSITION_LIMIT_MM, ROTATION_LIMIT_DEG, StopUnconfirmed, serial_ports
 from .theme import BORDER, DARK, DARKER, GREEN, INK, MUTED, PANEL, PURPLE, WHITE
 from .theme import Theme, gradient, icon
@@ -478,12 +479,14 @@ class Studio:
             self.desktop.pack(fill="both", expand=True)
         if name == "train":
             self.open_training()
-        elif name in ("sort", "inspect", "math", "blocks", "teach") and not (
+        elif name in ("sort", "inspect", "math", "blocks", "teach", "tictactoe") and not (
                 self.workcell or self.camera or self.camera_closing or self.armed or self.busy):
             if name == "blocks":
                 self.workcell = BlockProgram(self)
             elif name == "teach":
                 self.workcell = TeachProgram(self)
+            elif name == "tictactoe":
+                self.workcell = TicTacToeProgram(self)
             else:
                 self.workcell = Workcell(self, name)
             self.workcell.window.wait_visibility()

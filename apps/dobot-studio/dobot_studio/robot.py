@@ -195,7 +195,7 @@ class Magician:
         else:
             raise RobotError("Select a supported attachment.")
 
-    def sort_chip(self, pick, drop, park, stop, attachment=SUCTION_TOOL):
+    def sort_chip(self, pick, drop, park, stop, attachment=SUCTION_TOOL, *, via_park=False):
         self.check_alarms()
         if attachment not in ATTACHMENTS:
             raise RobotError("Select a supported attachment.")
@@ -206,8 +206,11 @@ class Magician:
             raise RobotError("Park must be 12 to 75 mm above pickup and drop-off, with the same rotation.")
         near_pick = Pose(pick.x, pick.y, park.z, park.r)
         near_drop = Pose(drop.x, drop.y, park.z, park.r)
-        path = (near_pick, pick, near_pick, near_drop, drop, near_drop, park)
-        if any(dist(a.xyz(), b.xyz()) > 150 for a, b in zip((park, *path), path)):
+        carry = ((park, None),) if via_park and dist(near_pick.xyz(), near_drop.xyz()) > 150 else ()
+        actions = ((near_pick, None), (pick, True), (near_pick, None), *carry,
+                   (near_drop, None), (drop, False), (near_drop, None), (park, None))
+        path = (park, *(pose for pose, _ in actions))
+        if any(dist(a.xyz(), b.xyz()) > 150 for a, b in zip(path, path[1:])):
             raise RobotError("A transfer segment exceeds 150 mm. Move the tray or bins closer.")
         holding = False
         try:
@@ -215,16 +218,16 @@ class Magician:
                 raise MotionStopped("Transfer stopped.")
             if attachment == GRIPPER_TOOL:
                 self.set_gripper(False)
-            for index, target in enumerate(path):
+            for target, grip in actions:
                 self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop, timeout=15)
                 if stop.is_set():
                     self.stop()
                     raise MotionStopped("Sorting stopped.")
-                if index == 1:
+                if grip is True:
                     holding = True
                     self.set_attachment(attachment, True)
                     stop.wait(0.35)
-                elif index == 4:
+                elif grip is False:
                     self.set_attachment(attachment, False)
                     holding = False
                     stop.wait(0.2)
