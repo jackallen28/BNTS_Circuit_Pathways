@@ -1,11 +1,17 @@
 """Local camera capture and a fresh, single-slot recognition result."""
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, Lock, Thread
 from time import monotonic
 
+from .learning import (
+    CUSTOM_HAND, SYMBOL, TRAINABLE, hand_features, new_symbol_descriptor, symbol_features, symbol_region,
+)
+
 HAND, POSE = "Hand gestures", "Body poses"
-MODEL_FILES = {HAND: "gesture_recognizer.task", POSE: "pose_landmarker_lite.task"}
+MODEL_FILES = {HAND: "gesture_recognizer.task", CUSTOM_HAND: "gesture_recognizer.task",
+               POSE: "pose_landmarker_lite.task"}
 GESTURES = {"Thumb_Up": "A", "Victory": "B", "Closed_Fist": "Stop"}
 
 
@@ -15,6 +21,8 @@ class Detection:
     label: str
     tracked: bool
     timestamp: float
+    features: object = None
+    sample_hint: str = ""
 
 
 class GestureGate:
@@ -84,11 +92,12 @@ def classify_hand(result):
 
 
 class Camera:
-    def __init__(self, device, mode, models, report):
+    def __init__(self, device, mode, models, report, classifier=None):
         self.device, self.mode, self.models, self.report = device, mode, Path(models), report
         self.stop = Event()
         self.lock = Lock()
         self.latest = None
+        self.classifier = classifier
         self.thread = Thread(target=self._run, daemon=True, name="camera")
         self.thread.start()
 
@@ -96,27 +105,39 @@ class Camera:
         with self.lock:
             return self.latest
 
+    def set_classifier(self, classifier):
+        with self.lock:
+            self.classifier = classifier
+            self.latest = None
+
     def close(self):
         self.stop.set()
 
     def _run(self):
         capture = None
         try:
-            model = self.models / MODEL_FILES[self.mode]
-            if not model.is_file():
-                raise RuntimeError(f"Model missing: {model.name}. See the setup guide.")
             import cv2
-            import mediapipe as mp
             from PIL import Image
 
-            task = mp.tasks.vision
-            options = dict(base_options=mp.tasks.BaseOptions(model_asset_path=str(model)),
-                           running_mode=task.RunningMode.VIDEO)
-            if self.mode == HAND:
-                detector = task.GestureRecognizer.create_from_options(task.GestureRecognizerOptions(**options))
+            if self.mode == SYMBOL:
+                detector_context = nullcontext()
+                hog = new_symbol_descriptor()
             else:
-                detector = task.PoseLandmarker.create_from_options(task.PoseLandmarkerOptions(**options))
-            with detector:
+                model = self.models / MODEL_FILES[self.mode]
+                if not model.is_file():
+                    raise RuntimeError(f"Model missing: {model.name}. See the setup guide.")
+                import mediapipe as mp
+
+                task = mp.tasks.vision
+                options = dict(base_options=mp.tasks.BaseOptions(model_asset_path=str(model)),
+                               running_mode=task.RunningMode.VIDEO)
+                if self.mode in (HAND, CUSTOM_HAND):
+                    options["num_hands"] = 2 if self.mode == CUSTOM_HAND else 1
+                    detector_context = task.GestureRecognizer.create_from_options(
+                        task.GestureRecognizerOptions(**options))
+                else:
+                    detector_context = task.PoseLandmarker.create_from_options(task.PoseLandmarkerOptions(**options))
+            with detector_context as detector:
                 if self.stop.is_set():
                     return
                 device = int(self.device) if self.device.isdecimal() else self.device
@@ -136,30 +157,60 @@ class Camera:
                     if width > 640:
                         bgr = cv2.resize(bgr, (640, max(1, round(height * 640 / width))))
                     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-                    image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-                    last_ms = max(last_ms + 1, int(captured_at * 1000))
-                    if self.mode == HAND:
-                        result = detector.recognize_for_video(image, last_ms)
-                        cmd, label, tracked = classify_hand(result)
-                        landmarks = result.hand_landmarks[0] if result.hand_landmarks else []
-                        indexes = range(len(landmarks))
-                    else:
-                        result = detector.detect_for_video(image, last_ms)
-                        cmd, label, tracked = classify_pose(result.pose_landmarks)
-                        landmarks = result.pose_landmarks[0] if result.pose_landmarks else []
-                        indexes = (11, 12, 13, 14, 15, 16) if landmarks else ()
                     height, width = rgb.shape[:2]
-                    for index in indexes:
-                        point = landmarks[index]
-                        cx, cy = round(point.x * width), round(point.y * height)
-                        cv2.circle(rgb, (cx, cy), 5, (25, 193, 202), -1)
-                        cv2.circle(rgb, (cx, cy), 5, (255, 255, 255), 1)
-                    preview = Image.fromarray(rgb).transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+                    features, sample_hint = None, ""
+                    cmd, label, tracked = None, "", False
+                    if self.mode == SYMBOL:
+                        region = symbol_region(width, height)
+                        features, sample_hint = symbol_features(rgb, region, hog)
+                        x, y, size = region
+                        colour = (25, 193, 202) if features is not None else (241, 184, 104)
+                        cv2.rectangle(rgb, (x, y), (x + size, y + size), colour, 2)
+                    else:
+                        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                        last_ms = max(last_ms + 1, int(captured_at * 1000))
+                        if self.mode in (HAND, CUSTOM_HAND):
+                            result = detector.recognize_for_video(image, last_ms)
+                            landmarks = result.hand_landmarks[0] if result.hand_landmarks else []
+                            indexes = range(len(landmarks))
+                            if self.mode == CUSTOM_HAND:
+                                if len(result.hand_landmarks) == 1:
+                                    features = hand_features(landmarks, width, height)
+                                sample_hint = "Hand ready" if features is not None else "Show one whole hand"
+                            else:
+                                cmd, label, tracked = classify_hand(result)
+                        else:
+                            result = detector.detect_for_video(image, last_ms)
+                            cmd, label, tracked = classify_pose(result.pose_landmarks)
+                            landmarks = result.pose_landmarks[0] if result.pose_landmarks else []
+                            indexes = (11, 12, 13, 14, 15, 16) if landmarks else ()
+                        for index in indexes:
+                            point = landmarks[index]
+                            cx, cy = round(point.x * width), round(point.y * height)
+                            cv2.circle(rgb, (cx, cy), 5, (25, 193, 202), -1)
+                            cv2.circle(rgb, (cx, cy), 5, (255, 255, 255), 1)
+                    # Preserve the orientation of printed and drawn symbols in the preview.
+                    preview = Image.fromarray(rgb)
+                    if self.mode != SYMBOL:
+                        preview = preview.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
                     with self.lock:
-                        self.latest = Detection(cmd, label, tracked, captured_at), preview
+                        if self.mode in TRAINABLE:
+                            cmd, label, tracked = self._classify_example(features, sample_hint)
+                        self.latest = Detection(cmd, label, tracked, captured_at, features, sample_hint), preview
         except Exception as error:
             if not self.stop.is_set():
                 self.report(str(error))
         finally:
             if capture is not None:
                 capture.release()
+
+    def _classify_example(self, features, sample_hint):
+        if features is None:
+            return None, sample_hint, False
+        if self.classifier is None:
+            return None, "No saved training", False
+        prediction = self.classifier.predict(features)
+        if prediction is None:
+            return None, "Unrecognised input", False
+        name, action = prediction
+        return action, name, True

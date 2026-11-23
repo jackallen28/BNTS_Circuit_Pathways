@@ -7,20 +7,28 @@ from time import monotonic
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from .learning import (
+    CUSTOM_HAND, SYMBOL, TRAINABLE, Recognizer, default_training_folder, empty_classes, load_classes,
+)
 from .robot import Magician, MotionStopped, Pose, POSITION_LIMIT_MM, ROTATION_LIMIT_DEG, StopUnconfirmed, serial_ports
 from .theme import BORDER, DARK, DARKER, GREEN, INK, MUTED, PANEL, PURPLE, WHITE
 from .theme import Theme, gradient, icon
+from .trainer import TrainingWindow
 from .vision import Camera, Detection, GestureGate, HAND, POSE
 
 DEMO_A, DEMO_B = Pose(220, -28, 80, 0), Pose(220, 28, 80, 0)
 SOURCE = {HAND: ("Thumb up", "Victory sign", "Closed fist"),
-          POSE: ("Left wrist up", "Right wrist up", "Both wrists up")}
+          POSE: ("Left wrist up", "Right wrist up", "Both wrists up"),
+          CUSTOM_HAND: ("Trained hand sign", "Trained hand sign", "A trained stop sign"),
+          SYMBOL: ("Trained symbol", "Trained symbol", "A trained stop symbol")}
 TRACK_TIMEOUT = 0.75
 
 
 class Studio:
-    def __init__(self, root, models):
+    def __init__(self, root, models, training_folder=None):
         self.root, self.models = root, models
+        self.training_folder = training_folder if training_folder is not None else default_training_folder()
+        self.training_window = self.classifier = None
         self.theme = Theme(root)
         self.demo = True
         self.armed = self.homed = self.closing = False
@@ -102,7 +110,7 @@ class Studio:
             icon(masthead, "arm", 41, 38, 1.6)
             masthead.create_text(83, 17, text="Dobot Studio", anchor="nw",
                                  fill=PURPLE, font=self.theme.font(22, "bold"))
-            masthead.create_text(85, 50, text="Dobot Magician  ·  Gesture and pose control",
+            masthead.create_text(85, 50, text="Dobot Magician  ·  Camera control",
                                  anchor="nw", fill="#405671", font=self.theme.font(10))
 
         masthead.bind("<Configure>", paint_header)
@@ -113,6 +121,8 @@ class Studio:
         self.demo_button.pack(side="left")
         self.live_button = self._button(toolbar, "USB hardware", lambda: self.set_mode(False))
         self.live_button.pack(side="left", padx=(5, 0))
+        self.training_button = self._button(toolbar, "Train recognition…", self.open_training)
+        self.training_button.pack(side="left", padx=(11, 0))
         self.system_badge = self._label(toolbar, size=9, weight="bold", bg="#e4edf6")
         self.system_badge.pack(side="right", ipadx=9, ipady=4)
 
@@ -165,7 +175,7 @@ class Studio:
         pane.pack(fill="x", pady=(7, 0))
         capture.columnconfigure(0, weight=1)
         self.input_box = ttk.Combobox(capture, state="readonly", textvariable=self.input_mode,
-                                      values=(HAND, POSE), width=13)
+                                      values=(HAND, POSE, *TRAINABLE), width=21)
         self.input_box.grid(row=0, column=0, sticky="ew")
         self.input_box.bind("<<ComboboxSelected>>", self.change_input)
         self._label(capture, "Camera", fg=MUTED, size=9).grid(row=0, column=1, padx=(7, 4))
@@ -219,8 +229,10 @@ class Studio:
 
     def _render(self):
         connected = self.robot is not None
-        idle = self.busy is None and not self.closing
+        idle = self.busy is None and not self.closing and self.training_window is None
         live = not self.demo
+        mode = self.input_mode.get()
+        trainable = mode in TRAINABLE
         camera_idle = self.camera is None and self.camera_closing is None
         can_change = idle and not connected and camera_idle
         self.demo_button.configure(style="Purple.TButton" if self.demo else "Glass.TButton")
@@ -238,25 +250,32 @@ class Studio:
                                       "Homed" if connected and self.homed else
                                       "Connected · Home required" if connected else "Connect via USB")
         self.input_box.configure(state="readonly" if not self.armed and idle and camera_idle else "disabled")
-        self.device_box.configure(state="normal" if live and camera_idle else "disabled")
+        self.device_box.configure(state="normal" if camera_idle and idle and not self.armed else "disabled")
         camera_action = "Stop camera" if self.camera else "Start camera"
         self.preview_button.configure(text="Closing…" if self.camera_closing else camera_action)
-        self._set_button(self.preview_button, live and not self.closing and self.camera_closing is None)
-        self.signal_badge.configure(text="SIMULATION" if self.demo else "TRACKING" if self.tracked_at and
-                                    monotonic()-self.tracked_at < TRACK_TIMEOUT else "NO TRACKING")
-        self.stop_hint.configure(text=f"{SOURCE[self.input_mode.get()][2]} or Esc to stop")
-        for name, hint, source in zip(("A", "B"), self.source_labels, SOURCE[self.input_mode.get()]):
+        self._set_button(self.preview_button, not self.closing and self.training_window is None
+                         and self.camera_closing is None and (not self.armed or self.camera is not None))
+        self._set_button(self.training_button, idle and not self.armed and self.camera_closing is None)
+        simulate = self._simulated_input()
+        if simulate and not self.sim_panel.winfo_manager():
+            self.sim_panel.pack(fill="x", side="bottom", before=self.camera_panel, pady=(6, 0))
+        elif not simulate and self.sim_panel.winfo_manager():
+            self.sim_panel.pack_forget()
+        self.signal_badge.configure(text="SIMULATION" if simulate else "TRACKING" if self._tracking_ready()
+                                    else "NO TRACKING")
+        self.stop_hint.configure(text="Esc or a mapped stop input" if trainable else f"{SOURCE[mode][2]} or Esc to stop")
+        for name, hint, source in zip(("A", "B"), self.source_labels, SOURCE[mode]):
             pose = self.points.get(name)
             self.point_labels[name].configure(text=pose.label() if pose else "Position " + name + " not taught")
             hint.configure(text=source)
             self._set_button(self.teach_buttons[name], connected and self.homed and idle and not self.armed)
-        actions = SOURCE[HAND] if self.input_mode.get() == HAND else ("Left wrist", "Right wrist", "Both wrists")
+        actions = SOURCE[HAND] if mode == HAND else ("Left wrist", "Right wrist", "Both wrists")
         for button, title in zip(self.sim_buttons, (*actions, "Neutral")):
             button.configure(text=title)
         self.arm_button.configure(text="Disarm" if self.armed else "Enable controls")
-        self._set_button(self.arm_button, self.armed or idle and
-                         (self.demo or connected and self.homed and len(self.points) == 2 and
-                          self.tracked_at and monotonic()-self.tracked_at < TRACK_TIMEOUT))
+        camera_ready = self._tracking_ready() and (not trainable or self.classifier is not None)
+        arm_ready = (simulate or camera_ready) and (self.demo or connected and self.homed and len(self.points) == 2)
+        self._set_button(self.arm_button, self.armed or idle and arm_ready)
         self._set_button(self.stop_button, not self.closing and (self.demo or connected))
         if self.busy == "stop":
             text = "Stopping…"
@@ -270,6 +289,12 @@ class Studio:
             text = "Controls disarmed"
         self.control_text.configure(text=text, fg=GREEN if self.armed else PURPLE)
         self.pose_text.configure(text=self.position.label() if self.position else "Position unavailable")
+
+    def _simulated_input(self):
+        return self.demo and self.camera is None and self.input_mode.get() not in TRAINABLE
+
+    def _tracking_ready(self):
+        return self.camera is not None and self.tracked_at > 0 and monotonic() - self.tracked_at < TRACK_TIMEOUT
 
     def _draw_preview(self):
         canvas = self.screen
@@ -286,7 +311,7 @@ class Studio:
             return
         gradient(canvas, w, h, DARKER, "#243b60")
         cx, cy = w*.5, h*.49
-        if self.demo:
+        if self._simulated_input():
             for i in range(-7, 8):
                 canvas.create_line(w*.5+i*24, h*.45, w*.5+i*91, h, fill="#304a70")
             for fraction in (.49, .54, .60, .68, .78, .90):
@@ -343,10 +368,8 @@ class Studio:
         self.synthetic = None
         self.synthetic_until = 0
         if demo:
-            self.sim_panel.pack(fill="x", side="bottom", before=self.camera_panel, pady=(6, 0))
             self.status_text.set("Demo ready. Enable controls to try the sample inputs.")
         else:
-            self.sim_panel.pack_forget()
             self.scan_ports()
             self.status_text.set("Connect the Dobot and start the USB camera.")
         self.vision_text.set("Neutral hand" if demo else "Waiting for camera")
@@ -421,33 +444,98 @@ class Studio:
 
     def change_input(self, _event=None):
         self.gate.reset()
-        self.synthetic_until = 0
-        if self.demo:
-            self.vision_text.set("Neutral hand" if self.input_mode.get() == HAND else "Neutral pose")
+        self.tracked_at = self.synthetic_until = 0
+        self.classifier = None
+        mode = self.input_mode.get()
+        if mode in TRAINABLE:
+            self.vision_text.set("Start camera or open training")
+        elif self.demo:
+            self.vision_text.set("Neutral hand" if mode == HAND else "Neutral pose")
+        self._draw_preview()
+        self._render()
+
+    def open_training(self):
+        if self.armed or self.busy or self.closing or self.training_window or self.camera_closing:
+            return
+        mode = self.input_mode.get()
+        if mode not in TRAINABLE:
+            mode = choose_training_mode(self)
+            if mode is None:
+                return
+            self.input_mode.set(mode)
+            self.change_input()
+        error = None
+        try:
+            classes = load_classes(self.training_folder, mode)
+        except (OSError, ValueError) as failure:
+            error = str(failure)
+            classes = empty_classes()
+        training = TrainingWindow(self, mode, classes)
+        self.training_window = training
+        self.gate.reset()
+        self.tracked_at = 0
+        training.window.wait_visibility()
+        training.window.grab_set()
+        if self.camera is None:
+            self._start_camera()
+        if error:
+            training.status.set(error)
+        self._render()
+
+    def update_training(self, mode, classifier):
+        if self.input_mode.get() == mode:
+            self.classifier = classifier
+            self.tracked_at = 0
+            self.gate.reset()
+            if self.camera:
+                self.camera.set_classifier(classifier)
+
+    def end_training(self):
+        self.training_window = None
+        self.tracked_at = 0
+        self.gate.reset()
+        self._draw_preview()
         self._render()
 
     def toggle_camera(self):
-        if self.demo or self.camera_closing:
+        if self.camera_closing or self.training_window:
             return
         if self.camera:
             if self.armed:
                 self.stop("Camera stopped. Controls disarmed.")
             self._close_camera()
             self.status_text.set("Camera stopped.")
-        else:
+        elif not self.armed:
             self._start_camera()
         self._render()
 
     def _start_camera(self):
         device = self.camera_device.get().strip()
         if not device:
-            self.status_text.set("Enter a camera index such as 0, or a path such as /dev/video0.")
+            message = "Enter a camera index such as 0, or a path such as /dev/video0."
+            self.status_text.set(message)
+            if self.training_window:
+                self.training_window.camera_lost(message)
             return
         self.camera_token += 1
         token = self.camera_token
-        self.camera = Camera(device, self.input_mode.get(), self.models,
-                             lambda error: self.worker_events.put(("camera", token, error)))
-        self.status_text.set("Opening the USB camera and loading the local model…")
+        mode = self.input_mode.get()
+        self.classifier = None
+        self.tracked_at = self.last_frame = 0
+        self.gate.reset()
+        message = "Opening the USB camera…"
+        args = ()
+        if mode in TRAINABLE:
+            try:
+                classes = load_classes(self.training_folder, mode)
+                if len(classes) >= 2:
+                    self.classifier = Recognizer(mode, classes)
+            except (ImportError, OSError, ValueError) as error:
+                message = str(error)
+            args = (self.classifier,)
+        self.camera = Camera(device, mode, self.models,
+                             lambda error: self.worker_events.put(("camera", token, error)), *args)
+        self.status_text.set(message)
         self.vision_text.set("Waiting for camera")
         self._draw_preview()
 
@@ -466,12 +554,13 @@ class Studio:
         if self.armed:
             self.stop("Controls disarmed.")
             return
-        if self.busy or self.closing:
+        if self.busy or self.closing or self.training_window:
+            return
+        if not self._simulated_input() and (not self._tracking_ready()
+                or self.input_mode.get() in TRAINABLE and self.classifier is None):
             return
         if not self.demo:
             if not self.robot or not self.homed or len(self.points) != 2:
-                return
-            if not self.tracked_at or monotonic() - self.tracked_at >= TRACK_TIMEOUT:
                 return
             if not self.points["A"].near(self.points["B"], mm=POSITION_LIMIT_MM, degrees=ROTATION_LIMIT_DEG):
                 self.status_text.set(f"Teach positions within {POSITION_LIMIT_MM} mm and {ROTATION_LIMIT_DEG}°.")
@@ -480,7 +569,7 @@ class Studio:
                                           "A and B is clear. Start with the arm at A or B and show a neutral "
                                           "gesture before requesting a move.", parent=self.root):
                 return
-            if self.closing or not self.tracked_at or monotonic() - self.tracked_at >= TRACK_TIMEOUT:
+            if self.closing or self.training_window or not self._tracking_ready():
                 return
         self.armed = True
         self.gate.reset()
@@ -502,7 +591,7 @@ class Studio:
         self._render()
 
     def simulate(self, action):
-        if self.demo:
+        if self._simulated_input():
             self.synthetic = action
             self.synthetic_until = monotonic() + 0.75 if action else 0
 
@@ -510,10 +599,10 @@ class Studio:
         self.vision_text.set(detection.label)
         if detection.tracked:
             self.tracked_at = detection.timestamp
-        elif self.armed and not self.demo:
+        elif self.armed:
             self.gate.reset()
             return
-        if not self.armed:
+        if not self.armed or self.training_window:
             return
         action = self.gate.observe(detection)
         if action == "Stop":
@@ -544,6 +633,8 @@ class Studio:
                 self.stop("Camera lost. Controls disarmed.")
             self._close_camera()
             self.status_text.set(str(error))
+            if self.training_window:
+                self.training_window.camera_lost(str(error))
             return
         self.busy = None
         if error:
@@ -606,7 +697,7 @@ class Studio:
             self.root.after(35, self._tick)
             return
         now = monotonic()
-        if self.demo:
+        if self._simulated_input():
             action = self.synthetic if now < self.synthetic_until else None
             names = dict(zip(("A", "B", "Stop"), SOURCE[self.input_mode.get()]))
             neutral = "Neutral hand" if self.input_mode.get() == HAND else "Neutral pose"
@@ -619,9 +710,12 @@ class Studio:
                 self.last_frame = detection.timestamp
                 if now - detection.timestamp < TRACK_TIMEOUT:
                     self._observe(detection)
-                self._draw_preview()
-                if first:
-                    self.status_text.set("Camera active. Show a clear gesture or pose.")
+                if self.training_window:
+                    self.training_window.show(detection, self.preview)
+                else:
+                    self._draw_preview()
+                if first and not self.training_window:
+                    self.status_text.set("Camera active. Check the detected input in the preview.")
             if self.armed and now - self.tracked_at >= TRACK_TIMEOUT:
                 self.stop("Tracking lost. Controls disarmed.")
         self._render()
@@ -630,6 +724,10 @@ class Studio:
     def quit(self):
         if self.closing:
             return
+        if self.training_window:
+            self.training_window.close()
+            if self.training_window:
+                return
         if self.busy in ("move", "home") or self.armed:
             self.stop("Stopping before exit…")
         self.closing = True
@@ -637,11 +735,35 @@ class Studio:
         self._render()
 
 
+def choose_training_mode(studio):
+    if studio.camera is not None:
+        studio.status_text.set("Stop the camera before switching to a training mode.")
+        return None
+    dialog = tk.Toplevel(studio.root, bg=PANEL, padx=18, pady=14)
+    dialog.title("Choose what to train")
+    dialog.transient(studio.root)
+    studio._label(dialog, "Choose what to train", size=13, weight="bold", fg=PURPLE).pack(anchor="w")
+    selection = []
+
+    def choose(value):
+        selection.append(value)
+        dialog.destroy()
+
+    for option in TRAINABLE:
+        studio._button(dialog, option, lambda value=option: choose(value)).pack(fill="x", pady=(6, 0))
+    dialog.wait_visibility()
+    dialog.grab_set()
+    studio.root.wait_window(dialog)
+    return selection[0] if selection else None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Dobot Studio desktop controls")
     parser.add_argument("--models", type=Path, default=Path(__file__).resolve().parents[1] / "models",
                         help="folder containing the MediaPipe .task files")
+    parser.add_argument("--training-data", type=Path, default=default_training_folder(),
+                        help="folder for local training profiles")
     args = parser.parse_args()
     root = tk.Tk()
-    Studio(root, args.models.resolve())
+    Studio(root, args.models.resolve(), args.training_data.resolve())
     root.mainloop()
