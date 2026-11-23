@@ -21,6 +21,13 @@ Status: being built. The skeleton is done: the Windows and Mac apps, profiles, a
 WIPE page, the Vista look, and welcome → setup → project picker. The full brief is in
 [CLAUDE.md](CLAUDE.md); what's built so far is in [docs/development.md](docs/development.md).
 
+## Dobot Studio for Raspberry Pi 5
+
+This branch includes a standalone desktop app for camera-guided Dobot control,
+recognition training, chip sorting and assembly inspection. [Visual tour and setup guide](apps/dobot-studio/README.md#program-overview)
+
+<a href="apps/dobot-studio/README.md#program-overview"><img src="apps/dobot-studio/docs/images/program-picker.png" alt="Dobot Studio program picker" width="520"></a>
+
 ## Trying it on a student laptop
 
 Download from the latest release (or from a CI run's downloads):

@@ -5,7 +5,25 @@ webcam supplies hand gestures, body poses or trained symbols. The app processes 
 the Pi and talks directly to the arm over USB serial. It runs in a native Tk window,
 with the teal, purple and glass styling of CircuitPath.
 
+## Program overview
+
+![Dobot Studio startup screen with a tile for each of the four programs](docs/images/program-picker.png)
+
+| Program | What you can do |
+| --- | --- |
+| [Gesture & pose control](#try-the-demo) | Use hand gestures or body poses to send the arm to a taught position or stop it. |
+| [Recognition training](#train-custom-hand-signs-or-symbols) | Collect labelled examples of hand signs or symbols, check recognition, and map classes to actions. |
+| [Chip sorting](#sort-tabletop-chips) | Scan a calibrated tray, estimate chip areas, and route colour or labelled chips to two taught bins. |
+| [Assembly inspection](#inspect-a-tabletop-assembly) | Compare the tabletop with saved reference stages and review changes before building, repairing, or disassembling. |
+
+Use **Programs** to return to the picker when the camera and motion controls are idle.
+Mount the USB camera overhead for the two tabletop programs. The screenshots show
+the running desktop app in Demo mode. The training and tabletop views use
+synthetic camera inputs.
+
 ## Try the demo
+
+![Gesture and pose control in Demo mode, showing the simulated arm at B and the on-screen gesture buttons](docs/images/gesture-and-pose-control.png)
 
 From the extracted folder on a desktop with Python 3 and Tk installed, run:
 
@@ -39,14 +57,11 @@ serial device with `ls -l /dev/ttyUSB*`. On Raspberry Pi OS that group is usuall
 back in. Launch the app as your desktop user. Close other programs using the arm's
 serial port. CP210x and CH340 adapters are typically handled by the OS.
 
-## Choose a program
-
-The startup screen opens **Gesture & pose control**, **Recognition training**,
-**Chip sorting**, or **Assembly inspection**. Use **Programs** to return to it when
-the camera and motion controls are idle. A single USB webcam can serve all
-programs. Move it to a fixed overhead mount before using either tabletop program.
-
 ## Train custom hand signs or symbols
+
+![Recognition training window with a cross in the camera guide, sample counts and the held-out check](docs/images/recognition-training.png)
+
+The example maps a ring to position A and a cross to position B.
 
 Training and recognition run on the Pi. Use **Demo** while experimenting so the
 webcam can drive the simulated arm.
@@ -117,6 +132,10 @@ accepts a different local model folder.
 
 ## Sort tabletop chips
 
+![Calibrated overhead tray with three chips highlighted, their estimated areas, and the two bin assignments](docs/images/chip-sorting.png)
+
+The sample tray routes red chips to Bin A and blue chips to Bin B.
+
 Use the Dobot suction cup with flat, nonporous chips of equal thickness. The
 sorter handles one chip per approved transfer, selected from isolated chips in
 a fixed pickup area. Demo mode exercises routing with a webcam and synthetic
@@ -152,6 +171,10 @@ Use the hardware stop if the USB connection fails. Exercise the full path with
 an empty workspace and then one test chip before sorting a mixed tray.
 
 ## Inspect a tabletop assembly
+
+![Assembly inspection grid with a highlighted region and a report of possible missing material](docs/images/assembly-inspection.png)
+
+The example compares a bracket base with the **Spacer fitted** reference stage.
 
 Use a fixed camera, a repeatable fixture and even lighting. **Capture empty tray**
 is optional and helps distinguish possible missing material from extra material.
