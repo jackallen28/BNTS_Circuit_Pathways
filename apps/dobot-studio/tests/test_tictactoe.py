@@ -6,27 +6,27 @@ import numpy as np
 
 from dobot_studio.robot import Magician, Pose, RobotError
 from dobot_studio.tictactoe import (
-    ANCHOR_SIZE, ANCHORS, BANK, CELLS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, EMPTY, MAT_HEIGHT,
-    MAT_POSITIONS, MAT_WIDTH, NOUGHT_INNER, NOUGHT_OUTER, O, PIECE_RADIUS, UNKNOWN, X, human_change,
-    outcome, robot_move, with_move,
+    ANCHOR_SIZE, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, EMPTY, MAT_HEIGHT, MAT_WIDTH,
+    NOUGHT_INNER, NOUGHT_OUTER, O, PAPER_MAT, PIECE_RADIUS, STANDARD_MAT, UNKNOWN, X,
+    human_change, outcome, robot_move, with_move,
 )
 from dobot_studio.tictactoe_vision import Position, read_position, rectify
 
 
-def camera_view(contents, shift=0):
+def camera_view(contents, shift=0, layout=STANDARD_MAT):
     """An angled, 640 px view of the 300 mm mat and the supplied glyphs."""
     density = 3
     rgb = np.full((MAT_HEIGHT*density, MAT_WIDTH*density, 3), (43, 68, 75), np.uint8)
     aruco = cv2.aruco
     dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-    for key, (x, y) in ANCHORS.items():
+    for key, (x, y) in layout.anchors.items():
         cx, cy = round(x*density), round(y*density)
         radius = round(ANCHOR_SIZE*density/2)
         border = radius + density*2
         rgb[cy-border:cy+border, cx-border:cx+border] = 251
         image = aruco.generateImageMarker(dictionary, key, 2*radius)
         rgb[cy-radius:cy+radius, cx-radius:cx+radius] = image[:, :, None]
-    for label, (x, y) in MAT_POSITIONS.items():
+    for label, (x, y) in layout.positions.items():
         cx, cy = round(x*density), round(y*density)
         cv2.circle(rgb, (cx, cy), round(13.6*density), (31, 49, 58), -1, cv2.LINE_AA)
         glyph = contents.get(label)
@@ -55,34 +55,50 @@ def camera_view(contents, shift=0):
 
 
 class TicTacToeTests(unittest.TestCase):
-    def test_the_robot_does_not_lose_against_any_player_sequence(self):
-        visited = set()
-        def play(board):
-            if board in visited:
-                return
-            visited.add(board)
-            if outcome(board):
-                self.assertNotEqual(outcome(board), X)
-                return
-            for spot, value in enumerate(board):
-                if not value:
-                    human = with_move(board, spot, X)
-                    self.assertNotEqual(outcome(human), X)
-                    move = robot_move(human)
-                    if move is not None:
-                        play(with_move(human, move, O))
-        play(EMPTY)
-        self.assertGreater(len(visited), 25)
+    def test_the_robot_does_not_lose_with_either_mark(self):
+        for robot, human in ((O, X), (X, O)):
+            with self.subTest(robot=robot):
+                visited = set()
+
+                def play(board, turn):
+                    if board in visited:
+                        return
+                    visited.add(board)
+                    if outcome(board):
+                        self.assertNotEqual(outcome(board), human)
+                        return
+                    if turn == robot:
+                        play(with_move(board, robot_move(board, robot), robot), human)
+                    else:
+                        for spot, value in enumerate(board):
+                            if not value:
+                                play(with_move(board, spot, human), robot)
+
+                play(EMPTY, X)
+                self.assertGreater(len(visited), 25)
 
     def test_camera_reads_known_cells_and_rejects_changed_or_ambiguous_marks(self):
-        _, base, _ = rectify(camera_view({}))
+        base = rectify(camera_view({}))
         contents = {"A1":X, "B2":O, "C3":X, "Reserve 2":O, "Reserve 4":UNKNOWN}
-        _, grey, _ = rectify(camera_view(contents))
-        position = read_position(grey, base)
+        view = rectify(camera_view(contents))
+        self.assertIs(view.layout, STANDARD_MAT)
+        position = read_position(view.grey, base.grey, view.layout)
         self.assertEqual(position, Position((X,"","","",O,"","","",X), ("",O,"",UNKNOWN,"")))
         self.assertEqual(human_change(EMPTY, with_move(EMPTY, 4, X)), 4)
         with self.assertRaises(ValueError):
             human_change(EMPTY, position.board)
+
+    def test_paper_mat_reads_both_reserve_banks(self):
+        base = rectify(camera_view({}, layout=PAPER_MAT))
+        contents = {"A1":X, "C3":O, "X2":X, "X3":X, "O1":O, "O3":O}
+        view = rectify(camera_view(contents, layout=PAPER_MAT))
+        self.assertIs(view.layout, PAPER_MAT)
+        position = read_position(view.grey, base.grey, view.layout)
+        self.assertEqual(position, Position((X,"","","","","","","",O), ("",X,X,"","",O,"",O,"","")))
+        self.assertEqual(human_change(EMPTY, with_move(EMPTY, 4, O), O), 4)
+        for mark in (X, O):
+            ys = [PAPER_MAT.positions[slot][1] for slot in PAPER_MAT.bank(mark)]
+            self.assertEqual(np.diff(ys).tolist(), [30] * 4)
 
     def test_long_pick_and_place_can_go_via_the_taught_clearance_point(self):
         arm = Magician.__new__(Magician)

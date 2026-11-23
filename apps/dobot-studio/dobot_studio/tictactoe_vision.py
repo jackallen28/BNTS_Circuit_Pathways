@@ -5,8 +5,8 @@ from math import radians
 
 from .block_vision import detect
 from .tictactoe import (
-    ANCHORS, BANK, CELLS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH,
-    MAT_HEIGHT, MAT_POSITIONS, MAT_WIDTH, NOUGHT_INNER, NOUGHT_OUTER, O, UNKNOWN, X,
+    CELLS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MAT_HEIGHT, MAT_LAYOUTS, MAT_WIDTH,
+    MatLayout, NOUGHT_INNER, NOUGHT_OUTER, O, STANDARD_MAT, UNKNOWN, X,
 )
 
 DENSITY = 4
@@ -20,10 +20,12 @@ class Position:
 
 
 @dataclass(frozen=True)
-class Reference:
+class MatView:
     grey: object
     corners: object
     shape: tuple
+    matrix: object
+    layout: MatLayout
 
 
 def rectify(rgb):
@@ -31,16 +33,18 @@ def rectify(rgb):
     import numpy as np
 
     markers = detect(rgb)
-    if not all(marker in markers for marker in ANCHORS):
-        raise ValueError("Show all four mat markers, numbered 44–47.")
-    corners = np.array([markers[marker].mean(axis=0) for marker in ANCHORS], dtype=np.float32)
+    suitable = [layout for layout in MAT_LAYOUTS if all(marker in markers for marker in layout.anchors)]
+    if len(suitable) != 1:
+        raise ValueError("Show the four camera markers from one mat.")
+    layout = suitable[0]
+    corners = np.array([markers[marker].mean(axis=0) for marker in layout.anchors], dtype=np.float32)
     if not cv2.isContourConvex(corners) or abs(cv2.contourArea(corners)) < 12000:
         raise ValueError("Move the camera closer and keep the full mat in view.")
-    target = np.asarray(tuple(ANCHORS.values()), dtype=np.float32) * DENSITY
+    target = np.asarray(tuple(layout.anchors.values()), dtype=np.float32) * DENSITY
     matrix = cv2.getPerspectiveTransform(corners, target)
     grey = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     warped = cv2.warpPerspective(grey, matrix, (MAT_WIDTH*DENSITY, MAT_HEIGHT*DENSITY))
-    return corners, warped, matrix
+    return MatView(warped, corners, grey.shape, matrix, layout)
 
 
 def _patch(image, centre):
@@ -97,7 +101,7 @@ def piece(tile, baseline):
     return best if scores[best] >= 0.60 and scores[best] - scores[alternate] >= 0.12 else UNKNOWN
 
 
-def read_position(grey, baseline):
+def read_position(grey, baseline, layout=STANDARD_MAT):
     symbols = {name: piece(_patch(grey, centre), _patch(baseline, centre))
-               for name, centre in MAT_POSITIONS.items()}
-    return Position(tuple(symbols[name] for name in CELLS), tuple(symbols[name] for name in BANK))
+               for name, centre in layout.positions.items()}
+    return Position(tuple(symbols[name] for name in CELLS), tuple(symbols[name] for name in layout.reserve))

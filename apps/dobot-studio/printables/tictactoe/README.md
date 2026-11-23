@@ -1,6 +1,6 @@
 # Dobot tic-tac-toe print set
 
-The mat is **300 × 300 × 2.8 mm**. It has nine recessed play cells, five reserve
+The 3D mat is **300 × 300 × 2.8 mm**. It has nine recessed play cells, five reserve
 slots for the Dobot’s noughts, and four corner outlines for camera markers.
 The play pieces are **Ø25 × 3.2 mm**. Models use millimetres.
 
@@ -8,7 +8,7 @@ The play pieces are **Ø25 × 3.2 mm**. Models use millimetres.
 | --- | --- |
 | [mat-300x300.obj](mat-300x300.obj) | Print the entire mat on a bed that can fit it. |
 | [mat-300x300.svg](mat-300x300.svg) | Edit or print the vector artwork with its full 300 mm outline. |
-| [mat-a3.pdf](mat-a3.pdf) | Print one A3 portrait paper mat at the calibrated spacing. |
+| [mat-a3.pdf](mat-a3.pdf) | Print one A3 landscape paper mat at actual size. |
 | [tiles/](tiles/) | Print four 150 × 150 mm quadrants for smaller beds. |
 | [cross.obj](cross.obj), [nought.obj](nought.obj) | Two-part OBJ files with named **Body** and **Mark** meshes. |
 | [parts/](parts/) | Separate Body and Mark OBJs with the same origin. |
@@ -34,14 +34,18 @@ The play pieces are **Ø25 × 3.2 mm**. Models use millimetres.
 
 ## Print the paper mat
 
-Print **mat-a3.pdf** on **A3 portrait** at **Actual Size (100%)**. Measure the
-100 mm scale line. All nine cell centres, five reserve centres, the Park guide
-and the four camera markers use the 3D mat's calibrated spacing. The 297 mm
-A3 page fits that layout with room for printer margins. The SVG includes the
-full 300 mm outline.
+Print **mat-a3.pdf** on **A3 landscape** at **Actual Size (100%)**. Measure the
+100 mm scale line. Use the **300 × 300 mm SVG** when you want the full square.
+Both paper formats mark the Park position with a hollow ring.
 
-The paper mat has all four markers built in. Secure it flat, capture it empty
-and teach the tool using a sample piece centred on each printed circle.
+The paper layouts have five X reserve slots on the left and five O reserve
+slots on the right, spaced 30 mm apart. Their four camera markers are built
+in. Use the current Dobot Studio app to register and teach this layout. The
+app also recognises the single-reserve 3D mat and earlier paper mats.
+
+Secure the sheet flat, capture it empty and teach the tool using a sample
+piece centred on each circle. Choose **Play as**, then start a new game.
+X goes first. The Dobot takes pieces from the bank for its mark.
 
 ## Assemble the mat
 

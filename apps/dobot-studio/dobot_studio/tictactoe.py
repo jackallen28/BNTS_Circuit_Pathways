@@ -1,4 +1,5 @@
 """Tic-tac-toe rules and the physical mat dimensions, in millimetres."""
+from dataclasses import dataclass
 from functools import lru_cache
 
 
@@ -33,6 +34,34 @@ LINES = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8),
          (0, 4, 8), (2, 4, 6))
 
 
+@dataclass(frozen=True)
+class MatLayout:
+    label: str
+    anchors: dict
+    positions: dict
+    cross_bank: tuple
+    nought_bank: tuple
+
+    @property
+    def reserve(self):
+        return tuple(name for name in self.positions if name not in CELLS)
+
+    def bank(self, mark):
+        return self.cross_bank if mark == X else self.nought_bank
+
+
+PAPER_CROSSES = tuple(f"X{index}" for index in range(1, 6))
+PAPER_NOUGHTS = tuple(f"O{index}" for index in range(1, 6))
+PAPER_POSITIONS = {cell: MAT_POSITIONS[cell] for cell in CELLS}
+PAPER_POSITIONS.update(zip(PAPER_CROSSES, ((34, y) for y in (86, 116, 146, 176, 206))))
+PAPER_POSITIONS.update(zip(PAPER_NOUGHTS, ((234, y) for y in (86, 116, 146, 176, 206))))
+PAPER_PARK = (153, 154)
+STANDARD_MAT = MatLayout("Standard", ANCHORS, MAT_POSITIONS, BANK, BANK)
+PAPER_MAT = MatLayout("Paper", dict(zip(range(36, 40), ANCHORS.values())),
+                      PAPER_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS)
+MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT)
+
+
 def winning_line(board):
     return next((line for line in LINES if board[line[0]] in (X, O)
                  and all(board[index] == board[line[0]] for index in line)), ())
@@ -62,15 +91,18 @@ def score(board, turn):
     return max(values) if turn == O else min(values)
 
 
-def robot_move(board):
+def robot_move(board, mark=O):
     if outcome(board):
         return None
-    return max((index for index in ORDER if not board[index]),
-               key=lambda index: score(with_move(board, index, O), X))
+    prefer = max if mark == O else min
+    next_mark = X if mark == O else O
+    return prefer((index for index in ORDER if not board[index]),
+                  key=lambda index: score(with_move(board, index, mark), next_mark))
 
 
-def human_change(previous, current):
+def human_change(previous, current, mark=X):
     changes = [index for index in range(9) if previous[index] != current[index]]
-    if len(changes) != 1 or previous[changes[0]] or current[changes[0]] != X:
-        raise ValueError("Place one cross in an empty cell and leave the other pieces in place.")
+    if len(changes) != 1 or previous[changes[0]] or current[changes[0]] != mark:
+        piece = "cross" if mark == X else "nought"
+        raise ValueError(f"Place one {piece} in an empty cell and leave the other pieces in place.")
     return changes[0]

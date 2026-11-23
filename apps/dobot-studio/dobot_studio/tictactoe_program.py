@@ -8,10 +8,10 @@ from tkinter import messagebox, ttk
 
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .tictactoe import (
-    BANK, CELLS, EMPTY, MAT_POSITIONS, O, TEACH_ORDER, UNKNOWN, X,
+    CELLS, EMPTY, O, PAPER_MAT, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
     human_change, outcome, robot_move, winning_line, with_move,
 )
-from .tictactoe_vision import DENSITY, Position, Reference, read_position, rectify
+from .tictactoe_vision import DENSITY, Position, read_position, rectify
 from .vision import Camera, TABLETOP
 
 
@@ -34,6 +34,9 @@ class TicTacToeProgram:
         self.camera_status = tk.StringVar(value="Camera offline")
         self.board = EMPTY
         self.turn = X
+        self.human = X
+        self.player_choice = tk.StringVar(value=X)
+        self.roles = tk.StringVar()
         self.ready = studio.demo
         self.poses = {}
         self.reference = self.rectified = self.feed = self.photo = None
@@ -111,7 +114,14 @@ class TicTacToeProgram:
 
         pane, body = ui._pane(panels, "Match")
         pane.pack(fill="x", pady=(0, 7))
-        ui._label(body, "You play X. Dobot plays O.", size=10, weight="bold",
+        choose = tk.Frame(body, bg=PANEL)
+        choose.pack(fill="x", pady=(0, 5))
+        ui._label(choose, "Play as", size=9, fg=MUTED).pack(side="left")
+        self.symbol_picker = ttk.Combobox(choose, textvariable=self.player_choice, values=(X, O),
+                                          state="readonly", width=4)
+        self.symbol_picker.pack(side="right")
+        self.symbol_picker.bind("<<ComboboxSelected>>", self._pick_symbol)
+        ui._label(body, textvariable=self.roles, size=10, weight="bold",
                   fg=PURPLE).pack(fill="x")
         ui._label(body, textvariable=self.detail, size=9, fg=MUTED, wraplength=245,
                   justify="left").pack(fill="x", pady=(5, 6))
@@ -130,6 +140,24 @@ class TicTacToeProgram:
                   justify="left").pack(side="left", fill="x", expand=True)
         self.stop_button = ui._button(footer, "Stop  ·  Esc", self.stop, "Stop")
         self.stop_button.pack(side="right")
+
+    @property
+    def dobot(self):
+        return O if self.human == X else X
+
+    @property
+    def layout(self):
+        view = self.reference or self.rectified
+        return view.layout if view is not None else STANDARD_MAT
+
+    @property
+    def teach_order(self):
+        return (*self.layout.positions, "Park")
+
+    def _pick_symbol(self, _event=None):
+        if self.studio.demo and self.board == EMPTY:
+            self.new_game()
+        self._render()
 
     def setup_usb(self):
         self.close()
@@ -184,43 +212,43 @@ class TicTacToeProgram:
         if self.rectified is None or monotonic() - self.analysed > 0.55:
             self.status.set("Show all four mat markers again.")
             return
-        corners, grey, _ = self.rectified
-        if self.reference is None or self._shifted(corners):
+        if self.reference is None or self._shifted(self.rectified):
             self.poses.clear()
-        self.reference = Reference(grey.copy(), corners.copy(), self.feed.size)
+        self.reference = self.rectified
         self.latest = None
         self.seen = 0
-        self.status.set("Empty mat captured. Teach each centre with a sample playing piece in the recess.")
+        self.status.set("Empty mat captured. Teach each centre with a sample playing piece.")
         self._render()
 
-    def _shifted(self, corners):
+    def _shifted(self, view):
         import numpy as np
 
-        return (self.feed.size != self.reference.shape
-                or np.linalg.norm(corners - self.reference.corners, axis=1).max() > 2.0)
+        return (view.layout is not self.reference.layout or view.shape != self.reference.shape
+                or np.linalg.norm(view.corners - self.reference.corners, axis=1).max() > 2.0)
 
     def teach(self):
         if self.busy or self.checking or self.ready or not self.studio.robot or not self.studio.homed:
             return
         if (self.reference is None or self.rectified is None or monotonic()-self.analysed > 0.55
-                or self._shifted(self.rectified[0])):
+                or self._shifted(self.rectified)):
             self.status.set("Capture the empty mat with the camera and mat fixed in place.")
             return
-        name = self.teaching.get()
-        self._job("teach", lambda: (name, self.studio.robot.pose()))
+        name, reference = self.teaching.get(), self.reference
+        self._job("teach", lambda: (reference, name, self.studio.robot.pose()))
 
     def _check_setup(self):
         if not self.studio.robot or not self.studio.homed:
             raise ValueError("Connect and home the Dobot first.")
-        if not all(place in self.poses for place in TEACH_ORDER):
-            raise ValueError("Teach all nine cells, five reserve slots and Park.")
-        points = list(MAT_POSITIONS)
+        if self.reference is None or not all(place in self.poses for place in self.teach_order):
+            raise ValueError("Capture the empty mat and teach every cell, reserve slot and Park.")
+        positions = self.reference.layout.positions
+        points = list(positions)
         for i, first in enumerate(points):
             pose = self.poses[first]
             for second in points[i+1:]:
                 other = self.poses[second]
                 actual = dist((pose.x, pose.y), (other.x, other.y))
-                expected = dist(MAT_POSITIONS[first], MAT_POSITIONS[second])
+                expected = dist(positions[first], positions[second])
                 if abs(actual - expected) > 7 or abs(pose.z - other.z) > 3:
                     raise ValueError(f"Check the taught centres and piece height at {first} and {second}.")
             park = self.poses["Park"]
@@ -229,27 +257,42 @@ class TicTacToeProgram:
             if dist((pose.x, pose.y), (park.x, park.y)) > 150:
                 raise ValueError("Teach Park near the marked clearance point so each cell is within 150 mm.")
 
-    def _steady(self):
+    def _steady(self, robot_mark=None):
         if self.latest is None or self.seen < 2 or monotonic() - self.analysed > 0.55:
             raise ValueError("Wait for a steady view of the entire mat.")
-        if UNKNOWN in self.latest.board or any(value not in (O, "") for value in self.latest.reserve):
-            raise ValueError("Seat the pieces in their recesses and check the camera contrast.")
+        if UNKNOWN in self.latest.board:
+            raise ValueError("Centre each piece on its circle and check the camera contrast.")
+        reserve = dict(zip(self.layout.reserve, self.latest.reserve))
+        for mark in (X, O) if self.layout is PAPER_MAT else (robot_mark or self.dobot,):
+            if any(reserve[name] not in ("", mark) for name in self.layout.bank(mark)):
+                raise ValueError(f"Keep only {mark} pieces in the matching reserve slots.")
         return self.latest
 
     def new_game(self):
         if self.busy or self.checking:
             return
+        human = self.player_choice.get()
+        robot = O if human == X else X
         if not self.studio.demo:
             try:
                 self._check_setup()
-                position = self._steady()
-                if position.board != EMPTY or position.reserve.count(O) < 4:
-                    raise ValueError("Clear the board and place at least four noughts in the reserve slots.")
+                position = self._steady(robot)
+                if position.board != EMPTY:
+                    raise ValueError("Clear the board before starting a new game.")
+                reserve = dict(zip(self.layout.reserve, position.reserve))
+                for mark in (X, O) if self.layout is PAPER_MAT else (robot,):
+                    count = 5 if mark == X else 4
+                    if sum(reserve[name] == mark for name in self.layout.bank(mark)) < count:
+                        raise ValueError(f"Load at least {count} {mark} pieces in their reserve slots.")
             except ValueError as error:
                 self.status.set(str(error))
                 return
+        self.human = human
         self.board, self.turn, self.chosen, self.ready = EMPTY, X, None, True
-        self.status.set("Your turn. Place one cross in an empty cell.")
+        if self.turn == self.dobot:
+            self._plan_reply("Dobot opens.")
+        else:
+            self.status.set("Your turn. Place one cross in an empty cell.")
         self._render()
 
     def advance(self):
@@ -257,42 +300,53 @@ class TicTacToeProgram:
             return
         try:
             position = self._steady()
-            if self.turn == X:
-                index = human_change(self.board, position.board)
+            if self.turn == self.human:
+                index = human_change(self.board, position.board, self.human)
                 self.board = position.board
-                self._after_cross(index)
+                self._after_player(index)
                 return
             self._check_setup()
-            if position.board != self.board or O not in position.reserve:
-                raise ValueError("Keep the board still and load a nought in a reserve slot.")
-            index = position.reserve.index(O)
+            if position.board != self.board:
+                raise ValueError("Keep the board still while the Dobot is taking its turn.")
+            reserve = dict(zip(self.layout.reserve, position.reserve))
+            source = next((name for name in self.layout.bank(self.dobot) if reserve[name] == self.dobot), None)
+            if source is None:
+                raise ValueError(f"Load a {self.dobot} piece into its reserve slots.")
             target = self.chosen
-            text = f"Move a nought from {BANK[index]} to {CELLS[target]}. Keep hands off the mat."
-            if not messagebox.askokcancel("Place Dobot nought", text, parent=self.window):
+            text = f"Move {self.dobot} from {source} to {CELLS[target]}. Keep hands off the mat."
+            if not messagebox.askokcancel("Place Dobot piece", text, parent=self.window):
                 return
             if self._steady() != position:
                 raise ValueError("The board changed during confirmation. Check the mat and try again.")
-            expected = Position(with_move(position.board, target, O),
+            index = self.layout.reserve.index(source)
+            expected = Position(with_move(position.board, target, self.dobot),
                                 (*position.reserve[:index], "", *position.reserve[index + 1:]))
-            pick, drop, park = (self.poses[place] for place in (BANK[index], CELLS[target], "Park"))
-            self.status.set(f"Moving a nought to {CELLS[target]}…")
+            pick, drop, park = (self.poses[place] for place in (source, CELLS[target], "Park"))
+            self.status.set(f"Moving {self.dobot} to {CELLS[target]}…")
             self._job("place", lambda: (expected, self.studio.robot.sort_chip(
                 pick, drop, park, self.abort, via_park=True)))
         except ValueError as error:
             self.status.set(str(error))
         self._render()
 
-    def _after_cross(self, index):
+    def _after_player(self, index):
         if outcome(self.board):
             self._announce()
         else:
-            self.turn = O
-            self.chosen = robot_move(self.board)
-            self.status.set(f"Cross at {CELLS[index]}. Dobot chose {CELLS[self.chosen]}.")
+            self._plan_reply(f"{self.human} at {CELLS[index]}.")
         self._render()
 
+    def _plan_reply(self, message):
+        self.turn = self.dobot
+        self.chosen = robot_move(self.board, self.dobot)
+        self.status.set(f"{message} Dobot chose {CELLS[self.chosen]}.")
+        if self.studio.demo:
+            self.busy = "demo"
+            self.demo_timer = self.window.after(420, self._demo_move)
+
     def _click_game(self, event):
-        if not self.studio.demo or self.busy or not self.ready or outcome(self.board):
+        if (not self.studio.demo or self.busy or not self.ready or self.turn != self.human
+                or outcome(self.board)):
             return
         left, top, size = self._grid()
         x, y = event.x-left, event.y-top
@@ -301,34 +355,31 @@ class TicTacToeProgram:
         index = int(y/(size/3))*3 + int(x/(size/3))
         if self.board[index]:
             return
-        self.board = with_move(self.board, index, X)
-        self._after_cross(index)
-        if self.chosen is not None:
-            self.busy = "demo"
-            self.demo_timer = self.window.after(420, self._demo_move)
-            self._render()
+        self.board = with_move(self.board, index, self.human)
+        self._after_player(index)
 
     def _demo_move(self):
         self.demo_timer = None
         if self.busy == "demo":
             self.busy = None
-            self.board = with_move(self.board, self.chosen, O)
-            self._after_nought()
+            self.board = with_move(self.board, self.chosen, self.dobot)
+            self._after_dobot()
 
-    def _after_nought(self):
+    def _after_dobot(self):
         target, self.chosen = self.chosen, None
-        self.turn = X
+        self.turn = self.human
         if outcome(self.board):
             self._announce()
         else:
-            self.status.set(f"Dobot placed a nought at {CELLS[target]}. Your turn.")
+            self.status.set(f"Dobot placed {self.dobot} at {CELLS[target]}. Your turn.")
         self._render()
 
     def _announce(self):
         result = outcome(self.board)
         if result is not None:
             self.ready = False
-            self.status.set({X: "You won.", O: "Dobot won.", "Draw": "Draw. Play again with a clear board."}[result])
+            self.status.set({self.human: "You won.", self.dobot: "Dobot won.",
+                             "Draw": "Draw. Play again with a clear board."}[result])
 
     def release(self):
         if self.busy or self.checking or not self.studio.robot:
@@ -360,18 +411,18 @@ class TicTacToeProgram:
         self.analysed = sample.timestamp
         try:
             self.rectified = rectify(np.asarray(image))
-            corners, grey, _ = self.rectified
+            view = self.rectified
             if self.reference is None:
-                self.camera_status.set("Mat found. Capture it while empty.")
-            elif self._shifted(corners):
+                self.camera_status.set(f"{view.layout.label} mat found. Capture it while empty.")
+            elif self._shifted(view):
                 raise ValueError("The mat or camera moved. Re-register the empty mat.")
             else:
-                position = read_position(grey, self.reference.grey)
+                position = read_position(view.grey, self.reference.grey, view.layout)
                 self.seen = self.seen+1 if position == self.latest else 1
                 self.latest = position
-                self.camera_status.set(f"Registered mat · {position.reserve.count(O)} noughts in reserve")
+                self.camera_status.set(f"{view.layout.label} mat · {sum(bool(piece) for piece in position.reserve)} in reserve")
         except (ImportError, ValueError) as error:
-            if self.rectified is not None and self.reference is not None and self._shifted(self.rectified[0]):
+            if self.rectified is not None and self.reference is not None and self._shifted(self.rectified):
                 self.stop()
                 self.reference = self.rectified = None
                 self.poses.clear()
@@ -405,16 +456,18 @@ class TicTacToeProgram:
                     self.studio.points.clear()
                 self.status.set(str(error))
             elif name == "teach":
-                place, pose = value
-                self.poses[place] = pose
-                following = TEACH_ORDER[(TEACH_ORDER.index(place)+1) % len(TEACH_ORDER)]
-                self.teaching.set(following)
-                self.status.set(f"{place} taught. Next: {following}.")
+                reference, place, pose = value
+                if reference is self.reference:
+                    self.poses[place] = pose
+                    order = self.teach_order
+                    following = order[(order.index(place)+1) % len(order)]
+                    self.teaching.set(following)
+                    self.status.set(f"{place} taught. Next: {following}.")
             elif name == "place" and self.ready:
                 self.checking, self.studio.position = value
                 self.deadline = monotonic() + 3.5
                 self.seen = 0
-                self.status.set("Checking where the nought landed…")
+                self.status.set(f"Checking where {self.dobot} landed…")
             elif name == "release":
                 self.status.set("Suction release acknowledged.")
 
@@ -428,7 +481,7 @@ class TicTacToeProgram:
         if self.checking and self.latest == self.checking and self.seen >= 2:
             self.board = self.checking.board
             self.checking = None
-            self._after_nought()
+            self._after_dobot()
         if self.checking and monotonic() > self.deadline:
             self.checking = None
             self.ready = False
@@ -440,17 +493,25 @@ class TicTacToeProgram:
         ui = self.studio
         idle = not self.busy and self.checking is None
         result = outcome(self.board)
+        player = self.human if self.ready else self.player_choice.get()
+        self.roles.set(f"You play {player}. Dobot plays {O if player == X else X}.")
+        can_choose = not self.ready or (ui.demo and self.board == EMPTY)
+        self.symbol_picker.configure(state="readonly" if idle and can_choose else "disabled")
         if ui.demo:
             self.detail.set("Select an empty cell on the blue board. Dobot replies automatically.")
         else:
-            self.detail.set(f"{len(self.poses)}/{len(TEACH_ORDER)} tool positions taught. "
-                            "Capture the mat empty before loading reserve noughts.")
+            order = self.teach_order
+            self.detail.set(f"{len(self.poses)}/{len(order)} tool positions taught. "
+                            "Capture the mat empty before loading the reserves.")
             self.camera_button.configure(text="Stop camera" if self.camera else "Start camera")
-            self.slot_picker.configure(state="readonly" if idle and not self.ready else "disabled")
+            self.slot_picker.configure(values=order, state="readonly" if idle and not self.ready else "disabled")
+            if self.teaching.get() not in order:
+                self.teaching.set(order[0])
             ui._set_button(self.camera_button, idle)
             ui._set_button(self.empty_button, idle and not self.ready and self.rectified is not None)
             ui._set_button(self.teach_button, idle and not self.ready and ui.homed and self.reference is not None)
-            self.turn_button.configure(text="Read my cross" if self.turn == X else "Place Dobot nought")
+            turn_label = f"Read my {self.human}" if self.turn == self.human else f"Place Dobot {self.dobot}"
+            self.turn_button.configure(text=turn_label)
             ui._set_button(self.turn_button, idle and self.ready and not result)
             ui._set_button(self.release_button, idle and ui.robot is not None)
         ui._set_button(self.new_button, idle)
@@ -483,16 +544,17 @@ class TicTacToeProgram:
             canvas.create_text(x+10, y+8, text=CELLS[index], fill="#a2bcd3", anchor="nw",
                                font=self.studio.theme.font(9))
             if value or highlight:
-                shown = value or O
+                shown = value or self.dobot
                 canvas.create_text(x+step/2, y+step/2, text=shown,
                                    fill=("#ffd997" if shown == X else "#8decdf") if value else "#6ca1ad",
                                    font=self.studio.theme.font(max(14, round(step*0.41)), "bold"))
-        status = "Your turn" if self.turn == X else "Dobot’s turn"
+        status = "Your turn" if self.turn == self.human else "Dobot’s turn"
         if not self.ready:
-            status = {"X": "You won", "O": "Dobot won", "Draw": "Draw"}.get(outcome(self.board), "Start a new game")
+            status = {self.human: "You won", self.dobot: "Dobot won", "Draw": "Draw"}.get(
+                outcome(self.board), "Start a new game")
         canvas.create_text(w/2, top/2, text=status,
                            fill=WHITE, font=self.studio.theme.font(14, "bold"))
-        canvas.create_text(w/2, min(h-14, top+size+23), text="X · player     O · Dobot",
+        canvas.create_text(w/2, min(h-14, top+size+23), text=f"{self.human} · player     {self.dobot} · Dobot",
                            fill="#acc9dd", font=self.studio.theme.font(10))
 
     def _draw_camera(self):
@@ -517,11 +579,13 @@ class TicTacToeProgram:
             import cv2
             import numpy as np
 
-            inverse = np.linalg.inv(self.rectified[2])
-            xy = np.array(tuple(MAT_POSITIONS.values()), dtype=np.float32)[None] * DENSITY
+            view = self.rectified
+            inverse = np.linalg.inv(view.matrix)
+            positions = view.layout.positions
+            xy = np.array(tuple(positions.values()), dtype=np.float32)[None] * DENSITY
             frame_points = cv2.perspectiveTransform(xy, inverse)[0]
-            readings = (*self.latest.board, *self.latest.reserve) if self.latest else ("",)*14
-            for label, (x, y), value in zip(MAT_POSITIONS, frame_points, readings):
+            readings = (*self.latest.board, *self.latest.reserve) if self.latest else ("",)*len(positions)
+            for label, (x, y), value in zip(positions, frame_points, readings):
                 sx, sy = left+x*image.width/self.feed.width, top+y*image.height/self.feed.height
                 tint = "#ffd997" if label == self.teaching.get() and not self.ready else "#9cebe3"
                 canvas.create_oval(sx-4, sy-4, sx+4, sy+4, outline=tint, width=2)

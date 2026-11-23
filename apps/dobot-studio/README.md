@@ -18,7 +18,7 @@ with the teal, purple and glass styling of CircuitPath.
 | [3D Block Lab](#3d-block-lab) | Build a stepped pyramid or box, or separate mixed stacks and rebuild them by colour. |
 | [Equation Lab](#equation-lab) | Read rows of number and operator chips, calculate answers, and place matching chips. |
 | [Micro:bit Teach](#microbit-teach) | Use a Micro:bit to jog the arm, record tool actions, edit the path, and replay it. |
-| [Tic-tac-toe](#tic-tac-toe) | Play a cross on a printed mat and have the Dobot place its nought after checking the overhead view. |
+| [Tic-tac-toe](#tic-tac-toe) | Choose X or O and play the Dobot on a camera-registered mat. |
 
 Use **Programs** to return to the picker when the camera and motion controls are idle.
 Mount the USB camera overhead for sorting, equation reading, assembly inspection and tic-tac-toe.
@@ -305,51 +305,50 @@ the Pi setup dependencies already listed above. [Dobot serial protocol](https://
 
 ## Tic-tac-toe
 
-![Tic-tac-toe Demo with a human cross and the Dobot’s noughts on the screen](docs/images/tictactoe-demo.png)
+![Tic-tac-toe Demo with a human cross and Dobot noughts on the screen](docs/images/tictactoe-demo.png)
 
-Choose **Tic-tac-toe** from the picker. In Demo mode click an empty cell to
-play X. The simulated Dobot replies as O. On the physical mat the overhead
-camera reads the board and sees which reserve slots still hold noughts.
+Choose **Tic-tac-toe** from the picker, choose X or O under **Play as**, and start
+a new game. X goes first. In Demo mode, click an empty cell to play your turn.
 
-[Download the 300 mm print set](printables/tictactoe-300mm.zip) or
+[Download the print set](printables/tictactoe-300mm.zip) or
 [browse the 3D and paper mat files](printables/tictactoe/README.md).
-The set contains a **300 × 300 mm** mat, four **150 × 150 mm** tiles, and
-flush, two-colour **Ø25 mm** playing pieces. Keep the supplied print
-orientation so each mark begins in the first layer. Flip the pieces mark
-side up for camera recognition and suction.
+The 3D files include a **300 × 300 mm** mat, four **150 × 150 mm** tiles and
+flush, two-colour **Ø25 mm** playing pieces. Keep the supplied print orientation
+so each mark begins on the first layer. Flip each piece mark side up for play.
 
 For a paper mat, use the [300 mm SVG](printables/tictactoe/mat-300x300.svg) or
-[A3 portrait PDF](printables/tictactoe/mat-a3.pdf). Print the PDF at Actual Size
-and check the 100 mm line. The four camera markers are built into both files.
+[A3 landscape PDF](printables/tictactoe/mat-a3.pdf). Print the PDF at Actual Size
+and check the 100 mm line. The paper mats have a left bank for X, a right bank
+for O and a small hollow ring for Park. Their four camera markers are built in.
 
-![Printed mat layout showing cells A1 to C3, reserve slots, markers and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
+![3D-printed mat layout showing cells, a single reserve bank and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
 ### Set up the physical game
 
-1. Secure the mat on a flat table. Attach the four marker cards if using the
-   3D mat. Mount the webcam overhead and frame all four markers. Select
-   **USB hardware**, connect the Magician with the suction cup fitted, and home it.
-2. Open **Tic-tac-toe** and start the camera. Remove all the pieces, then choose
-   **Capture empty mat**. The camera view labels the nine play cells and all
-   five reserve slots.
-3. Select each position from **A1** through **C3** and then **Reserve 1** through
-   **Reserve 5**. Centre a sample piece in the recess or on the printed circle.
-   Hand-guide the cup to the centre of its flat top. Click **Teach tool position**.
-   The picker advances
-   to the next position. Teach **Park** at a clear height above the printed
-   Park guide, with the same tool rotation as the pickup and drop positions.
-   Return the tool to Park and remove the sample piece. Recalibrate if the mat
-   or camera moves.
-4. Load at least four noughts into the reserve slots and select **New game**.
-   Place one cross and move your hand away before choosing **Read my cross**.
-   Review the Dobot’s selected cell, then choose **Place Dobot nought** and
-   confirm the transfer. The camera checks the nought’s destination and the
-   cleared reserve slot before the next turn.
-5. Use **Stop** or Escape for an interrupted transfer. Support any held piece
-   before using **Release suction**. Watch a single test lift and placement
-   before playing a full match.
+1. Secure the mat flat. Attach the four marker cards if using the 3D mat.
+   Mount the webcam overhead and frame all four markers. Select **USB hardware**,
+   connect the Magician with the suction cup fitted, and home it.
+2. Open **Tic-tac-toe** and start the camera. Remove all pieces, then choose
+   **Capture empty mat**. The app registers the paper or single-bank layout
+   from its markers.
+3. For each play cell and reserve slot, centre a sample piece and hand-guide
+   the cup to the centre of its flat top. Click **Teach tool position**.
+   The picker advances to the next position. Teach **Park** at a clear height
+   above the guide using the same tool rotation. Return the tool to Park and
+   remove the sample piece. Re-teach after moving the mat or changing layouts.
+4. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least
+   four of O1–O5 with noughts. On the single-bank mat, put the Dobot’s mark in
+   the reserve slots. Load five if it plays X or four if it plays O. Select
+   **New game**.
+5. On your turn, place one piece and move your hand away before choosing
+   **Read my X** or **Read my O**. On the Dobot’s turn, review its chosen cell,
+   then select **Place Dobot X** or **Place Dobot O** and confirm. The camera
+   checks the destination and the cleared reserve slot after transfer.
+6. Use **Stop** or Escape to interrupt a transfer. Support any held piece before
+   using **Release suction**. Watch a single test lift and placement before
+   playing a full game.
 
-![Overhead camera view with cell and reserve labels after a verified nought placement](docs/images/tictactoe-camera.png)
+![Overhead example using the single-bank mat after a verified nought placement](docs/images/tictactoe-camera.png)
 
 The camera and suction examples use simulated hardware. Print scale, camera
 contrast, reach and suction sealing need checking with the physical setup.
