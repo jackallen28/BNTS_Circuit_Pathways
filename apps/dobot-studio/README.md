@@ -18,7 +18,7 @@ with the teal, purple and glass styling of CircuitPath.
 | [3D Block Lab](#3d-block-lab) | Build a stepped pyramid or box, or separate mixed stacks and rebuild them by colour. |
 | [Equation Lab](#equation-lab) | Read rows of number and operator chips, calculate answers, and place matching chips. |
 | [Micro:bit Teach](#microbit-teach) | Use a Micro:bit to jog the arm, record tool actions, edit the path, and replay it. |
-| [Tic-tac-toe](#tic-tac-toe) | Choose X or O and play the Dobot on a camera-registered mat. |
+| [Tic-tac-toe](#tic-tac-toe) | Choose X or O and play on a camera-tracked mat. The Dobot takes its turns automatically. |
 
 Use **Programs** to return to the picker when the camera and motion controls are idle.
 Mount the USB camera overhead for sorting, equation reading, assembly inspection and tic-tac-toe.
@@ -318,8 +318,9 @@ so each mark begins on the first layer. Flip each piece mark side up for play.
 
 For a paper mat, use the [300 mm SVG](printables/tictactoe/mat-300x300.svg) or
 [A3 landscape PDF](printables/tictactoe/mat-a3.pdf). Print the PDF at Actual Size
-and check the 100 mm line. The paper mats have a left bank for X, a right bank
-for O and a small hollow ring for Park. Their four camera markers are built in.
+and check the 100 mm line. The play and reserve spots are hollow rings, with an
+X bank on the left, an O bank on the right and a small ring for Park. The four
+corner codes use solid dark squares and a white border for camera registration.
 
 ![3D-printed mat layout showing cells, a single reserve bank and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
@@ -335,20 +336,23 @@ for O and a small hollow ring for Park. Their four camera markers are built in.
    the cup to the centre of its flat top. Click **Teach tool position**.
    The picker advances to the next position. Teach **Park** at a clear height
    above the guide using the same tool rotation. Return the tool to Park and
-   remove the sample piece. Re-teach after moving the mat or changing layouts.
+   remove the sample piece. If the tool is visible over the mat, capture the
+   empty mat again with the tool at Park. Re-teach after moving the mat or
+   changing layouts.
 4. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least
    four of O1–O5 with noughts. On the single-bank mat, put the Dobot’s mark in
    the reserve slots. Load five if it plays X or four if it plays O. Select
    **New game**.
-5. On your turn, place one piece and move your hand away before choosing
-   **Read my X** or **Read my O**. On the Dobot’s turn, review its chosen cell,
-   then select **Place Dobot X** or **Place Dobot O** and confirm. The camera
-   checks the destination and the cleared reserve slot after transfer.
-6. Use **Stop** or Escape to interrupt a transfer. Support any held piece before
-   using **Release suction**. Watch a single test lift and placement before
-   playing a full game.
+5. On your turn, centre one piece in an empty cell and take your hand away.
+   Once the camera sees one legal move and a clear, unchanged mat for 1.5
+   seconds, the Dobot makes its move. A change, obstruction or lost camera view
+   restarts the countdown. If you play O, the Dobot opens after the same check.
+   The camera verifies the destination and the cleared reserve slot after transfer.
+6. Keep hands clear until the tool returns to Park and the screen shows your
+   turn. Use **Stop** or Escape to interrupt. Support any held piece before using
+   **Release suction**. Watch the first lift and placement to check reach and suction.
 
-![Overhead example using the single-bank mat after a verified nought placement](docs/images/tictactoe-camera.png)
+![Overhead view of the outlined paper mat during an automatic turn countdown](docs/images/tictactoe-camera.png)
 
 The camera and suction examples use simulated hardware. Print scale, camera
 contrast, reach and suction sealing need checking with the physical setup.

@@ -10,13 +10,15 @@ from dobot_studio.tictactoe import (
     NOUGHT_INNER, NOUGHT_OUTER, O, PAPER_MAT, PIECE_RADIUS, STANDARD_MAT, UNKNOWN, X,
     human_change, outcome, robot_move, with_move,
 )
-from dobot_studio.tictactoe_vision import Position, read_position, rectify
+from dobot_studio.tictactoe_program import TurnDelay
+from dobot_studio.tictactoe_vision import Position, mat_clear, read_position, rectify
 
 
 def camera_view(contents, shift=0, layout=STANDARD_MAT):
     """An angled, 640 px view of the 300 mm mat and the supplied glyphs."""
     density = 3
-    rgb = np.full((MAT_HEIGHT*density, MAT_WIDTH*density, 3), (43, 68, 75), np.uint8)
+    background = (250, 250, 250) if layout is PAPER_MAT else (43, 68, 75)
+    rgb = np.full((MAT_HEIGHT*density, MAT_WIDTH*density, 3), background, np.uint8)
     aruco = cv2.aruco
     dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
     for key, (x, y) in layout.anchors.items():
@@ -28,7 +30,10 @@ def camera_view(contents, shift=0, layout=STANDARD_MAT):
         rgb[cy-radius:cy+radius, cx-radius:cx+radius] = image[:, :, None]
     for label, (x, y) in layout.positions.items():
         cx, cy = round(x*density), round(y*density)
-        cv2.circle(rgb, (cx, cy), round(13.6*density), (31, 49, 58), -1, cv2.LINE_AA)
+        if layout is PAPER_MAT:
+            cv2.circle(rgb, (cx, cy), round(10.9*density), (34, 54, 74), round(1.65*density), cv2.LINE_AA)
+        else:
+            cv2.circle(rgb, (cx, cy), round(13.6*density), (31, 49, 58), -1, cv2.LINE_AA)
         glyph = contents.get(label)
         if not glyph:
             continue
@@ -99,6 +104,37 @@ class TicTacToeTests(unittest.TestCase):
         for mark in (X, O):
             ys = [PAPER_MAT.positions[slot][1] for slot in PAPER_MAT.bank(mark)]
             self.assertEqual(np.diff(ys).tolist(), [30] * 4)
+
+    def test_clear_check_detects_an_obstruction_between_the_cells(self):
+        for layout in (PAPER_MAT, STANDARD_MAT):
+            with self.subTest(layout=layout.label):
+                reserve = layout.bank(O)[1]
+                base = rectify(camera_view({}, layout=layout))
+                rgb = camera_view({"A1": X, reserve: O}, layout=layout)
+                clear = rectify(rgb)
+                position = read_position(clear.grey, base.grey, layout)
+                self.assertTrue(mat_clear(clear, base, position))
+
+                # The hand is visible between the cells even though the pieces still read correctly.
+                cv2.ellipse(rgb, (325, 166), (8, 15), -15, 0, 360, (190, 144, 115), -1)
+                blocked = rectify(rgb)
+                self.assertEqual(read_position(blocked.grey, base.grey, layout), position)
+                self.assertFalse(mat_clear(blocked, base, position))
+
+    def test_turn_delay_restarts_for_changes_obstructions_and_missing_frames(self):
+        delay = TurnDelay()
+        first = Position(with_move(EMPTY, 0, X), ())
+        second = Position(with_move(EMPTY, 3, X), ())
+        self.assertEqual(delay.remaining(first, 10), 1.5)
+        self.assertEqual(delay.remaining(first, 10.5), 1)
+        self.assertEqual(delay.remaining(second, 10.75), 1.5)
+        self.assertEqual(delay.remaining(second, 11.75), 1.5)
+
+        delay.reset()  # Obstruction encountered before the move.
+        self.assertEqual(delay.remaining(second, 12), 1.5)
+        self.assertEqual(delay.remaining(second, 12.5), 1)
+        self.assertEqual(delay.remaining(second, 13), 0.5)
+        self.assertEqual(delay.remaining(second, 13.5), 0)
 
     def test_long_pick_and_place_can_go_via_the_taught_clearance_point(self):
         arm = Magician.__new__(Magician)

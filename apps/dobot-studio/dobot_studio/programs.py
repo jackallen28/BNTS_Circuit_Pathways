@@ -12,7 +12,7 @@ PROGRAMS = (
     ("blocks", "3D Block Lab", "Build a stepped pyramid or box, or rebuild mixed stacks by colour."),
     ("math", "Equation Lab", "Read arithmetic from a chip tray and place an answer."),
     ("teach", "Micro:bit Teach", "Record and replay a path with tilt and tool commands."),
-    ("tictactoe", "Tic-tac-toe", "Play crosses against Dobot and watch it place its noughts."),
+    ("tictactoe", "Tic-tac-toe", "Play X or O on the camera-tracked mat. Dobot takes its turns automatically."),
 )
 
 

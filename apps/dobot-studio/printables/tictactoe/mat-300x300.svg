@@ -11,100 +11,43 @@
     <line x1="161" y1="52.5" x2="161" y2="217.5" fill="none" stroke="#879caf" stroke-width="0.45" />
     <line x1="53" y1="107.5" x2="215" y2="107.5" fill="none" stroke="#879caf" stroke-width="0.45" />
     <line x1="53" y1="162.5" x2="215" y2="162.5" fill="none" stroke="#879caf" stroke-width="0.45" />
-    <circle cx="80" cy="80" r="14.25" fill="#22364a" />
-    <circle cx="80" cy="80" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="78.5" y1="80" x2="81.5" y2="80" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="80" y1="78.5" x2="80" y2="81.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="80" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="59" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A1</text>
-    <circle cx="134" cy="80" r="14.25" fill="#22364a" />
-    <circle cx="134" cy="80" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="132.5" y1="80" x2="135.5" y2="80" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="134" y1="78.5" x2="134" y2="81.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="134" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="113" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A2</text>
-    <circle cx="188" cy="80" r="14.25" fill="#22364a" />
-    <circle cx="188" cy="80" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="186.5" y1="80" x2="189.5" y2="80" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="188" y1="78.5" x2="188" y2="81.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="188" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="167" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A3</text>
-    <circle cx="80" cy="135" r="14.25" fill="#22364a" />
-    <circle cx="80" cy="135" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="78.5" y1="135" x2="81.5" y2="135" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="80" y1="133.5" x2="80" y2="136.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="80" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="59" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B1</text>
-    <circle cx="134" cy="135" r="14.25" fill="#22364a" />
-    <circle cx="134" cy="135" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="132.5" y1="135" x2="135.5" y2="135" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="134" y1="133.5" x2="134" y2="136.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="134" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="113" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B2</text>
-    <circle cx="188" cy="135" r="14.25" fill="#22364a" />
-    <circle cx="188" cy="135" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="186.5" y1="135" x2="189.5" y2="135" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="188" y1="133.5" x2="188" y2="136.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="188" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="167" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B3</text>
-    <circle cx="80" cy="190" r="14.25" fill="#22364a" />
-    <circle cx="80" cy="190" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="78.5" y1="190" x2="81.5" y2="190" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="80" y1="188.5" x2="80" y2="191.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="80" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="59" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C1</text>
-    <circle cx="134" cy="190" r="14.25" fill="#22364a" />
-    <circle cx="134" cy="190" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="132.5" y1="190" x2="135.5" y2="190" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="134" y1="188.5" x2="134" y2="191.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="134" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="113" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C2</text>
-    <circle cx="188" cy="190" r="14.25" fill="#22364a" />
-    <circle cx="188" cy="190" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="186.5" y1="190" x2="189.5" y2="190" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="188" y1="188.5" x2="188" y2="191.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="188" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="167" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C3</text>
-    <circle cx="34" cy="86" r="14.25" fill="#22364a" />
-    <circle cx="34" cy="86" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="32.5" y1="86" x2="35.5" y2="86" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="34" y1="84.5" x2="34" y2="87.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="34" cy="86" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="16" y="87.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X1</text>
-    <circle cx="34" cy="116" r="14.25" fill="#22364a" />
-    <circle cx="34" cy="116" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="32.5" y1="116" x2="35.5" y2="116" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="34" y1="114.5" x2="34" y2="117.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="34" cy="116" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="16" y="117.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X2</text>
-    <circle cx="34" cy="146" r="14.25" fill="#22364a" />
-    <circle cx="34" cy="146" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="32.5" y1="146" x2="35.5" y2="146" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="34" y1="144.5" x2="34" y2="147.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="34" cy="146" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="16" y="147.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X3</text>
-    <circle cx="34" cy="176" r="14.25" fill="#22364a" />
-    <circle cx="34" cy="176" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="32.5" y1="176" x2="35.5" y2="176" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="34" y1="174.5" x2="34" y2="177.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="34" cy="176" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="16" y="177.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X4</text>
-    <circle cx="34" cy="206" r="14.25" fill="#22364a" />
-    <circle cx="34" cy="206" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="32.5" y1="206" x2="35.5" y2="206" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="34" y1="204.5" x2="34" y2="207.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="34" cy="206" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="16" y="207.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X5</text>
-    <circle cx="234" cy="86" r="14.25" fill="#22364a" />
-    <circle cx="234" cy="86" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="232.5" y1="86" x2="235.5" y2="86" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="234" y1="84.5" x2="234" y2="87.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="234" cy="86" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="252" y="87.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O1</text>
-    <circle cx="234" cy="116" r="14.25" fill="#22364a" />
-    <circle cx="234" cy="116" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="232.5" y1="116" x2="235.5" y2="116" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="234" y1="114.5" x2="234" y2="117.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="234" cy="116" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="252" y="117.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O2</text>
-    <circle cx="234" cy="146" r="14.25" fill="#22364a" />
-    <circle cx="234" cy="146" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="232.5" y1="146" x2="235.5" y2="146" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="234" y1="144.5" x2="234" y2="147.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="234" cy="146" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="252" y="147.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O3</text>
-    <circle cx="234" cy="176" r="14.25" fill="#22364a" />
-    <circle cx="234" cy="176" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="232.5" y1="176" x2="235.5" y2="176" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="234" y1="174.5" x2="234" y2="177.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="234" cy="176" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="252" y="177.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O4</text>
-    <circle cx="234" cy="206" r="14.25" fill="#22364a" />
-    <circle cx="234" cy="206" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
-    <line x1="232.5" y1="206" x2="235.5" y2="206" fill="none" stroke="#9ab0be" stroke-width="0.19" />
-    <line x1="234" y1="204.5" x2="234" y2="207.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <circle cx="234" cy="206" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
     <text x="252" y="207.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O5</text>
     <circle cx="153" cy="154" r="2.3" fill="none" stroke="#1e596b" stroke-width="0.35" />
   </g>

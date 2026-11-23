@@ -1,4 +1,4 @@
-"""Identify the flush playing pieces in the registered overhead tray view."""
+"""Read playing pieces and check for obstructions in the registered mat view."""
 from dataclasses import dataclass
 from functools import lru_cache
 from math import radians
@@ -6,11 +6,12 @@ from math import radians
 from .block_vision import detect
 from .tictactoe import (
     CELLS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MAT_HEIGHT, MAT_LAYOUTS, MAT_WIDTH,
-    MatLayout, NOUGHT_INNER, NOUGHT_OUTER, O, STANDARD_MAT, UNKNOWN, X,
+    MatLayout, NOUGHT_INNER, NOUGHT_OUTER, O, PIECE_RADIUS, STANDARD_MAT, UNKNOWN, X,
 )
 
 DENSITY = 4
 RADIUS = 13 * DENSITY
+CLEAR_DENSITY = 2
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class Position:
 @dataclass(frozen=True)
 class MatView:
     grey: object
+    colour: object
     corners: object
     shape: tuple
     matrix: object
@@ -44,7 +46,10 @@ def rectify(rgb):
     matrix = cv2.getPerspectiveTransform(corners, target)
     grey = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     warped = cv2.warpPerspective(grey, matrix, (MAT_WIDTH*DENSITY, MAT_HEIGHT*DENSITY))
-    return MatView(warped, corners, grey.shape, matrix, layout)
+    clear_matrix = matrix.copy()
+    clear_matrix[:2] *= CLEAR_DENSITY / DENSITY
+    colour = cv2.warpPerspective(rgb, clear_matrix, (MAT_WIDTH*CLEAR_DENSITY, MAT_HEIGHT*CLEAR_DENSITY))
+    return MatView(warped, colour, corners, grey.shape, matrix, layout)
 
 
 def _patch(image, centre):
@@ -105,3 +110,23 @@ def read_position(grey, baseline, layout=STANDARD_MAT):
     symbols = {name: piece(_patch(grey, centre), _patch(baseline, centre))
                for name, centre in layout.positions.items()}
     return Position(tuple(symbols[name] for name in CELLS), tuple(symbols[name] for name in layout.reserve))
+
+
+def mat_clear(view, reference, position):
+    """Check for foreground objects between the markers, including between the slots."""
+    import cv2
+
+    delta = cv2.absdiff(view.colour, reference.colour)
+    foreground = cv2.bitwise_not(cv2.inRange(delta, (0, 0, 0), (34, 34, 34)))
+    radius = round((PIECE_RADIUS + 2) * CLEAR_DENSITY)
+    for (x, y), mark in zip(view.layout.positions.values(), (*position.board, *position.reserve)):
+        if mark in (X, O):
+            cv2.circle(foreground, (round(x * CLEAR_DENSITY), round(y * CLEAR_DENSITY)), radius, 0, -1)
+
+    xs, ys = zip(*view.layout.anchors.values())
+    region = foreground[min(ys)*CLEAR_DENSITY:max(ys)*CLEAR_DENSITY,
+                        min(xs)*CLEAR_DENSITY:max(xs)*CLEAR_DENSITY]
+    # Remove thin edges from minor registration differences before measuring the obstruction.
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    region = cv2.morphologyEx(region, cv2.MORPH_OPEN, kernel)
+    return cv2.countNonZero(region) <= 40 * CLEAR_DENSITY**2

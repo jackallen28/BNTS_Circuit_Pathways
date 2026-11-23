@@ -11,8 +11,29 @@ from .tictactoe import (
     CELLS, EMPTY, O, PAPER_MAT, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
     human_change, outcome, robot_move, winning_line, with_move,
 )
-from .tictactoe_vision import DENSITY, Position, read_position, rectify
+from .tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
 from .vision import Camera, TABLETOP
+
+TURN_DELAY = 1.5
+VIEW_TIMEOUT = 0.55
+
+
+class TurnDelay:
+    """Time an unchanged position using consecutive clear camera observations."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.position = None
+        self.since = self.last = 0.0
+
+    def remaining(self, position, timestamp):
+        if position != self.position or timestamp - self.last > VIEW_TIMEOUT:
+            self.position = position
+            self.since = timestamp
+        self.last = timestamp
+        return TURN_DELAY - (timestamp - self.since)
 
 
 class TicTacToeProgram:
@@ -41,6 +62,8 @@ class TicTacToeProgram:
         self.poses = {}
         self.reference = self.rectified = self.feed = self.photo = None
         self.latest = self.chosen = self.checking = None
+        self.view_clear = False
+        self.turn_delay = TurnDelay()
         self.seen = 0
         self.timestamp = self.analysed = self.deadline = 0
         self.camera = self.busy = self.demo_timer = None
@@ -125,9 +148,6 @@ class TicTacToeProgram:
                   fg=PURPLE).pack(fill="x")
         ui._label(body, textvariable=self.detail, size=9, fg=MUTED, wraplength=245,
                   justify="left").pack(fill="x", pady=(5, 6))
-        if not ui.demo:
-            self.turn_button = ui._button(body, "Read my cross", self.advance, "Teal")
-            self.turn_button.pack(fill="x", pady=(0, 5))
         self.new_button = ui._button(body, "New game", self.new_game)
         self.new_button.pack(fill="x")
         if not ui.demo:
@@ -189,6 +209,8 @@ class TicTacToeProgram:
             self.camera_epoch += 1
             self.camera = self.feed = self.rectified = self.latest = None
             self.ready = False
+            self.view_clear = False
+            self.turn_delay.reset()
             self.camera_status.set("Camera stopped. Resume with a new game.")
         elif self.device.get().strip() and not self.studio.camera_closing:
             self.camera_epoch += 1
@@ -203,21 +225,25 @@ class TicTacToeProgram:
     def capture_empty(self):
         if self.busy or self.checking or self.ready:
             return
-        if self.rectified is None or monotonic() - self.analysed > 0.55:
+        if self.rectified is None or monotonic() - self.analysed > VIEW_TIMEOUT:
             self.status.set("Wait until all four markers are visible.")
             return
-        if not messagebox.askokcancel("Capture the empty mat", "Remove every piece from the board and reserve slots.",
-                                      parent=self.window):
+        if not messagebox.askokcancel("Capture the empty mat", "Remove all pieces and take your hands off the mat. "
+                                      "For play, capture the mat with the tool at Park.", parent=self.window):
             return
-        if self.rectified is None or monotonic() - self.analysed > 0.55:
+        if self.rectified is None or monotonic() - self.analysed > VIEW_TIMEOUT:
             self.status.set("Show all four mat markers again.")
             return
         if self.reference is None or self._shifted(self.rectified):
             self.poses.clear()
         self.reference = self.rectified
         self.latest = None
+        self.view_clear = False
         self.seen = 0
-        self.status.set("Empty mat captured. Teach each centre with a sample playing piece.")
+        if all(place in self.poses for place in self.teach_order):
+            self.status.set("Empty mat captured. Load the reserves and start a new game.")
+        else:
+            self.status.set("Empty mat captured. Teach each centre with a sample playing piece.")
         self._render()
 
     def _shifted(self, view):
@@ -229,7 +255,7 @@ class TicTacToeProgram:
     def teach(self):
         if self.busy or self.checking or self.ready or not self.studio.robot or not self.studio.homed:
             return
-        if (self.reference is None or self.rectified is None or monotonic()-self.analysed > 0.55
+        if (self.reference is None or self.rectified is None or monotonic()-self.analysed > VIEW_TIMEOUT
                 or self._shifted(self.rectified)):
             self.status.set("Capture the empty mat with the camera and mat fixed in place.")
             return
@@ -257,9 +283,11 @@ class TicTacToeProgram:
             if dist((pose.x, pose.y), (park.x, park.y)) > 150:
                 raise ValueError("Teach Park near the marked clearance point so each cell is within 150 mm.")
 
-    def _steady(self, robot_mark=None):
-        if self.latest is None or self.seen < 2 or monotonic() - self.analysed > 0.55:
+    def _steady(self, robot_mark=None, *, min_frames=2):
+        if self.latest is None or self.seen < min_frames or monotonic() - self.analysed > VIEW_TIMEOUT:
             raise ValueError("Wait for a steady view of the entire mat.")
+        if not self.view_clear:
+            raise ValueError("Move hands and loose items off the mat. Keep the tool at Park.")
         if UNKNOWN in self.latest.board:
             raise ValueError("Centre each piece on its circle and check the camera contrast.")
         reserve = dict(zip(self.layout.reserve, self.latest.reserve))
@@ -269,7 +297,7 @@ class TicTacToeProgram:
         return self.latest
 
     def new_game(self):
-        if self.busy or self.checking:
+        if self.busy or self.checking or (self.ready and not self.studio.demo):
             return
         human = self.player_choice.get()
         robot = O if human == X else X
@@ -288,6 +316,7 @@ class TicTacToeProgram:
                 self.status.set(str(error))
                 return
         self.human = human
+        self.turn_delay.reset()
         self.board, self.turn, self.chosen, self.ready = EMPTY, X, None, True
         if self.turn == self.dobot:
             self._plan_reply("Dobot opens.")
@@ -295,39 +324,46 @@ class TicTacToeProgram:
             self.status.set("Your turn. Place one cross in an empty cell.")
         self._render()
 
-    def advance(self):
-        if not self.ready or self.busy or self.checking or outcome(self.board):
-            return
+    def _automatic_turn(self):
         try:
-            position = self._steady()
-            if self.turn == self.human:
-                index = human_change(self.board, position.board, self.human)
-                self.board = position.board
-                self._after_player(index)
+            position = self._steady(min_frames=1)
+            player_turn = self.turn == self.human
+            if player_turn and position.board == self.board:
+                self.turn_delay.reset()
+                self.status.set(f"Your turn. Place one {self.human} piece in an empty cell.")
                 return
-            self._check_setup()
-            if position.board != self.board:
+            if player_turn:
+                player_cell = human_change(self.board, position.board, self.human)
+            elif position.board != self.board:
                 raise ValueError("Keep the board still while the Dobot is taking its turn.")
-            reserve = dict(zip(self.layout.reserve, position.reserve))
-            source = next((name for name in self.layout.bank(self.dobot) if reserve[name] == self.dobot), None)
-            if source is None:
-                raise ValueError(f"Load a {self.dobot} piece into its reserve slots.")
-            target = self.chosen
-            text = f"Move {self.dobot} from {source} to {CELLS[target]}. Keep hands off the mat."
-            if not messagebox.askokcancel("Place Dobot piece", text, parent=self.window):
+            remaining = self.turn_delay.remaining(position, self.analysed)
+            if remaining > 0:
+                self.status.set(f"Mat clear. Confirming the position in {remaining:.1f} s. Keep hands clear.")
                 return
-            if self._steady() != position:
-                raise ValueError("The board changed during confirmation. Check the mat and try again.")
-            index = self.layout.reserve.index(source)
-            expected = Position(with_move(position.board, target, self.dobot),
-                                (*position.reserve[:index], "", *position.reserve[index + 1:]))
-            pick, drop, park = (self.poses[place] for place in (source, CELLS[target], "Park"))
-            self.status.set(f"Moving {self.dobot} to {CELLS[target]}…")
-            self._job("place", lambda: (expected, self.studio.robot.sort_chip(
-                pick, drop, park, self.abort, via_park=True)))
+            self.turn_delay.reset()
+            if player_turn:
+                self.board = position.board
+                self._after_player(player_cell)
+            if self.ready:
+                self._place_piece(position)
         except ValueError as error:
+            self.turn_delay.reset()
             self.status.set(str(error))
-        self._render()
+
+    def _place_piece(self, position):
+        self._check_setup()
+        reserve = dict(zip(self.layout.reserve, position.reserve))
+        source = next((name for name in self.layout.bank(self.dobot) if reserve[name] == self.dobot), None)
+        if source is None:
+            raise ValueError(f"Load a {self.dobot} piece into its reserve slots.")
+        target = self.chosen
+        index = self.layout.reserve.index(source)
+        expected = Position(with_move(position.board, target, self.dobot),
+                            (*position.reserve[:index], "", *position.reserve[index + 1:]))
+        pick, drop, park = (self.poses[place] for place in (source, CELLS[target], "Park"))
+        self.status.set(f"Moving {self.dobot} to {CELLS[target]}… Keep hands clear.")
+        self._job("place", lambda: (expected, self.studio.robot.sort_chip(
+            pick, drop, park, self.abort, via_park=True)))
 
     def _after_player(self, index):
         if outcome(self.board):
@@ -382,7 +418,7 @@ class TicTacToeProgram:
                              "Draw": "Draw. Play again with a clear board."}[result])
 
     def release(self):
-        if self.busy or self.checking or not self.studio.robot:
+        if self.ready or self.busy or self.checking or not self.studio.robot:
             return
         if messagebox.askokcancel("Release suction", "Support any piece on the cup before releasing it.",
                                   parent=self.window):
@@ -391,6 +427,7 @@ class TicTacToeProgram:
     def stop(self):
         self.ready = False
         self.checking = None
+        self.turn_delay.reset()
         if self.busy == "demo":
             self.window.after_cancel(self.demo_timer)
             self.demo_timer = self.busy = None
@@ -407,7 +444,7 @@ class TicTacToeProgram:
         self.feed = image
         self.timestamp = sample.timestamp
         if sample.timestamp - self.analysed < 0.15:
-            return
+            return False
         self.analysed = sample.timestamp
         try:
             self.rectified = rectify(np.asarray(image))
@@ -418,7 +455,9 @@ class TicTacToeProgram:
                 raise ValueError("The mat or camera moved. Re-register the empty mat.")
             else:
                 position = read_position(view.grey, self.reference.grey, view.layout)
-                self.seen = self.seen+1 if position == self.latest else 1
+                clear = self.busy != "place" and mat_clear(view, self.reference, position)
+                self.seen = self.seen+1 if position == self.latest and clear and self.view_clear else 1
+                self.view_clear = clear
                 self.latest = position
                 self.camera_status.set(f"{view.layout.label} mat · {sum(bool(piece) for piece in position.reserve)} in reserve")
         except (ImportError, ValueError) as error:
@@ -431,8 +470,10 @@ class TicTacToeProgram:
                 self.rectified = None
             self.latest = None
             self.seen = 0
+            self.view_clear = False
             self.camera_status.set(str(error))
         self._draw_camera()
+        return True
 
     def _tick(self):
         while True:
@@ -447,6 +488,7 @@ class TicTacToeProgram:
                     if self.camera:
                         self.studio.camera_closing = self.camera
                     self.camera = self.feed = self.latest = self.rectified = None
+                    self.view_clear = False
                     self._draw_camera()
                 continue
             self.busy = None
@@ -471,28 +513,37 @@ class TicTacToeProgram:
             elif name == "release":
                 self.status.set("Suction release acknowledged.")
 
+        updated = False
         if self.camera:
             sample = self.camera.read()
             if sample and sample[0].timestamp > self.timestamp:
-                self._read_frame(*sample)
-        if self.busy == "place" and not self.abort.is_set() and monotonic() - self.timestamp > 0.85:
+                updated = self._read_frame(*sample)
+        now = monotonic()
+        stale = now - self.analysed > VIEW_TIMEOUT
+        if self.busy == "place" and not self.abort.is_set() and now - self.timestamp > 0.85:
             self.stop()
             self.status.set("Camera stalled. Stopping the transfer.")
-        if self.checking and self.latest == self.checking and self.seen >= 2:
-            self.board = self.checking.board
-            self.checking = None
-            self._after_dobot()
-        if self.checking and monotonic() > self.deadline:
-            self.checking = None
-            self.ready = False
-            self.status.set("Placement was not confirmed. Check the piece and clear the mat for a new game.")
+        if self.checking:
+            if now > self.deadline:
+                self.checking = None
+                self.ready = False
+                self.status.set("Placement was not confirmed. Check the piece and clear the mat for a new game.")
+            elif not stale and self.view_clear and self.seen >= 2 and self.latest == self.checking:
+                self.board = self.checking.board
+                self.checking = None
+                self._after_dobot()
+        elif self.ready and not self.busy and not self.studio.demo:
+            if stale:
+                self.turn_delay.reset()
+                self.status.set("Waiting for a fresh overhead camera view.")
+            elif updated:
+                self._automatic_turn()
         self._render()
         self.window.after(65, self._tick)
 
     def _render(self):
         ui = self.studio
         idle = not self.busy and self.checking is None
-        result = outcome(self.board)
         player = self.human if self.ready else self.player_choice.get()
         self.roles.set(f"You play {player}. Dobot plays {O if player == X else X}.")
         can_choose = not self.ready or (ui.demo and self.board == EMPTY)
@@ -501,7 +552,8 @@ class TicTacToeProgram:
             self.detail.set("Select an empty cell on the blue board. Dobot replies automatically.")
         else:
             order = self.teach_order
-            self.detail.set(f"{len(self.poses)}/{len(order)} tool positions taught. "
+            self.detail.set("Place one piece and take your hand away. Dobot replies after 1.5 clear seconds."
+                            if self.ready else f"{len(self.poses)}/{len(order)} tool positions taught. "
                             "Capture the mat empty before loading the reserves.")
             self.camera_button.configure(text="Stop camera" if self.camera else "Start camera")
             self.slot_picker.configure(values=order, state="readonly" if idle and not self.ready else "disabled")
@@ -510,11 +562,8 @@ class TicTacToeProgram:
             ui._set_button(self.camera_button, idle)
             ui._set_button(self.empty_button, idle and not self.ready and self.rectified is not None)
             ui._set_button(self.teach_button, idle and not self.ready and ui.homed and self.reference is not None)
-            turn_label = f"Read my {self.human}" if self.turn == self.human else f"Place Dobot {self.dobot}"
-            self.turn_button.configure(text=turn_label)
-            ui._set_button(self.turn_button, idle and self.ready and not result)
-            ui._set_button(self.release_button, idle and ui.robot is not None)
-        ui._set_button(self.new_button, idle)
+            ui._set_button(self.release_button, idle and not self.ready and ui.robot is not None)
+        ui._set_button(self.new_button, idle and (ui.demo or not self.ready))
         ui._set_button(self.stop_button, self.ready or not idle)
         self._draw_game()
 

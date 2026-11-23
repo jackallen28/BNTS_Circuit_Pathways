@@ -1,7 +1,7 @@
 # Dobot tic-tac-toe print set
 
 The 3D mat is **300 × 300 × 2.8 mm**. It has nine recessed play cells, five reserve
-slots for the Dobot’s noughts, and four corner outlines for camera markers.
+slots for the Dobot’s pieces, and four corner outlines for camera markers.
 The play pieces are **Ø25 × 3.2 mm**. Models use millimetres.
 
 | File | Use |
@@ -36,16 +36,19 @@ The play pieces are **Ø25 × 3.2 mm**. Models use millimetres.
 
 Print **mat-a3.pdf** on **A3 landscape** at **Actual Size (100%)**. Measure the
 100 mm scale line. Use the **300 × 300 mm SVG** when you want the full square.
-Both paper formats mark the Park position with a hollow ring.
+Both paper formats outline the play, reserve and Park positions.
 
 The paper layouts have five X reserve slots on the left and five O reserve
-slots on the right, spaced 30 mm apart. Their four camera markers are built
-in. Use the current Dobot Studio app to register and teach this layout. The
-app also recognises the single-reserve 3D mat and earlier paper mats.
+slots on the right, spaced 30 mm apart. Keep the solid dark squares and white
+border of each built-in camera marker so the camera can read its pattern.
+Use Dobot Studio to register and teach this layout. The app also recognises
+the single-reserve 3D mat and earlier paper mats.
 
 Secure the sheet flat, capture it empty and teach the tool using a sample
-piece centred on each circle. Choose **Play as**, then start a new game.
-X goes first. The Dobot takes pieces from the bank for its mark.
+piece centred on each circle. If the camera sees the tool over the mat,
+capture the empty mat again with the tool at Park. Load the reserves, choose
+**Play as**, then start a new game. X goes first. The Dobot takes pieces from
+its bank automatically after the camera sees a clear mat for 1.5 seconds.
 
 ## Assemble the mat
 
