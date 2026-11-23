@@ -7,6 +7,8 @@ The play pieces are **Ø25 × 3.2 mm**. Models use millimetres.
 | File | Use |
 | --- | --- |
 | [mat-300x300.obj](mat-300x300.obj) | Print the entire mat on a bed that can fit it. |
+| [mat-300x300.svg](mat-300x300.svg) | Edit or print the vector artwork with its full 300 mm outline. |
+| [mat-a3.pdf](mat-a3.pdf) | Print one A3 portrait paper mat at the calibrated spacing. |
 | [tiles/](tiles/) | Print four 150 × 150 mm quadrants for smaller beds. |
 | [cross.obj](cross.obj), [nought.obj](nought.obj) | Two-part OBJ files with named **Body** and **Mark** meshes. |
 | [parts/](parts/) | Separate Body and Mark OBJs with the same origin. |
@@ -29,6 +31,17 @@ The play pieces are **Ø25 × 3.2 mm**. Models use millimetres.
    piece five times for each symbol.
 4. Flip each piece over so the first printed face and symbol face up during
    play. Check the suction cup on a spare piece before using the arm.
+
+## Print the paper mat
+
+Print **mat-a3.pdf** on **A3 portrait** at **Actual Size (100%)**. Measure the
+100 mm scale line. All nine cell centres, five reserve centres, the Park guide
+and the four camera markers use the 3D mat's calibrated spacing. The 297 mm
+A3 page fits that layout with room for printer margins. The SVG includes the
+full 300 mm outline.
+
+The paper mat has all four markers built in. Secure it flat, capture it empty
+and teach the tool using a sample piece centred on each printed circle.
 
 ## Assemble the mat
 

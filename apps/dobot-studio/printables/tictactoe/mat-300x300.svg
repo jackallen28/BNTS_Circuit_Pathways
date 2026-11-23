@@ -1,0 +1,205 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="300mm" height="300mm" viewBox="0 0 300 300" role="img" aria-labelledby="title description" font-family="Arial, sans-serif">
+  <title id="title">Dobot Studio tic-tac-toe mat</title>
+  <desc id="description">300 mm square. Nine labelled play cells, five reserve slots and four calibrated ArUco markers.</desc>
+  <g id="300-mm-outline">
+    <rect x="0.5" y="0.5" width="299" height="299" rx="0" fill="#ffffff" stroke="#879caf" stroke-width="0.35" />
+  </g>
+  <g id="board-grid">
+    <rect x="53" y="52.5" width="162" height="165" rx="3" fill="none" stroke="#879caf" stroke-width="0.65" />
+    <line x1="107" y1="52.5" x2="107" y2="217.5" fill="none" stroke="#879caf" stroke-width="0.45" />
+    <line x1="161" y1="52.5" x2="161" y2="217.5" fill="none" stroke="#879caf" stroke-width="0.45" />
+    <line x1="53" y1="107.5" x2="215" y2="107.5" fill="none" stroke="#879caf" stroke-width="0.45" />
+    <line x1="53" y1="162.5" x2="215" y2="162.5" fill="none" stroke="#879caf" stroke-width="0.45" />
+    <circle cx="80" cy="80" r="14.25" fill="#22364a" />
+    <circle cx="80" cy="80" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="78.5" y1="80" x2="81.5" y2="80" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="80" y1="78.5" x2="80" y2="81.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="59" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A1</text>
+    <circle cx="134" cy="80" r="14.25" fill="#22364a" />
+    <circle cx="134" cy="80" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="132.5" y1="80" x2="135.5" y2="80" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="134" y1="78.5" x2="134" y2="81.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="113" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A2</text>
+    <circle cx="188" cy="80" r="14.25" fill="#22364a" />
+    <circle cx="188" cy="80" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="186.5" y1="80" x2="189.5" y2="80" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="188" y1="78.5" x2="188" y2="81.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="167" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A3</text>
+    <circle cx="80" cy="135" r="14.25" fill="#22364a" />
+    <circle cx="80" cy="135" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="78.5" y1="135" x2="81.5" y2="135" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="80" y1="133.5" x2="80" y2="136.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="59" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B1</text>
+    <circle cx="134" cy="135" r="14.25" fill="#22364a" />
+    <circle cx="134" cy="135" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="132.5" y1="135" x2="135.5" y2="135" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="134" y1="133.5" x2="134" y2="136.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="113" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B2</text>
+    <circle cx="188" cy="135" r="14.25" fill="#22364a" />
+    <circle cx="188" cy="135" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="186.5" y1="135" x2="189.5" y2="135" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="188" y1="133.5" x2="188" y2="136.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="167" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B3</text>
+    <circle cx="80" cy="190" r="14.25" fill="#22364a" />
+    <circle cx="80" cy="190" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="78.5" y1="190" x2="81.5" y2="190" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="80" y1="188.5" x2="80" y2="191.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="59" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C1</text>
+    <circle cx="134" cy="190" r="14.25" fill="#22364a" />
+    <circle cx="134" cy="190" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="132.5" y1="190" x2="135.5" y2="190" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="134" y1="188.5" x2="134" y2="191.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="113" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C2</text>
+    <circle cx="188" cy="190" r="14.25" fill="#22364a" />
+    <circle cx="188" cy="190" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="186.5" y1="190" x2="189.5" y2="190" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="188" y1="188.5" x2="188" y2="191.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="167" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C3</text>
+    <circle cx="234" cy="86" r="14.25" fill="#22364a" />
+    <circle cx="234" cy="86" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="232.5" y1="86" x2="235.5" y2="86" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="234" y1="84.5" x2="234" y2="87.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="253" y="87.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">R1</text>
+    <circle cx="234" cy="116" r="14.25" fill="#22364a" />
+    <circle cx="234" cy="116" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="232.5" y1="116" x2="235.5" y2="116" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="234" y1="114.5" x2="234" y2="117.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="253" y="117.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">R2</text>
+    <circle cx="234" cy="174" r="14.25" fill="#22364a" />
+    <circle cx="234" cy="174" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="232.5" y1="174" x2="235.5" y2="174" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="234" y1="172.5" x2="234" y2="175.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="253" y="175.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">R3</text>
+    <circle cx="234" cy="204" r="14.25" fill="#22364a" />
+    <circle cx="234" cy="204" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="232.5" y1="204" x2="235.5" y2="204" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="234" y1="202.5" x2="234" y2="205.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="253" y="205.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">R4</text>
+    <circle cx="234" cy="234" r="14.25" fill="#22364a" />
+    <circle cx="234" cy="234" r="12.5" fill="none" stroke="#9ab0be" stroke-width="0.22" />
+    <line x1="232.5" y1="234" x2="235.5" y2="234" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <line x1="234" y1="232.5" x2="234" y2="235.5" fill="none" stroke="#9ab0be" stroke-width="0.19" />
+    <text x="253" y="235.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">R5</text>
+    <line x1="152.7" y1="207" x2="157.3" y2="207" fill="none" stroke="#1e596b" stroke-width="0.35" />
+    <line x1="155" y1="204.7" x2="155" y2="209.3" fill="none" stroke="#1e596b" stroke-width="0.35" />
+    <text x="159" y="208.2" fill="#1e596b" text-anchor="start" font-size="2.75" font-weight="bold">Park</text>
+  </g>
+  <g id="camera-markers">
+    <rect x="7" y="7" width="20" height="20" rx="0" fill="#ffffff" />
+    <rect x="9" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="14.33333" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="14.33333" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="17" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="17" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="17" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="14.33333" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="14.33333" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="273" y="7" width="20" height="20" rx="0" fill="#ffffff" />
+    <rect x="275" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="277.66667" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="283" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="9" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="277.66667" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="11.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="14.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="17" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="17" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="17" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="19.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="277.66667" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="283" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="22.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="273" y="273" width="20" height="20" rx="0" fill="#ffffff" />
+    <rect x="275" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="277.66667" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="283" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="277.66667" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="280.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="283" y="280.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="280.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="277.66667" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="285.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="285.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="275" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="277.66667" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="280.33333" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="283" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="285.66667" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="288.33333" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="7" y="273" width="20" height="20" rx="0" fill="#ffffff" />
+    <rect x="9" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="14.33333" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="275" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="277.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="280.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="14.33333" y="280.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="280.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="283" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="285.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="285.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="285.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="285.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="285.66667" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="9" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="11.66667" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="14.33333" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="17" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="19.66667" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+    <rect x="22.33333" y="288.33333" width="2.66667" height="2.66667" rx="0" fill="#000000" />
+  </g>
+</svg>

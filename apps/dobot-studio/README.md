@@ -312,25 +312,30 @@ play X. The simulated Dobot replies as O. On the physical mat the overhead
 camera reads the board and sees which reserve slots still hold noughts.
 
 [Download the 300 mm print set](printables/tictactoe-300mm.zip) or
-[browse individual OBJs and Bambu Studio instructions](printables/tictactoe/README.md).
+[browse the 3D and paper mat files](printables/tictactoe/README.md).
 The set contains a **300 × 300 mm** mat, four **150 × 150 mm** tiles, and
 flush, two-colour **Ø25 mm** playing pieces. Keep the supplied print
 orientation so each mark begins in the first layer. Flip the pieces mark
 side up for camera recognition and suction.
 
+For a paper mat, use the [300 mm SVG](printables/tictactoe/mat-300x300.svg) or
+[A3 portrait PDF](printables/tictactoe/mat-a3.pdf). Print the PDF at Actual Size
+and check the 100 mm line. The four camera markers are built into both files.
+
 ![Printed mat layout showing cells A1 to C3, reserve slots, markers and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
 ### Set up the physical game
 
-1. Secure the mat and its four paper markers on a flat table. Mount the webcam
-   overhead and frame all four markers. Select **USB hardware**, connect the
-   Magician with the suction cup fitted, and home it.
+1. Secure the mat on a flat table. Attach the four marker cards if using the
+   3D mat. Mount the webcam overhead and frame all four markers. Select
+   **USB hardware**, connect the Magician with the suction cup fitted, and home it.
 2. Open **Tic-tac-toe** and start the camera. Remove all the pieces, then choose
    **Capture empty mat**. The camera view labels the nine play cells and all
    five reserve slots.
 3. Select each position from **A1** through **C3** and then **Reserve 1** through
-   **Reserve 5**. Rest a sample piece in that recess and hand-guide the cup to
-   the centre of its flat top. Click **Teach tool position**. The picker advances
+   **Reserve 5**. Centre a sample piece in the recess or on the printed circle.
+   Hand-guide the cup to the centre of its flat top. Click **Teach tool position**.
+   The picker advances
    to the next position. Teach **Park** at a clear height above the printed
    Park guide, with the same tool rotation as the pickup and drop positions.
    Return the tool to Park and remove the sample piece. Recalibrate if the mat
