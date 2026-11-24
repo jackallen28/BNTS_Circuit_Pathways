@@ -321,31 +321,49 @@ Hard is the default, and the program remembers the level until Dobot Studio clos
 
 [Download the print set](printables/tictactoe-300mm.zip) or
 [browse the 3D and paper mat files](printables/tictactoe/README.md).
-The 3D files include a **300 × 300 mm** mat, four **150 × 150 mm** tiles and
-flush, two-colour **Ø25 mm** playing pieces. Keep the supplied print orientation
-so each mark begins on the first layer. Flip each piece mark side up for play.
+The 3D files include a flat, two-colour **300 × 300 mm** mat, an **A3-size
+420 × 297 mm** mat in two halves, and flush, two-colour **Ø25 mm** and **Ø40 mm**
+playing pieces. The 300 mm mat fits a Bambu H2D bed whole. Its four tiles suit
+256 mm beds. Print each mat face-down, as supplied, and turn it over to play.
+Keep the supplied print orientation so each mark begins on the first layer. Flip
+each piece mark side up for play.
 
 For a paper mat, use the [300 mm SVG](printables/tictactoe/mat-300x300.svg) or
-[full-size A3 PDF](printables/tictactoe/mat-a3.pdf). The A3 layout has 5 mm print
-margins and uses [Ø40 mm tokens](printables/tictactoe/a3-pieces). The 300 mm SVG
-uses Ø25 mm tokens. Print at Actual Size and check the A3 sheet's 100 mm line.
+[full-size A3 PDF](printables/tictactoe/mat-a3.pdf). The A3 layout keeps all ink
+at least 8 mm from the paper edge and uses
+[Ø40 mm tokens](printables/tictactoe/a3-pieces). The 300 mm SVG uses Ø25 mm
+tokens. **Print at 100%, not Fit**, and check the A3 sheet's 100 mm line (see
+[Print the paper mat](printables/tictactoe/README.md#print-the-paper-mat)).
 The play and reserve spots are hollow rings, with an X bank on the left and an
 O bank on the right. Use the small Park ring as a guide for the tool's clearance
 position. The four corner codes register the mat with the camera.
 
-![3D-printed mat layout showing cells, a single reserve bank and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
+The mats carry **no printed names** such as A1 or X3. The camera finds each
+position from the corner codes, so the mat can sit any way round and the camera
+can be mounted behind it. During setup the program names and highlights each
+position instead (see step 3).
+
+![3D-printed mat layout showing the cells, an X bank on the left, an O bank on the right and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
 ### Set up the physical game
 
+![Tic-tac-toe setup with the mat map naming the next position to teach, X3, and the overhead camera view highlighting the same circle](docs/images/tictactoe-setup-guide.png)
+
 1. Secure the mat flat with both reserves and all nine cells in reach. Attach
-   the four marker cards if using the 3D mat. Mount the webcam overhead and
+   the four marker cards only if you have an older single-bank 3D mat. The paper
+   and current 3D mats have the markers built in. Mount the webcam overhead and
    frame all four markers. Select **USB hardware**, connect the Magician with
    the suction cup fitted, and home it.
 2. Open **Tic-tac-toe** and start the camera. Remove all pieces, then choose
    **Capture empty mat**. The app registers the layout from its markers.
 3. For each play cell and reserve slot, centre a sample piece and hand-guide
    the cup to the centre of its flat top. Click **Teach tool position**.
-   The picker advances to the next position. Teach **Park** at a clear height
+   The picker advances to the next position. The **map of the mat** under the
+   picker names the position and highlights it, and the overhead camera view
+   highlights the same circle. Taught positions turn green on the map, and you
+   can click any circle on the map to teach it next. If you stand behind the mat
+   with the Dobot, tick **View from the Dobot’s side**. The map and its wording
+   turn end for end to match what you see. Teach **Park** at a clear height
    above the guide using the same tool rotation. Return the tool to Park and
    remove the sample piece. If the tool is visible over the mat, capture the
    empty mat again with the tool at Park. Re-teach after moving the mat or

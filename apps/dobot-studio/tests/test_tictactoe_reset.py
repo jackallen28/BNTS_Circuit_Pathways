@@ -9,7 +9,7 @@ import unittest
 
 from dobot_studio.robot import Pose
 from dobot_studio.tictactoe import (
-    A3_MAT, CELLS, EMPTY, O, PAPER_MAT, STANDARD_MAT, X, outcome, tidy_plan, with_move,
+    A3_MAT, CELLS, EMPTY, MAT_LAYOUTS, O, PAPER_MAT, STANDARD_MAT, X, describe_slot, outcome, tidy_plan, with_move,
 )
 from dobot_studio.tictactoe_vision import Position
 
@@ -91,6 +91,32 @@ class FakeRobot:
 
     def set_suction(self, enabled):
         pass
+
+
+class DescribeSlotTests(unittest.TestCase):
+    def test_every_position_has_a_plain_english_description_in_both_views(self):
+        for layout in MAT_LAYOUTS:
+            for label in (*layout.positions, "Park"):
+                for far in (False, True):
+                    with self.subTest(f"{layout.label} {label} {'Dobot' if far else 'player'}"):
+                        text = describe_slot(layout, label, far)
+                        self.assertTrue(text.startswith(f"{label}:") and text.endswith("."))
+
+    def test_the_wording_turns_when_seen_from_the_dobots_side(self):
+        self.assertEqual(describe_slot(A3_MAT, "A1"), "A1: the top row, left cell.")
+        self.assertEqual(describe_slot(A3_MAT, "A1", True), "A1: the bottom row, right cell.")
+        self.assertEqual(describe_slot(A3_MAT, "B2"), describe_slot(A3_MAT, "B2", True))
+        self.assertEqual(describe_slot(PAPER_MAT, "X1"), "X1: the 1st X reserve circle from the top, on the left.")
+        self.assertEqual(describe_slot(PAPER_MAT, "X1", True), "X1: the 5th X reserve circle from the top, on the right.")
+        self.assertEqual(describe_slot(PAPER_MAT, "O2"), "O2: the 2nd O reserve circle from the top, on the right.")
+        self.assertEqual(describe_slot(STANDARD_MAT, "Reserve 1"),
+                         "Reserve 1: the 1st reserve circle from the top, on the right.")
+
+    def test_each_description_names_a_distinct_place(self):
+        for layout in (PAPER_MAT, A3_MAT):
+            for far in (False, True):
+                texts = [describe_slot(layout, label, far).split(": ", 1)[1] for label in layout.positions]
+                self.assertEqual(len(set(texts)), len(texts), "two positions share a description")
 
 
 @unittest.skipUnless(__import__("os").environ.get("DISPLAY") or __import__("sys").platform == "win32",
@@ -216,6 +242,118 @@ class PhysicalResetTests(unittest.TestCase):
         self.assertFalse(program.tidy_pending)
         program.reset_board()
         self.assertTrue(program.tidy_pending)
+
+
+@unittest.skipUnless(__import__("os").environ.get("DISPLAY") or __import__("sys").platform == "win32",
+                     "needs a display")
+class MatGuideTests(unittest.TestCase):
+    def setUp(self):
+        from dobot_studio.tictactoe_program import TicTacToeProgram
+
+        self.root = make_root(self)
+        self.studio = make_studio(self, self.root)
+        self.studio.set_mode(False)
+        self.program = TicTacToeProgram(self.studio)
+        self.addCleanup(lambda: self.program.window.winfo_exists() and self.program.window.destroy())
+        self.program.reference = SimpleNamespace(layout=A3_MAT)
+        self.program.window.geometry("1050x720+0+0")
+        self.settle()
+
+    def settle(self):
+        for _ in range(15):
+            self.root.update()
+            sleep(0.01)
+
+    def circle(self, name):
+        item = self.program.guide.find_withtag(f"slot:{name}")[0]
+        x0, y0, x1, y1 = self.program.guide.coords(item)
+        return (x0 + x1) / 2, (y0 + y1) / 2, self.program.guide.itemcget(item, "fill")
+
+    def test_the_position_being_taught_is_named_and_highlighted(self):
+        self.program.teaching.set("X3")
+        self.settle()
+        self.assertEqual(self.program.guide_text.get(), "X3: the 3rd X reserve circle from the top, on the left.")
+        self.assertEqual(self.circle("X3")[2], "#ffd997")
+        self.assertEqual(self.circle("X4")[2], "#f6faff")
+        self.program.teaching.set("Park")
+        self.settle()
+        self.assertTrue(self.program.guide_text.get().startswith("Park:"))
+        self.assertEqual(self.circle("Park")[2], "#ffd997")
+
+    def test_taught_positions_are_marked(self):
+        self.program.poses["A1"] = Pose(0, 0, 0, 0)
+        self.program.teaching.set("A2")
+        self.settle()
+        self.assertEqual(self.circle("A1")[2], "#bfeee9")
+        self.assertEqual(self.circle("A3")[2], "#f6faff")
+
+    def test_clicking_a_circle_chooses_it_and_clicking_empty_space_does_not(self):
+        self.program.teaching.set("A1")
+        self.settle()
+        x, y, _ = self.circle("O4")
+        self.program._guide_click(SimpleNamespace(x=x, y=y))
+        self.assertEqual(self.program.teaching.get(), "O4")
+        self.program._guide_click(SimpleNamespace(x=2, y=40))
+        self.assertEqual(self.program.teaching.get(), "O4")
+
+    def test_the_dobots_side_turns_the_map_and_the_wording(self):
+        self.program.teaching.set("A1")
+        self.settle()
+        x, y, _ = self.circle("A1")
+        centre = (self.program.guide.winfo_width() / 2, self.program.guide.winfo_height() / 2)
+        self.assertIn("top row, left cell", self.program.guide_text.get())
+        self.program.dobot_side.set(True)
+        self.program._draw_guide(force=True)
+        turned_x, turned_y, _ = self.circle("A1")
+        self.assertAlmostEqual(turned_x - centre[0], centre[0] - x, delta=1.5)
+        self.assertGreater(turned_y, y)
+        self.assertIn("bottom row, right cell", self.program.guide_text.get())
+        self.assertEqual(self.studio.tictactoe_dobot_side, True)
+
+    def test_every_control_and_the_stop_button_fit_a_720p_screen(self):
+        """A 1280 x 720 screen gives the window about 666 px. Nothing may be pushed out of view."""
+        program, window = self.program, self.program.window
+        window.geometry("1050x666+0+0")
+        self.settle()
+        self.assertLessEqual(window.winfo_height(), 666)
+
+        def inside(widget):
+            bottom = widget.winfo_rooty() + widget.winfo_height()
+            return widget.winfo_ismapped() and widget.winfo_rooty() >= window.winfo_rooty() \
+                and bottom <= window.winfo_rooty() + window.winfo_height()
+
+        for tab, names in ((program.side_tabs.tabs()[0], ("camera_button", "empty_button", "teach_button", "guide", "stop_button")),
+                           (str(program.match_tab), ("symbol_picker", "level_picker", "new_button", "reset_button",
+                                                     "release_button", "stop_button"))):
+            program.side_tabs.select(tab)
+            self.settle()
+            for name in names:
+                self.assertTrue(inside(getattr(program, name)), f"{name} is outside the window")
+
+    def test_the_stop_button_stays_visible_even_if_the_side_panel_grows_too_tall(self):
+        program, window = self.program, self.program.window
+        window.geometry("1050x666+0+0")
+        program.guide.configure(height=1400)      # far more than any screen could hold
+        self.settle()
+        bottom = program.stop_button.winfo_rooty() + program.stop_button.winfo_height()
+        self.assertTrue(program.stop_button.winfo_ismapped())
+        self.assertLessEqual(bottom, window.winfo_rooty() + window.winfo_height())
+
+    def test_a_new_game_or_reset_switches_to_the_match_tab(self):
+        program = self.program
+        self.assertEqual(program.side_tabs.index(program.side_tabs.select()), 0)
+        program._show_match()
+        self.assertEqual(program.side_tabs.select(), str(program.match_tab))
+
+    def test_every_position_can_be_chosen_on_every_mat(self):
+        for layout in (PAPER_MAT, A3_MAT, STANDARD_MAT):
+            self.program.reference = SimpleNamespace(layout=layout)
+            self.program.teaching.set("A1")
+            self.settle()
+            for label in (*layout.positions, "Park"):
+                x, y, _ = self.circle(label)
+                self.program._guide_click(SimpleNamespace(x=x, y=y))
+                self.assertEqual(self.program.teaching.get(), label, f"{layout.label} {label}")
 
 
 @unittest.skipUnless(__import__("os").environ.get("DISPLAY") or __import__("sys").platform == "win32",

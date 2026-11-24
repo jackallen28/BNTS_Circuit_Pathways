@@ -8,7 +8,7 @@ from tkinter import messagebox, ttk
 
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .tictactoe import (
-    CELLS, EMPTY, HARD, LEVELS, O, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
+    CELLS, EMPTY, HARD, LEVELS, O, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X, describe_slot,
     human_change, outcome, robot_move, tidy_plan, winning_line, with_move,
 )
 from .tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
@@ -60,6 +60,11 @@ class TicTacToeProgram:
         self.roles = tk.StringVar()
         self.ready = studio.demo
         self.auto_reset = tk.BooleanVar(value=True)
+        # The mat has no printed names, so setup shows a map of it. Facing the Dobot turns it 180 degrees.
+        self.dobot_side = tk.BooleanVar(value=getattr(studio, "tictactoe_dobot_side", False))
+        self.dobot_side.trace_add("write", lambda *_: setattr(studio, "tictactoe_dobot_side", self.dobot_side.get()))
+        self.guide_text = tk.StringVar()
+        self.guide_key = None
         # The chosen difficulty is kept for the session, so reopening the program remembers it.
         self.level = tk.StringVar(value=getattr(studio, "tictactoe_level", HARD))
         self.level.trace_add("write", lambda *_: setattr(studio, "tictactoe_level", self.level.get()))
@@ -120,8 +125,16 @@ class TicTacToeProgram:
 
         panels = tk.Frame(main, bg="#e9eff8")
         panels.grid(row=0, column=1, sticky="nsew")
+        # Setup and Match are tabs on hardware, so each fits a small screen.
+        match_parent = panels
         if not ui.demo:
-            pane, body = ui._pane(panels, "Mat and suction setup")
+            self.side_tabs = ttk.Notebook(panels)
+            self.side_tabs.pack(fill="both", expand=True)
+            setup_tab, self.match_tab = (tk.Frame(self.side_tabs, bg="#e9eff8", padx=2, pady=4) for _ in range(2))
+            self.side_tabs.add(setup_tab, text="Setup")
+            self.side_tabs.add(self.match_tab, text="Match")
+            match_parent = self.match_tab
+            pane, body = ui._pane(setup_tab, "Mat and suction setup")
             pane.pack(fill="x", pady=(0, 7))
             line = tk.Frame(body, bg=PANEL)
             line.pack(fill="x", pady=(2, 4))
@@ -139,10 +152,21 @@ class TicTacToeProgram:
             self.slot_picker.bind("<<ComboboxSelected>>", lambda _event: self._draw_camera())
             self.teach_button = ui._button(select, "Teach tool position", self.teach)
             self.teach_button.pack(side="right", padx=(4, 0))
+            ui._label(body, textvariable=self.guide_text, size=9, fg=PURPLE, weight="bold", wraplength=245,
+                      justify="left").pack(fill="x", pady=(2, 3))
+            self.guide = tk.Canvas(body, width=245, height=230, bg="#f6faff", highlightthickness=1,
+                                   highlightbackground="#bcd0e2")
+            self.guide.pack(fill="x")
+            self.guide.bind("<Configure>", lambda _event: self._draw_guide(force=True))
+            self.guide.bind("<Button-1>", self._guide_click)
+            tk.Checkbutton(body, text="View from the Dobot’s side", variable=self.dobot_side,
+                           command=lambda: self._draw_guide(force=True), bg=PANEL, activebackground=PANEL,
+                           fg=DARK, font=ui.theme.font(9), anchor="w", borderwidth=0,
+                           highlightthickness=0).pack(fill="x", pady=(2, 0))
             ui._label(body, textvariable=self.camera_status, size=9, fg=MUTED, wraplength=245,
                       justify="left").pack(fill="x", pady=(4, 0))
 
-        pane, body = ui._pane(panels, "Match")
+        pane, body = ui._pane(match_parent, "Match")
         pane.pack(fill="x", pady=(0, 7))
         choose = tk.Frame(body, bg=PANEL)
         choose.pack(fill="x", pady=(0, 5))
@@ -173,7 +197,8 @@ class TicTacToeProgram:
             self.release_button.pack(fill="x", pady=(5, 0))
 
         footer = tk.Frame(self.window, bg="#dce9f6", padx=8, pady=4)
-        footer.pack(fill="x", pady=(6, 0))
+        # Packed first, so the status and Stop button always keep their space on a small screen.
+        footer.pack(fill="x", pady=(6, 0), side="bottom", before=main)
         ui._label(footer, textvariable=self.status, size=9, bg="#dce9f6", wraplength=680,
                   justify="left").pack(side="left", fill="x", expand=True)
         self.stop_button = ui._button(footer, "Stop  ·  Esc", self.stop, "Stop")
@@ -337,6 +362,7 @@ class TicTacToeProgram:
                 return
         self.human = human
         self.turn_delay.reset()
+        self._show_match()
         self.board, self.turn, self.chosen, self.ready = EMPTY, X, None, True
         if self.turn == self.dobot:
             self._plan_reply("Dobot opens.")
@@ -439,8 +465,13 @@ class TicTacToeProgram:
             if self.auto_reset.get():
                 self._start_reset(message)
 
+    def _show_match(self):
+        if not self.studio.demo:
+            self.side_tabs.select(self.match_tab)
+
     def reset_board(self):
         if not self.ready and not self.busy and not self.checking:
+            self._show_match()
             self._start_reset()
 
     def _start_reset(self, prefix=""):
@@ -686,6 +717,7 @@ class TicTacToeProgram:
             self.detail.set("Place one piece and take your hand away. Dobot replies after 1.5 clear seconds."
                             if self.ready else f"{len(self.poses)}/{len(order)} tool positions taught. "
                             "Capture the mat empty before loading the reserves.")
+            self._draw_guide()
             self.camera_button.configure(text="Stop camera" if self.camera else "Start camera")
             self.slot_picker.configure(values=order, state="readonly" if idle and not self.ready else "disabled")
             if self.teaching.get() not in order:
@@ -699,6 +731,73 @@ class TicTacToeProgram:
         ui._set_button(self.reset_button, idle and not self.ready and not resetting and can_reset)
         ui._set_button(self.stop_button, self.ready or not idle or self.tidy_pending)
         self._draw_game()
+
+    def _guide_layout(self):
+        """Where each position is drawn on the map: the player's view, or turned 180 degrees."""
+        layout = self.layout
+        width, height = max(self.guide.winfo_width(), 60), max(self.guide.winfo_height(), 60)
+        scale = min((width - 10) / layout.width, (height - 30) / layout.height)
+        left, top = (width - layout.width * scale) / 2, (height - layout.height * scale) / 2
+        turned = self.dobot_side.get()
+
+        def place(x, y):
+            if turned:
+                x, y = layout.width - x, layout.height - y
+            return left + x * scale, top + y * scale
+
+        return layout, scale, place, (width, height)
+
+    def _draw_guide(self, force=False):
+        layout = self.layout
+        key = (layout, self.teaching.get(), frozenset(self.poses), self.dobot_side.get(),
+               self.guide.winfo_width(), self.guide.winfo_height())
+        if key == self.guide_key and not force:
+            return
+        self.guide_key = key
+        place_name = self.teaching.get()
+        if place_name in self.teach_order:
+            self.guide_text.set(describe_slot(layout, place_name, self.dobot_side.get()))
+        canvas = self.guide
+        canvas.delete("all")
+        layout, scale, place, (width, height) = self._guide_layout()
+        corners = [place(0, 0), place(layout.width, layout.height)]
+        canvas.create_rectangle(*corners[0], *corners[1], fill="#ffffff", outline="#8ea4b8")
+        for x, y in layout.anchors.values():
+            cx, cy = place(x, y)
+            half = layout.anchor_size / 2 * scale
+            canvas.create_rectangle(cx-half, cy-half, cx+half, cy+half, fill="#243b55", outline="")
+        radius = max(5, 10.9 * layout.piece_scale * scale)
+        for name, (x, y) in layout.positions.items():
+            cx, cy = place(x, y)
+            current, taught = name == place_name, name in self.poses
+            canvas.create_oval(cx-radius, cy-radius, cx+radius, cy+radius, tags=(f"slot:{name}",), width=2 if current else 1,
+                               fill="#ffd997" if current else "#bfeee9" if taught else "#f6faff",
+                               outline="#a8681a" if current else "#2e8f8a" if taught else "#6d86a0")
+            canvas.create_text(cx, cy, text=name.replace("Reserve ", "R"), tags=(f"slot:{name}",), fill="#17283b",
+                               font=self.studio.theme.font(7, "bold"))
+        px, py = place(*layout.park)
+        current, taught = place_name == "Park", "Park" in self.poses
+        canvas.create_oval(px-4, py-4, px+4, py+4, tags=("slot:Park",), width=2 if current else 1,
+                           fill="#ffd997" if current else "#bfeee9" if taught else "#f6faff",
+                           outline="#a8681a" if current else "#2e8f8a" if taught else "#6d86a0")
+        top_edge, bottom_edge = ("PLAYER", "DOBOT") if self.dobot_side.get() else ("DOBOT", "PLAYER")
+        font = self.studio.theme.font(8, "bold")
+        canvas.create_text(width/2, 8, text=top_edge, fill="#6d86a0", font=font)
+        canvas.create_text(width/2, height-8, text=bottom_edge, fill="#6d86a0", font=font)
+
+    def _guide_click(self, event):
+        """Click a circle on the map to teach it next."""
+        if self.busy or self.checking or self.ready:
+            return
+        layout, scale, place, _ = self._guide_layout()
+        radius = max(5, 10.9 * layout.piece_scale * scale)
+        spots = {**layout.positions, "Park": layout.park}
+        name, (cx, cy) = min(((n, place(*p)) for n, p in spots.items()),
+                             key=lambda item: (item[1][0]-event.x)**2 + (item[1][1]-event.y)**2)
+        if (cx - event.x)**2 + (cy - event.y)**2 <= (radius + 2)**2:
+            self.teaching.set(name)
+            self._draw_camera()
+            self._draw_guide()
 
     def _grid(self):
         w, h = self.game.winfo_width(), self.game.winfo_height()

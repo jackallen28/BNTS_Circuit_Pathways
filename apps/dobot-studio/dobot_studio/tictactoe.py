@@ -6,7 +6,7 @@ import random
 
 MAT_WIDTH = 300
 MAT_HEIGHT = 300
-MAT_FLOOR = 2.0
+MAT_MARK_DEPTH = 0.6
 MAT_TOP = 2.8
 NEST_RADIUS = 13.6
 PIECE_RADIUS = 12.5
@@ -49,6 +49,7 @@ class MatLayout:
     piece_scale: float = 1.0
     anchor_size: float = ANCHOR_SIZE
     park_limit: float = 150
+    park: tuple = SUGGESTED_PARK
 
     @property
     def reserve(self):
@@ -69,7 +70,7 @@ PAPER_POSITIONS.update(zip(PAPER_NOUGHTS, ((234, y) for y in (86, 116, 146, 176,
 PAPER_PARK = (153, 154)
 STANDARD_MAT = MatLayout("Standard", ANCHORS, MAT_POSITIONS, BANK, BANK)
 PAPER_MAT = MatLayout("Paper", dict(zip(range(36, 40), ANCHORS.values())),
-                      PAPER_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS)
+                      PAPER_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS, park=PAPER_PARK)
 
 A3_WIDTH, A3_HEIGHT = 420, 297
 A3_POSITIONS = dict(zip((*CELLS, *PAPER_CROSSES, *PAPER_NOUGHTS), (
@@ -79,7 +80,8 @@ A3_POSITIONS = dict(zip((*CELLS, *PAPER_CROSSES, *PAPER_NOUGHTS), (
 A3_ANCHORS = {32: (18.5, 18.5), 33: (401.5, 18.5), 34: (401.5, 278.5), 35: (18.5, 278.5)}
 A3_PARK = (210, 191.5)
 A3_MAT = MatLayout("A3", A3_ANCHORS, A3_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS,
-                   width=A3_WIDTH, height=A3_HEIGHT, piece_scale=1.6, anchor_size=20, park_limit=235)
+                   width=A3_WIDTH, height=A3_HEIGHT, piece_scale=1.6, anchor_size=20, park_limit=235,
+                   park=A3_PARK)
 MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT, A3_MAT)
 
 
@@ -170,3 +172,35 @@ def tidy_plan(layout, board, reserve, robot_mark):
         else:
             moves.append((index, piece, free[piece].pop(0)))
     return moves, left
+
+
+ROWS, COLUMNS = ("top", "middle", "bottom"), ("left", "middle", "right")
+ORDINALS = ("1st", "2nd", "3rd", "4th", "5th")
+
+
+def describe_slot(layout, label, from_dobot=False):
+    """Say in plain English where a position is on the mat.
+
+    The mats carry no printed names, so setup shows this beside a map of the mat. It is
+    worded for the player, who sits at the bottom edge, or for someone standing behind
+    the mat with the Dobot, who sees everything turned end for end.
+    """
+    if label == "Park":
+        return "Park: hold the tool a clear height above the small ring near the middle of the mat."
+    if label in CELLS:
+        row, column = divmod(CELLS.index(label), 3)
+        if from_dobot:
+            row, column = 2 - row, 2 - column
+        return f"{label}: the {ROWS[row]} row, {COLUMNS[column]} cell."
+    bank = next((names for names in (layout.cross_bank, layout.nought_bank) if label in names), None)
+    if bank is None:
+        raise KeyError(label)
+    x, _ = layout.positions[label]
+    side = "left" if x < layout.width / 2 else "right"
+    order = sorted(bank, key=lambda name: layout.positions[name][1])
+    place = order.index(label)
+    if from_dobot:
+        side, place = ("right" if side == "left" else "left"), len(order) - 1 - place
+    owner = "single" if layout.cross_bank == layout.nought_bank else (X if bank is layout.cross_bank else O)
+    name = "reserve" if owner == "single" else f"{owner} reserve"
+    return f"{label}: the {ORDINALS[place]} {name} circle from the top, on the {side}."
