@@ -433,6 +433,18 @@ position instead (see step 3).
    **Picking and placing add the thickness of a piece** to that
    height (3.2 mm for the Ø25 mm pieces, 5.12 mm for the Ø40 mm ones). The cup meets the top of
    a piece, and a piece held by its top has its underside on the mat at the same height.
+   **Two ways to teach it.** Step 4 offers **Accurate** (the centre and all four corners, five
+   touches: the arm measures the mat's position, rotation, size and slope, and averages out
+   small errors in your hand-guiding) and **Quick** (the centre and one corner: the camera is
+   looking straight down, so the arm already knows which way the mat is mirrored, and takes the
+   mat as flat, and the two touches fix where it is, how it is turned and its size). Quick is
+   faster but nothing checks the two touches, and a 1 mm slip at a touch becomes about 2 mm
+   typically and up to about 7 mm at the far circles. Touch more corners on the map after a
+   quick setup, and it becomes the full fit. The camera cannot replace the touches: it knows
+   where each circle is in the picture, but only the arm's own touches say how the picture
+   relates to the arm's coordinates. Either way, the next step visits every circle.
+   The arm's height limit follows the mat (the lowest touch less 5 mm), so a mat on a low table
+   is not refused.
    If any circle would be beyond the arm's reach (130 to 310 mm from its base), step 4 says
    which one, and the mat needs moving closer. If the arm refuses a move later, the reason is
    shown and the arm stays connected and homed.

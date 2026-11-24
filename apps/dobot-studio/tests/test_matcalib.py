@@ -82,6 +82,48 @@ class CalibrationTests(unittest.TestCase):
                     self.assertAlmostEqual(pick.z, expected.z + PIECE_HEIGHT * layout.piece_scale, delta=0.8)
                 self.assertLess(worst, 1.0, "a derived circle is more than 1 mm from where it really is")
 
+    def test_the_centre_and_one_corner_are_enough_when_the_camera_supplies_the_mirror(self):
+        """Quick mode: two touches. The top-down camera fixes the mirror, and the mat is taken as flat."""
+        for layout in (COMPACT_MAT, PAPER_MAT, A3_MAT):
+            for corner in range(4):
+                with self.subTest(layout.label, corner=corner):
+                    truth = TruePlacement(layout, tilt=(0.0, 0.0))
+                    everything = truth.touched()
+                    name = outer_points(layout)[corner]
+                    calibration = MatCalibration(layout, {PARK: everything[PARK], name: everything[name]})
+                    self.assertTrue(calibration.quick)
+                    self.assertEqual(calibration.errors(), [])
+                    self.assertAlmostEqual(calibration.scale, truth.scale, places=3)
+                    for other, point in layout.positions.items():
+                        expected = truth.surface_pose(point)
+                        pick = calibration.pick(other)
+                        self.assertLess(np.hypot(pick.x - expected.x, pick.y - expected.y), 0.05)
+                        self.assertAlmostEqual(pick.z, expected.z + PIECE_HEIGHT * layout.piece_scale, delta=0.01)
+
+    def test_quick_mode_is_a_few_mm_out_when_the_touches_are_hand_guided(self):
+        worst = 0.0
+        truth = TruePlacement(COMPACT_MAT, tilt=(0.0, 0.0))
+        for seed in range(200):
+            touched = truth.touched(noise=1.0, seed=seed)
+            calibration = MatCalibration(COMPACT_MAT, {PARK: touched[PARK], "X1": touched["X1"]})
+            for name, point in COMPACT_MAT.positions.items():
+                expected = truth.surface_pose(point)
+                pick = calibration.pick(name)
+                worst = max(worst, np.hypot(pick.x - expected.x, pick.y - expected.y))
+        self.assertLess(worst, 8.0)       # measured: about 2 mm rms and 7 mm at worst for a 1 mm touch
+
+    def test_more_touches_make_the_full_fit_and_a_line_of_touches_stays_quick(self):
+        truth = TruePlacement(COMPACT_MAT)
+        everything = truth.touched()
+        corners = outer_points(COMPACT_MAT)
+        everything_all = {name: truth.surface_pose(point) for name, point in COMPACT_MAT.positions.items()}
+        down_one_side = MatCalibration(COMPACT_MAT, {name: everything_all[name] for name in ("X1", "X3", "X5")})
+        self.assertTrue(down_one_side.quick)                                  # three touches in a line
+        full = MatCalibration(COMPACT_MAT, {PARK: everything[PARK], **{c: everything[c] for c in corners}})
+        self.assertFalse(full.quick)
+        with self.assertRaises(ValueError):
+            MatCalibration(COMPACT_MAT, {PARK: everything[PARK]})
+
     def test_the_mats_real_size_and_slope_are_measured(self):
         truth = TruePlacement(COMPACT_MAT, scale=0.985)
         calibration = MatCalibration(COMPACT_MAT, truth.touched(noise=0.05))
@@ -189,10 +231,11 @@ class CalibrationTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             calibration.adjust("Z9", dx=1)
 
-    def test_at_least_three_points_are_needed(self):
+    def test_at_least_two_points_are_needed(self):
         touched = TruePlacement(COMPACT_MAT).touched()
         with self.assertRaises(ValueError):
-            MatCalibration(COMPACT_MAT, {name: touched[name] for name in ("X1", "O5")})
+            MatCalibration(COMPACT_MAT, {"X1": touched["X1"]})
+        self.assertTrue(MatCalibration(COMPACT_MAT, {name: touched[name] for name in ("X1", "O5")}).quick)
 
 
 if __name__ == "__main__":

@@ -14,12 +14,12 @@ import tkinter as tk
 from tkinter import ttk
 
 from .matcalib import MatCalibration, PARK, outer_points
-from .robot import Magician, QUICK, RobotError, SLOW, StopUnconfirmed
+from .robot import HEIGHT_MM, Magician, QUICK, RobotError, SLOW, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import O, UNKNOWN, X, describe_slot
 from .tictactoe_vision import lock_view
 
-STEPS = ("Show the mat", "Capture the empty mat", "Touch the centre mark", "Touch the four corners",
+STEPS = ("Show the mat", "Capture the empty mat", "Touch the centre mark", "Touch the corners",
          "Check every point", "Check the pieces", "Ready to play")
 PIECES, READY = 5, 6
 NUDGES = ("0.5 mm", "1 mm", "2 mm")
@@ -29,6 +29,10 @@ PAD = {"forward": ("▲  Forward", (1, 0, 0)), "back": ("▼  Back", (-1, 0, 0))
        "right": ("Right  ▶", (0, -1, 0)), "up": ("⬆  Up", (0, 0, 1)), "down": ("⬇  Down", (0, 0, -1))}
 FRESH = 0.55
 AMBER = "#8a5a00"
+# How the arm is taught the mat. Both end the same way: the arm visits every circle and can be nudged.
+FULL, QUICK_MODE = "full", "quick"
+MODES = {FULL: "Accurate: the centre and the four corners (5 touches)",
+         QUICK_MODE: "Quick: the centre and one corner (2 touches)"}
 
 
 class SetupWizard:
@@ -50,6 +54,7 @@ class SetupWizard:
         self.unreadable, self.summary, self.problem = [], (0, 0, 0, 0), ""
         self.reference_waiting = None
         self.title, self.text, self.status = tk.StringVar(), tk.StringVar(), tk.StringVar()
+        self.mode = tk.StringVar(value=FULL)
         self.nudge_step = tk.StringVar(value=NUDGES[1])
         self.adjust_text = tk.StringVar()
         self.thickness_text = tk.StringVar()
@@ -100,8 +105,16 @@ class SetupWizard:
         self.centre_button.pack(fill="x")
 
     def _build_corners(self, frame):
-        self.corner_button = self.studio._button(frame, "Save this corner", self.save_corner, "Purple")
-        self.corner_button.pack(fill="x")
+        ui = self.studio
+        self.mode_buttons = []
+        for value, label in MODES.items():
+            button = tk.Radiobutton(frame, text=label, value=value, variable=self.mode, command=self.set_mode,
+                                    bg=PANEL, activebackground=PANEL, anchor="w", justify="left",
+                                    font=ui.theme.font(9), highlightthickness=0)
+            button.pack(fill="x")
+            self.mode_buttons.append(button)
+        self.corner_button = ui._button(frame, "Save this corner", self.save_corner, "Purple")
+        self.corner_button.pack(fill="x", pady=(3, 0))
         self.anyway_button = self.studio._button(frame, "Use these points anyway", self.use_anyway)
 
     def _build_check(self, frame):
@@ -165,12 +178,33 @@ class SetupWizard:
     def corners(self):
         return outer_points(self.p.layout)
 
+    def required(self):
+        """The corners that must be touched. Quick mode needs only the first; the others can still be added."""
+        corners = self.corners()
+        return corners[:1] if self.mode.get() == QUICK_MODE else corners
+
+    def next_corner(self):
+        """The corner to touch now: the first one still to do, or the last one if all are done."""
+        required = self.required()
+        return required[min(self.corner, len(required) - 1)]
+
+    def set_mode(self):
+        """The person chose Quick or Accurate. Keep what has been touched, and see what is still needed."""
+        if self.step != 3 or not self.idle:
+            return
+        self.corner = next((i for i, corner in enumerate(self.required()) if corner not in self.touched),
+                           len(self.required()))
+        self.accepted = False
+        self._calibrate()
+        self.p.teaching.set(self.target() or "")
+        self.p._draw_camera()
+
     def target(self):
         """The point the map and the camera view should be pointing at."""
         if self.step == 2:
             return PARK
         if self.step == 3:
-            return self.redo or self.corners()[min(self.corner, 3)]
+            return self.redo or self.next_corner()
         return self.selected if self.step == 4 else None
 
     # ---- moving between steps
@@ -197,6 +231,15 @@ class SetupWizard:
         """Corners are saved and nothing is clearly wrong, or the person has chosen to go on anyway."""
         return self.calibration is not None and not self.unreachable() and (not self.calibration.errors() or self.accepted)
 
+    def floor(self):
+        """The lowest height the arm may be sent to: just under the mat it was touched on.
+
+        The mat sits wherever the table is, which can be lower than the arm's usual working floor,
+        so the floor follows the touches instead. Nothing is ever sent below the mat itself.
+        """
+        heights = [pose.z for pose in self.touched.values()]
+        return min(HEIGHT_MM[0], min(heights) - 5) if heights else HEIGHT_MM[0]
+
     def unreachable(self):
         """Points the arm cannot reach from where the mat sits, as (name, reason). The arm would refuse them."""
         if self.calibration is None:
@@ -204,8 +247,9 @@ class SetupWizard:
         found = []
         for name in (*self.p.layout.positions, PARK):
             try:
-                Magician.check_reach(self.calibration.hover(name) if name != PARK else self.calibration.park())
-                Magician.check_reach(self.calibration.pick(name) if name != PARK else self.calibration.park())
+                floor = self.floor()
+                Magician.check_reach(self.calibration.hover(name) if name != PARK else self.calibration.park(), floor)
+                Magician.check_reach(self.calibration.pick(name) if name != PARK else self.calibration.park(), floor)
             except RobotError as error:
                 found.append((name, str(error)))
         return found
@@ -246,7 +290,7 @@ class SetupWizard:
         self._touch(PARK)
 
     def save_corner(self):
-        self._touch(self.redo or self.corners()[min(self.corner, 3)])
+        self._touch(self.redo or self.next_corner())
 
     def picked(self, name):
         """A circle was clicked on the map."""
@@ -266,9 +310,11 @@ class SetupWizard:
     def _calibrate(self):
         old = self.calibration.adjustments if self.calibration else {}
         thickness = self.calibration.piece_height if self.calibration else None
-        if PARK in self.touched and all(name in self.touched for name in self.corners()):
+        if PARK in self.touched and all(name in self.touched for name in self.required()):
             self.calibration = MatCalibration(self.p.layout, self.touched, old, thickness)
             self.p.poses = self.calibration.poses()
+        else:
+            self.calibration = None
 
     # ---- step 5: watching the arm visit every point
     def run_check(self):
@@ -285,7 +331,7 @@ class SetupWizard:
         events, robot = self.p.events, self.studio.robot
 
         def tour():
-            return robot.travel(path, self.p.abort, speed=QUICK,
+            return robot.travel(path, self.p.abort, speed=QUICK, floor=self.floor(),
                                 arrived=lambda index, _pose: events.put(("arrived", labels[index], None)))
 
         self.low = False
@@ -301,8 +347,9 @@ class SetupWizard:
             path.append(calibration.hover(self.at))
         path.append(calibration.park() if name == PARK else (calibration.pick(name) if lower else calibration.hover(name)))
         self.pending = (name, lower)
-        robot = self.studio.robot
-        self.p._job("visit", lambda: robot.travel(path, self.p.abort, speed=SLOW if lower else QUICK))
+        robot, floor = self.studio.robot, self.floor()
+        self.p._job("visit", lambda: robot.travel(path, self.p.abort, speed=SLOW if lower else QUICK,
+                                                           floor=floor))
 
     def nudge(self, delta):
         if not (self.calibration and self.selected):
@@ -336,8 +383,8 @@ class SetupWizard:
     def _go_to_park(self):
         if not (self.calibration and self.robot_ready and self.idle):
             return
-        robot, park = self.studio.robot, self.calibration.park()
-        self.p._job("park", lambda: robot.travel([park], self.p.abort, speed=QUICK))
+        robot, park, floor = self.studio.robot, self.calibration.park(), self.floor()
+        self.p._job("park", lambda: robot.travel([park], self.p.abort, speed=QUICK, floor=floor))
 
     def capture_pieces(self):
         self.pieces_ok = False
@@ -382,7 +429,8 @@ class SetupWizard:
         if name == "touch":
             self.touched[self.pending] = value
             self.redo = None
-            self.corner = next((i for i, corner in enumerate(self.corners()) if corner not in self.touched), 4)
+            self.corner = next((i for i, corner in enumerate(self.required()) if corner not in self.touched),
+                               len(self.required()))
             self.accepted = False
             self.pieces_ok = False
             self.p.setup_done = False
@@ -437,6 +485,8 @@ class SetupWizard:
         arm = self.robot_ready and idle
         ui._set_button(self.centre_button, arm)
         ui._set_button(self.corner_button, arm)
+        for button in self.mode_buttons:
+            button.configure(state="normal" if idle else "disabled")
         asking = self.step == 3 and self.calibration is not None and bool(self.calibration.errors()) and not self.accepted
         if asking and not self.anyway_button.winfo_ismapped():
             self.anyway_button.pack(fill="x", pady=(4, 0))
@@ -498,8 +548,9 @@ class SetupWizard:
                 "Touch the cup to the centre mark.", None)
 
     def _words3(self):
-        corners = self.corners()
-        saved = [name for name in corners if name in self.touched]
+        required = self.required()
+        saved = [name for name in required if name in self.touched]
+        quick = self.mode.get() == QUICK_MODE
         if not self.robot_ready:
             return ("The arm must be connected and homed first.", "✖  The Dobot is not connected and homed.", False)
         if self.redo:
@@ -511,7 +562,7 @@ class SetupWizard:
             if out:
                 name, reason = out[0]
                 return ("Move the mat closer to the arm, or turn it, so every circle is within reach. Then touch the "
-                        "centre and corners again.", f"✖  The arm cannot reach {name}. {reason}", False)
+                        "centre and corner again.", f"✖  The arm cannot reach {name}. {reason}", False)
             errors, warnings = self.calibration.errors(), self.calibration.warnings()
             if errors and not self.accepted:
                 return ("That looks like a slip. Click the circle on the map that you want to touch again, then save. "
@@ -519,11 +570,16 @@ class SetupWizard:
             if errors or warnings:
                 return ("That is good enough to go on with. In the next step the arm visits every circle, and you can "
                         "nudge any that are a little off.", "⚠  " + (errors + warnings)[0], "warn")
+            if self.calibration.quick:
+                return ("The arm has worked out where every circle is from two touches, and takes the mat as flat. "
+                        "Nothing checks those two touches, so watch the next step closely. Click another corner on the "
+                        "map and save it to make the fit more accurate.",
+                        "✔  Quick setup done. Check every point in the next step.", True)
             return ("The arm now knows where every circle is. You can click a corner to touch it again.",
-                    f"✔  All four corners saved. The mat is placed to within {self.calibration.worst[1]:.1f} mm.", True)
-        name = corners[self.corner]
+                    f"✔  All corners saved. The mat is placed to within {self.calibration.worst[1]:.1f} mm.", True)
+        name = self.next_corner()
         return (f"Guide the cup onto the middle of the orange circle and save it. {describe_slot(self.p.layout, name, self.p.dobot_side.get())}",
-                f"Corner {self.corner + 1} of 4 ({len(saved)} saved).", None)
+                f"Corner {min(self.corner, len(required) - 1) + 1} of {len(required)} ({len(saved)} saved).", None)
 
     def _words4(self):
         if not self.robot_ready:

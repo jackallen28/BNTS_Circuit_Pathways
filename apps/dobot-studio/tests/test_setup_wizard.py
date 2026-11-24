@@ -190,6 +190,109 @@ class WizardTests(unittest.TestCase):
         wizard.finished("visit", None, R.StopUnconfirmed("Stop could not be confirmed."))
         self.assertFalse(self.studio.homed)
 
+    def to_corners(self):
+        wizard = self.wizard
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.capture()
+        wizard.next()
+        self.touch(LAYOUT.park)
+        wizard.save_centre()
+        self.assertTrue(self.pump(5, lambda: PARK in wizard.touched and not self.program.busy))
+        wizard.next()
+
+    def test_quick_setup_needs_only_the_centre_and_one_corner(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_corners()
+        wizard.mode.set("quick")
+        wizard.set_mode()
+        corner = outer_points(LAYOUT)[0]
+        self.assertEqual(wizard.target(), corner)
+        self.pump(0.3)
+        self.assertIn("1 of 1", wizard.status.get())
+        self.touch(LAYOUT.positions[corner])
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: corner in wizard.touched and not self.program.busy))
+        self.pump(0.4)
+        self.assertEqual(len(wizard.touched), 2)
+        self.assertTrue(wizard.calibration.quick)
+        self.assertIn("Quick setup done", wizard.status.get())
+        self.assertNotIn("disabled", wizard.next_button.state())
+        derived = wizard.calibration.poses()
+        worst = max(np.hypot(derived[name].x - TRUTH.xy(point)[0], derived[name].y - TRUTH.xy(point)[1])
+                    for name, point in LAYOUT.positions.items())
+        self.assertLess(worst, 0.6)
+        wizard.next()                                                             # every circle can still be visited
+        wizard.run_check()
+        self.assertTrue(self.pump(90, lambda: wizard.checked and not self.program.busy))
+        self.assertEqual(wizard.notice, "")
+
+    def test_a_quick_setup_is_made_more_accurate_by_touching_more_corners(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_corners()
+        wizard.mode.set("quick")
+        wizard.set_mode()
+        first, second = outer_points(LAYOUT)[:2]
+        for name in (first, second):
+            wizard.picked(name)
+            self.touch(LAYOUT.positions[name])
+            wizard.save_corner()
+            self.assertTrue(self.pump(5, lambda name=name: name in wizard.touched and not self.program.busy))
+        self.assertFalse(wizard.calibration.quick, "three spread touches give the full fit")
+
+    def test_switching_to_accurate_asks_for_the_other_corners(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_corners()
+        wizard.mode.set("quick")
+        wizard.set_mode()
+        corner = outer_points(LAYOUT)[0]
+        self.touch(LAYOUT.positions[corner])
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: corner in wizard.touched and not self.program.busy))
+        wizard.mode.set("full")
+        wizard.set_mode()
+        self.pump(0.4)
+        self.assertIsNone(wizard.calibration)
+        self.assertIn("2 of 4", wizard.status.get())
+        self.assertEqual(wizard.target(), outer_points(LAYOUT)[1])
+        self.assertIn("disabled", wizard.next_button.state())
+
+    def test_a_mat_on_a_low_table_is_not_refused_for_being_below_the_usual_floor(self):
+        """The mat can be lower than the arm's usual -60 mm floor: the touches say where the table is."""
+        self.open_program()
+        wizard = self.wizard
+        low = TruePlacement(LAYOUT, angle=90, scale=0.99, offset=(200, 0), tilt=(0, 0), surface=-68.0)
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.capture()
+        wizard.next()
+        for name, point in (("centre", LAYOUT.park), *((n, LAYOUT.positions[n]) for n in outer_points(LAYOUT))):
+            pose = low.surface_pose(point)
+            self.dobot.pose = [pose.x, pose.y, pose.z, pose.r]
+            if name == "centre":
+                wizard.save_centre()
+                self.assertTrue(self.pump(5, lambda: PARK in wizard.touched and not self.program.busy))
+                wizard.next()
+            else:
+                wizard.save_corner()
+                self.assertTrue(self.pump(5, lambda name=name: name in wizard.touched and not self.program.busy))
+        self.pump(0.4)
+        self.assertEqual(wizard.unreachable(), [])
+        self.assertNotIn("cannot reach", wizard.status.get())
+        self.assertNotIn("disabled", wizard.next_button.state())
+        wizard.next()
+        wizard.run_check()
+        self.assertTrue(self.pump(90, lambda: wizard.checked and not self.program.busy))
+        self.assertEqual(wizard.notice, "")
+        wizard.picked("B2")
+        wizard.visit(True)
+        self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        self.assertEqual(wizard.notice, "")
+        self.assertAlmostEqual(self.dobot.pose[2], low.surface_pose(LAYOUT.positions["B2"]).z + 3.2, delta=0.6)
+
     def test_a_mat_placed_out_of_reach_is_named_when_the_corners_are_saved(self):
         self.open_program()
         wizard = self.wizard

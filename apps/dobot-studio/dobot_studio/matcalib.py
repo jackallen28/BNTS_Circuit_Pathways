@@ -36,22 +36,35 @@ def outer_points(layout):
     return [farthest(-1, -1), farthest(1, -1), farthest(1, 1), farthest(-1, 1)]    # top left, top right, ...
 
 
-def fit_similarity(mat, robot):
+def in_a_line(points):
+    """True when the points do not spread over a plane: two points, or three or more on one line."""
+    points = np.asarray(points, float)
+    if len(points) < 3:
+        return True
+    centred = points - points.mean(axis=0)
+    return bool(np.linalg.matrix_rank(centred, tol=1e-6 * max((centred ** 2).sum(), 1)) < 2)
+
+
+def fit_similarity(mat, robot, mirror=None):
     """Fit robot = scale * A @ mat + offset, where A is a rotation that may include a mirror.
 
     The mat is drawn with y running down and the arm's y runs the other way when seen from above,
-    so a mirror is usual. Returns (scale, A, offset). At least three points that are not in a line.
+    so a mirror is usual. Returns (scale, A, offset). With ``mirror`` left out, at least three points
+    that are not in a line are needed and the mirror is found. A camera looking down at the mat always
+    sees that mirror, so ``mirror=True`` may be given, and then two points are enough.
     """
     mat, robot = np.asarray(mat, float), np.asarray(robot, float)
-    if len(mat) < 3:
-        raise ValueError("At least three points are needed.")
+    if len(mat) < (2 if mirror is not None else 3):
+        raise ValueError("At least three points are needed." if mirror is None else "At least two points are needed.")
     centre_m, centre_r = mat.mean(axis=0), robot.mean(axis=0)
     m, r = mat - centre_m, robot - centre_r
     spread = (m ** 2).sum()
-    if np.linalg.matrix_rank(m, tol=1e-6 * max(spread, 1)) < 2:
+    if spread < 1e-9:
+        raise ValueError("The points are all in one place. Teach points that are spread over the mat.")
+    if mirror is None and in_a_line(mat):
         raise ValueError("The points are in a line. Teach points that are spread over the mat.")
     best = None
-    for mirror in (False, True):
+    for mirror in ((False, True) if mirror is None else (bool(mirror),)):
         flip = np.diag([1.0, -1.0]) if mirror else np.eye(2)
         u, s, vt = np.linalg.svd((r.T @ (m @ flip)) / len(m))
         sign = np.sign(np.linalg.det(u @ vt)) or 1.0
@@ -88,12 +101,17 @@ class MatCalibration:
         self.adjustments = dict(adjustments or {})
         self.piece_height = PIECE_HEIGHT * layout.piece_scale if piece_height is None else float(piece_height)
         names = [name for name in self.touched if name == PARK or name in layout.positions]
-        if len(names) < 3:
-            raise ValueError("Touch at least three points on the mat.")
+        if len(names) < 2:
+            raise ValueError("Touch at least two points on the mat.")
         self.names = names
+        mat_points = [self._mat(name) for name in names]
+        # With the centre and one corner (or points in a line) there is too little to find the mirror or the
+        # slope, so the camera's top-down view supplies the mirror and the mat is taken as flat.
+        self.quick = in_a_line(mat_points)
         self.scale, self.linear, self.offset = fit_similarity(
-            [self._mat(name) for name in names], [(self.touched[name].x, self.touched[name].y) for name in names])
-        self.plane = fit_plane([self.touched[name].xyz() for name in names])
+            mat_points, [(self.touched[name].x, self.touched[name].y) for name in names], mirror=True if self.quick else None)
+        heights = [self.touched[name].z for name in names]
+        self.plane = (0.0, 0.0, float(np.mean(heights))) if self.quick else fit_plane([self.touched[name].xyz() for name in names])
         self.rotation = float(np.median([self.touched[name].r for name in names]))
         # How far each touched point is from where the others put it: a bad touch shows up here.
         self.residuals = {name: float(hypot(*(self.xy(name, adjusted=False) - (self.touched[name].x, self.touched[name].y))))
