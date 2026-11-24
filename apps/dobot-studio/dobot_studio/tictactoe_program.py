@@ -9,7 +9,7 @@ from tkinter import messagebox, ttk
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .tictactoe import (
     CELLS, EMPTY, O, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
-    human_change, outcome, robot_move, winning_line, with_move,
+    human_change, outcome, robot_move, tidy_plan, winning_line, with_move,
 )
 from .tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
 from .vision import Camera, TABLETOP
@@ -59,6 +59,10 @@ class TicTacToeProgram:
         self.player_choice = tk.StringVar(value=X)
         self.roles = tk.StringVar()
         self.ready = studio.demo
+        self.auto_reset = tk.BooleanVar(value=True)
+        # Resetting: waiting for a still, clear mat (pending), then returning pieces one at a time.
+        self.tidy_pending = self.tidying = False
+        self.tidy, self.tidy_left = [], 0
         self.poses = {}
         self.reference = self.rectified = self.feed = self.photo = None
         self.latest = self.chosen = self.checking = None
@@ -150,6 +154,11 @@ class TicTacToeProgram:
                   justify="left").pack(fill="x", pady=(5, 6))
         self.new_button = ui._button(body, "New game", self.new_game)
         self.new_button.pack(fill="x")
+        self.reset_button = ui._button(body, "Reset board", self.reset_board)
+        self.reset_button.pack(fill="x", pady=(5, 0))
+        tk.Checkbutton(body, text="Reset the board after each game", variable=self.auto_reset,
+                       bg=PANEL, activebackground=PANEL, fg=DARK, font=ui.theme.font(9),
+                       anchor="w", borderwidth=0, highlightthickness=0).pack(fill="x", pady=(6, 0))
         if not ui.demo:
             self.release_button = ui._button(body, "Release suction", self.release)
             self.release_button.pack(fill="x", pady=(5, 0))
@@ -298,7 +307,8 @@ class TicTacToeProgram:
         return self.latest
 
     def new_game(self):
-        if self.busy or self.checking or (self.ready and not self.studio.demo):
+        if (self.busy or self.checking or self.tidy_pending or self.tidying
+                or (self.ready and not self.studio.demo)):
             return
         human = self.player_choice.get()
         robot = O if human == X else X
@@ -415,8 +425,102 @@ class TicTacToeProgram:
         result = outcome(self.board)
         if result is not None:
             self.ready = False
-            self.status.set({self.human: "You won.", self.dobot: "Dobot won.",
-                             "Draw": "Draw. Play again with a clear board."}[result])
+            message = {self.human: "You won.", self.dobot: "Dobot won.", "Draw": "Draw."}[result]
+            self.status.set(message + " Play again with a clear board.")
+            if self.auto_reset.get():
+                self._start_reset(message)
+
+    def reset_board(self):
+        if not self.ready and not self.busy and not self.checking:
+            self._start_reset()
+
+    def _start_reset(self, prefix=""):
+        """Have the Dobot return every piece it can to the reserve slots."""
+        if self.ready or self.busy or self.checking or self.tidy_pending or self.tidying:
+            return
+        lead = prefix + " " if prefix else ""
+        if self.studio.demo:
+            if any(self.board):
+                self.tidying = True
+                self.busy = "demo"
+                self.status.set(lead + "Dobot is clearing the board…")
+                self.demo_timer = self.window.after(1500, self._demo_clear)
+            else:
+                self.status.set("The board is already clear.")
+            return
+        self.tidy_pending = True
+        self.turn_delay.reset()
+        self.status.set(lead + "Resetting the board once the mat is clear. Keep hands clear.")
+
+    def _demo_clear(self):
+        self.demo_timer = None
+        if self.busy != "demo" or not self.tidying:
+            return
+        index = next((cell for cell, piece in enumerate(self.board) if piece), None)
+        if index is not None:
+            self.board = with_move(self.board, index, "")
+        if any(self.board):
+            self.demo_timer = self.window.after(380, self._demo_clear)
+        else:
+            self.busy, self.tidying, self.chosen = None, False, None
+            self.status.set("Board reset. Choose New game to play again.")
+        self._render()
+
+    def _cancel_tidy(self):
+        self.tidy_pending = self.tidying = False
+        self.tidy = []
+
+    def _automatic_tidy(self):
+        try:
+            position = self._steady(min_frames=1)
+            remaining = self.turn_delay.remaining(position, self.analysed)
+            if remaining > 0:
+                self.status.set(f"Mat clear. Resetting the board in {remaining:.1f} s. Keep hands clear.")
+                return
+        except ValueError as error:
+            self.turn_delay.reset()
+            self.status.set(str(error))
+            return
+        self.turn_delay.reset()
+        try:
+            self._check_setup()
+            moves, left = tidy_plan(self.layout, position.board, position.reserve, self.dobot)
+        except ValueError as error:
+            self._cancel_tidy()
+            self.status.set(str(error))
+            return
+        self.tidy_pending = False
+        self.tidy, self.tidy_left = moves, left
+        self.board = position.board
+        self.tidying = True
+        self._tidy_next()
+
+    def _tidy_next(self):
+        position = self.latest
+        if self.tidy:
+            try:
+                self._check_setup()
+                self._tidy_step(position)
+            except ValueError as error:
+                self._cancel_tidy()
+                self.status.set(str(error))
+            return
+        self.tidying = False
+        note = ""
+        if self.tidy_left:
+            plural = "s" if self.tidy_left != 1 else ""
+            note = f" Take your {self.tidy_left} piece{plural} off the mat."
+        self.status.set("Board reset." + note + " Check the reserves, then choose New game.")
+
+    def _tidy_step(self, position):
+        cell, mark, slot = self.tidy.pop(0)
+        index = self.layout.reserve.index(slot)
+        expected = Position(with_move(position.board, cell, ""),
+                            (*position.reserve[:index], mark, *position.reserve[index + 1:]))
+        pick, drop, park = (self.poses[place] for place in (CELLS[cell], slot, "Park"))
+        self.status.set(f"Returning {mark} from {CELLS[cell]} to {slot}… Keep hands clear.")
+        self._job("place", lambda: (expected, self.studio.robot.sort_chip(
+            pick, drop, park, self.abort, via_park=True)))
 
     def release(self):
         if self.ready or self.busy or self.checking or not self.studio.robot:
@@ -428,6 +532,7 @@ class TicTacToeProgram:
     def stop(self):
         self.ready = False
         self.checking = None
+        self._cancel_tidy()
         self.turn_delay.reset()
         if self.busy == "demo":
             self.window.after_cancel(self.demo_timer)
@@ -497,6 +602,7 @@ class TicTacToeProgram:
                 if name == "place":
                     self.ready = self.studio.homed = False
                     self.studio.points.clear()
+                    self._cancel_tidy()
                 self.status.set(str(error))
             elif name == "teach":
                 reference, place, pose = value
@@ -506,7 +612,7 @@ class TicTacToeProgram:
                     following = order[(order.index(place)+1) % len(order)]
                     self.teaching.set(following)
                     self.status.set(f"{place} taught. Next: {following}.")
-            elif name == "place" and self.ready:
+            elif name == "place" and (self.ready or self.tidying):
                 self.checking, self.studio.position = value
                 self.deadline = monotonic() + 3.5
                 self.seen = 0
@@ -528,17 +634,30 @@ class TicTacToeProgram:
             if now > self.deadline:
                 self.checking = None
                 self.ready = False
-                self.status.set("Placement was not confirmed. Check the piece and clear the mat for a new game.")
+                resetting, self.tidying = self.tidying, False
+                self._cancel_tidy()
+                self.status.set("The piece move was not confirmed. Check the mat, then choose Reset board."
+                                if resetting else
+                                "Placement was not confirmed. Check the piece and clear the mat for a new game.")
             elif not stale and self.view_clear and self.seen >= 2 and self.latest == self.checking:
                 self.board = self.checking.board
                 self.checking = None
-                self._after_dobot()
+                if self.tidying:
+                    self._tidy_next()
+                else:
+                    self._after_dobot()
         elif self.ready and not self.busy and not self.studio.demo:
             if stale:
                 self.turn_delay.reset()
                 self.status.set("Waiting for a fresh overhead camera view.")
             elif updated:
                 self._automatic_turn()
+        elif self.tidy_pending and not self.busy and not self.studio.demo:
+            if stale:
+                self.turn_delay.reset()
+                self.status.set("Waiting for a fresh overhead camera view.")
+            elif updated:
+                self._automatic_tidy()
         self._render()
         self.window.after(65, self._tick)
 
@@ -548,7 +667,8 @@ class TicTacToeProgram:
         player = self.human if self.ready else self.player_choice.get()
         self.roles.set(f"You play {player}. Dobot plays {O if player == X else X}.")
         can_choose = not self.ready or (ui.demo and self.board == EMPTY)
-        self.symbol_picker.configure(state="readonly" if idle and can_choose else "disabled")
+        resetting = self.tidy_pending or self.tidying
+        self.symbol_picker.configure(state="readonly" if idle and can_choose and not resetting else "disabled")
         if ui.demo:
             self.detail.set("Select an empty cell on the blue board. Dobot replies automatically.")
         else:
@@ -564,8 +684,10 @@ class TicTacToeProgram:
             ui._set_button(self.empty_button, idle and not self.ready and self.rectified is not None)
             ui._set_button(self.teach_button, idle and not self.ready and ui.homed and self.reference is not None)
             ui._set_button(self.release_button, idle and not self.ready and ui.robot is not None)
-        ui._set_button(self.new_button, idle and (ui.demo or not self.ready))
-        ui._set_button(self.stop_button, self.ready or not idle)
+        ui._set_button(self.new_button, idle and (ui.demo or not self.ready) and not resetting)
+        can_reset = any(self.board) if ui.demo else ui.homed and self.reference is not None
+        ui._set_button(self.reset_button, idle and not self.ready and not resetting and can_reset)
+        ui._set_button(self.stop_button, self.ready or not idle or self.tidy_pending)
         self._draw_game()
 
     def _grid(self):
@@ -599,7 +721,9 @@ class TicTacToeProgram:
                                    fill=("#ffd997" if shown == X else "#8decdf") if value else "#6ca1ad",
                                    font=self.studio.theme.font(max(14, round(step*0.41)), "bold"))
         status = "Your turn" if self.turn == self.human else "Dobot’s turn"
-        if not self.ready:
+        if self.tidy_pending or self.tidying:
+            status = "Dobot is clearing the board"
+        elif not self.ready:
             status = {self.human: "You won", self.dobot: "Dobot won", "Draw": "Draw"}.get(
                 outcome(self.board), "Start a new game")
         canvas.create_text(w/2, top/2, text=status,

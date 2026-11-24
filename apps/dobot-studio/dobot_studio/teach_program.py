@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from .microbit_link import TiltLink, inside, jog
-from .robot import ATTACHMENTS, SUCTION_TOOL, Magician, MotionStopped, Pose
+from .robot import ATTACHMENTS, SUCTION_TOOL, Magician, Pose
 from .theme import DARK, MUTED, PANEL, PURPLE
 
 HOME = Pose(220, 0, 75, 0)

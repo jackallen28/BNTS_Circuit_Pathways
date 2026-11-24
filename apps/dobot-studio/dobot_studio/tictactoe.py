@@ -124,3 +124,27 @@ def human_change(previous, current, mark=X):
         piece = "cross" if mark == X else "nought"
         raise ValueError(f"Place one {piece} in an empty cell and leave the other pieces in place.")
     return changes[0]
+
+
+def tidy_plan(layout, board, reserve, robot_mark):
+    """Plan how the Dobot returns pieces from the cells to empty reserve slots.
+
+    Returns ``(moves, left)``. Each move is ``(cell index, mark, reserve slot)``.
+    ``left`` counts pieces the Dobot cannot return, which a person must collect.
+    On a single-bank mat the reserve only holds the Dobot's mark, so the
+    player's pieces are left for the player. ``reserve`` follows ``layout.reserve``.
+    """
+    marks = layout.reserve_marks(robot_mark)
+    taken = dict(zip(layout.reserve, reserve))
+    free = {mark: [name for name in layout.bank(mark) if not taken[name]] for mark in marks}
+    moves, left = [], 0
+    for index, piece in enumerate(board):
+        if not piece:
+            continue
+        if piece not in marks:
+            left += 1
+        elif not free[piece]:
+            raise ValueError(f"No free {piece} reserve slot. Clear the {piece} reserve slots and try again.")
+        else:
+            moves.append((index, piece, free[piece].pop(0)))
+    return moves, left

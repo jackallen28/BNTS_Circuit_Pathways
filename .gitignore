@@ -14,3 +14,9 @@
 
 # Claude Code working copies
 /.claude/worktrees/
+
+# Dobot Studio (Python): virtualenv and downloaded MediaPipe models from setup-pi.sh
+__pycache__/
+*.pyc
+/apps/dobot-studio/.venv/
+/apps/dobot-studio/models/

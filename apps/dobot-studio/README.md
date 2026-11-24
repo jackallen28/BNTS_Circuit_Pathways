@@ -18,7 +18,7 @@ with the teal, purple and glass styling of CircuitPath.
 | [3D Block Lab](#3d-block-lab) | Build a stepped pyramid or box, or separate mixed stacks and rebuild them by colour. |
 | [Equation Lab](#equation-lab) | Read rows of number and operator chips, calculate answers, and place matching chips. |
 | [Micro:bit Teach](#microbit-teach) | Use a Micro:bit to jog the arm, record tool actions, edit the path, and replay it. |
-| [Tic-tac-toe](#tic-tac-toe) | Choose X or O and play on a camera-tracked mat. The Dobot takes its turns automatically. |
+| [Tic-tac-toe](#tic-tac-toe) | Choose X or O and play on a camera-tracked mat. The Dobot takes its turns automatically, then resets the board. |
 
 Use **Programs** to return to the picker when the camera and motion controls are idle.
 Mount the USB camera overhead for sorting, equation reading, assembly inspection and tic-tac-toe.
@@ -353,6 +353,15 @@ position. The four corner codes register the mat with the camera.
 6. Keep hands clear until the tool returns to Park and the screen shows your
    turn. Use **Stop** or Escape to interrupt. Support any held piece before using
    **Release suction**. Watch the first lift and placement to check reach and suction.
+7. When the game ends, leave the mat still and clear. After 1.5 seconds the Dobot
+   returns each piece from the cells to a free reserve slot, one at a time, and the
+   camera confirms every move before the next. On the paper and A3 mats it returns
+   both marks to their own banks. On the single-bank 3D mat it returns only its own
+   pieces, so take your pieces off the mat yourself. When the screen says **Board
+   reset**, check the reserves and choose **New game**. Untick **Reset the board after
+   each game** to tidy by hand, or click **Reset board** to run the reset later, for
+   example after a stopped game. **Stop** or Escape cancels it. If a move is not
+   confirmed, or a reserve bank has no free slot, the reset stops and says why.
 
 ![Overhead view of the full-size A3 mat during an automatic turn countdown](docs/images/tictactoe-camera.png)
 

@@ -1,12 +1,11 @@
 from fractions import Fraction
-from threading import Event
 import unittest
 
 import cv2
 import numpy as np
 
 from dobot_studio.block_vision import anchors_stable, calibrate, locate, square
-from dobot_studio.blocks import ANCHORS, CHALLENGES, LEFT_BASE, REBUILD, UPPER, BlockPlan, block_colour, demo_scene, exposed, goals
+from dobot_studio.blocks import ANCHORS, CHALLENGES, LEFT_BASE, UPPER, BlockPlan, block_colour, demo_scene, exposed, goals
 from dobot_studio.equations import evaluate, split_chips
 from dobot_studio.microbit_link import jog, parse_frame
 from dobot_studio.robot import GRIPPER, GRIPPER_TOOL, SUCTION, SUCTION_TOOL, WRITE, Magician, Pose, RobotError
