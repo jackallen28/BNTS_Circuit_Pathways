@@ -321,9 +321,11 @@ Hard is the default, and the program remembers the level until Dobot Studio clos
 
 [Download the print set](printables/tictactoe-300mm.zip) or
 [browse the 3D and paper mat files](printables/tictactoe/README.md).
-The 3D files include a **300 × 300 mm** mat, four **150 × 150 mm** tiles and
-flush, two-colour **Ø25 mm** playing pieces. Keep the supplied print orientation
-so each mark begins on the first layer. Flip each piece mark side up for play.
+The 3D files include a **300 × 300 mm** mat and four **150 × 150 mm** tiles with
+solid black well floors. In Bambu Studio, match the circles to black filament
+and the mat body to a light filament. The two-colour **Ø25 mm** pieces have a
+flush marked face. Keep the supplied print orientation so each mark begins on
+the first layer. Flip each piece mark side up for play.
 
 For a paper mat, use the [300 mm SVG](printables/tictactoe/mat-300x300.svg) or
 [full-size A3 PDF](printables/tictactoe/mat-a3.pdf). The A3 layout has 5 mm print
@@ -333,7 +335,7 @@ The play and reserve spots are hollow rings, with an X bank on the left and an
 O bank on the right. Use the small Park ring as a guide for the tool's clearance
 position. The four corner codes register the mat with the camera.
 
-![3D-printed mat layout showing cells, a single reserve bank and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
+![3D mat layout with solid black wells, a reserve bank and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
 ### Set up the physical game
 

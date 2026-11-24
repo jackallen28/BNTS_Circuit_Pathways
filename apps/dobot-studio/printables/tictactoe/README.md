@@ -1,16 +1,18 @@
 # Dobot tic-tac-toe print set
 
-The 3D mat is **300 × 300 × 2.8 mm**. It has nine recessed play cells, five reserve
-slots for the Dobot’s pieces, and four corner outlines for camera markers.
+The 3D mat is **300 × 300 × 2.8 mm**. Solid black circles form the floors of its
+nine recessed play cells and five reserve slots. Four corner outlines locate the
+camera markers.
 The 3D mat and 300 mm paper SVG use **Ø25 × 3.2 mm** pieces. The full-size A3
 mat uses **Ø40 × 5.12 mm** pieces. Models use millimetres.
 
 | File | Use |
 | --- | --- |
-| [mat-300x300.obj](mat-300x300.obj) | Print the entire mat on a bed that can fit it. |
+| [mat-300x300.obj](mat-300x300.obj) | Print the entire mat in two colours on a bed that can fit it. |
+| [mat-colours.mtl](mat-colours.mtl) | Keep beside the mat OBJ to import its light body and black circles. |
 | [mat-300x300.svg](mat-300x300.svg) | Edit or print the vector artwork with its full 300 mm outline. |
 | [mat-a3.pdf](mat-a3.pdf), [mat-a3.svg](mat-a3.svg) | Print or edit the full-size A3 landscape mat. |
-| [tiles/](tiles/) | Print four 150 × 150 mm quadrants for smaller beds. |
+| [tiles/](tiles/) | Print four 150 × 150 mm quadrants with their own material file for smaller beds. |
 | [cross.obj](cross.obj), [nought.obj](nought.obj) | Ø25 mm tokens for the 300 mm mats. [Cross 3MF](cross.3mf), [nought 3MF](nought.3mf), [OBJ parts](parts/). |
 | [A3 cross.obj](a3-pieces/cross.obj), [A3 nought.obj](a3-pieces/nought.obj) | Ø40 mm tokens for the A3 mat. [Cross 3MF](a3-pieces/cross.3mf), [nought 3MF](a3-pieces/nought.3mf), [OBJ parts](a3-pieces/parts/). |
 | [mat-markers.pdf](mat-markers.pdf) | Attach the four camera markers to the mat. |
@@ -50,7 +52,12 @@ capture the empty mat again with the tool at Park. Load the reserves, choose
 **Play as**, then start a new game. X goes first. The Dobot takes pieces from
 its bank automatically after the camera sees a clear mat for 1.5 seconds.
 
-## Assemble the mat
+## Print and assemble the 3D mat
+
+Keep `mat-colours.mtl` in the same folder as the OBJ files you import. In Bambu
+Studio, match the light body to a light filament and the circles to black.
+For manual assignment, use **Split → To Parts** and select black for the
+**Black_Circles** part or all of the circular inlays.
 
 Print the mat face up with the shallow wells on top. For the tiled version,
 follow the filenames with the reserve rack on the right. Join the tiles

@@ -20,13 +20,30 @@ from dobot_studio.tictactoe import (
     PIECE_HEIGHT, PIECE_RADIUS, SUGGESTED_PARK,
 )
 
+WELL_COLOUR_DEPTH = 0.6
+MAT_MATERIAL_FILE = "mat-colours.mtl"
+MAT_MATERIALS = """newmtl Body
+Ka 0 0 0
+Kd 0.92 0.92 0.92
+Ks 0 0 0
+d 1.0
+illum 1
+
+newmtl Black_Circles
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+d 1.0
+illum 1
+"""
+
 
 def polygon_parts(shape):
     return shape.geoms if shape.geom_type == "MultiPolygon" else (shape,)
 
 
-def mesh_from_surfaces(solid, recess, cut_depth, height):
-    """Closed extrusion with a recess cut into its build-plate face."""
+def mesh_from_surfaces(solid, height, recesses=()):
+    """Closed extrusion with disjoint recesses in its build-plate face."""
     vertices, faces, lookup = [], [], {}
 
     def vertex(x, y, z):
@@ -57,12 +74,11 @@ def mesh_from_surfaces(solid, recess, cut_depth, height):
 
     cap(solid, height, upward=True)
     walls(solid, 0, height)
-    if recess is None:
-        cap(solid, 0, upward=False)
-    else:
-        cap(solid.difference(recess), 0, upward=False)
-        cap(recess, cut_depth, upward=False)
-        walls(recess, 0, cut_depth, inward=True)
+    underside = solid.difference(unary_union([shape for shape, _ in recesses])) if recesses else solid
+    cap(underside, 0, upward=False)
+    for shape, depth in recesses:
+        cap(shape, depth, upward=False)
+        walls(shape, 0, depth, inward=True)
     model = Trimesh(vertices=vertices, faces=faces, process=False, validate=False)
     if not model.is_volume:
         raise ValueError("Fixture mesh is not a consistently wound, watertight solid.")
@@ -80,7 +96,7 @@ def mat_meshes():
         x, y = label
         return x, MAT_HEIGHT - y
 
-    wells = [circle(*flat(centre), NEST_RADIUS) for centre in MAT_POSITIONS.values()]
+    wells = unary_union([circle(*flat(centre), NEST_RADIUS) for centre in MAT_POSITIONS.values()])
     grooves = []
     for x in (107, 161):
         grooves.append(box(x - 0.65, 79, x + 0.65, 247))
@@ -94,23 +110,28 @@ def mat_meshes():
     x, y = flat(SUGGESTED_PARK)
     grooves.extend((box(x-5, y-0.45, x+5, y+0.45), box(x-0.45, y-5, x+0.45, y+5)))
     seams = box(149.25, 0, 150.75, MAT_HEIGHT).union(box(0, 149.25, MAT_WIDTH, 150.75))
-    pockets = unary_union(wells + [groove.difference(seams) for groove in grooves])
+    grooves = unary_union([groove.difference(seams) for groove in grooves])
+    well_depth = MAT_TOP - MAT_FLOOR
+    flip = np.array(((1,0,0,0), (0,1,0,0), (0,0,-1,MAT_TOP), (0,0,0,1)))
 
     def make(solid):
-        result = mesh_from_surfaces(solid, pockets.intersection(solid), MAT_TOP-MAT_FLOOR, MAT_TOP)
-        result.apply_transform(np.array(((1,0,0,0), (0,1,0,0), (0,0,-1,MAT_TOP), (0,0,0,1))))
-        if not result.is_volume:
-            raise ValueError("Mat recesses did not produce a solid upper face.")
-        return result
+        discs = wells.intersection(solid)
+        cutouts = ((grooves.intersection(solid), well_depth), (discs, well_depth + WELL_COLOUR_DEPTH))
+        body = mesh_from_surfaces(solid, MAT_TOP, cutouts)
+        body.apply_transform(flip)
+        inlays = mesh_from_surfaces(discs, WELL_COLOUR_DEPTH)
+        inlays.apply_translation((0, 0, MAT_FLOOR - WELL_COLOUR_DEPTH))
+        return [("Body", body), ("Black_Circles", inlays)]
 
     yield "mat-300x300.obj", make(outline)
     for name, bounds in (
         ("top-left", (0,150,150,300)), ("top-right", (150,150,300,300)),
         ("bottom-left", (0,0,150,150)), ("bottom-right", (150,0,300,150)),
     ):
-        tile = make(outline.intersection(box(*bounds)))
-        tile.apply_translation((-bounds[0], -bounds[1], 0))
-        yield f"tiles/mat-{name}.obj", tile
+        parts = make(outline.intersection(box(*bounds)))
+        for _, mesh in parts:
+            mesh.apply_translation((-bounds[0], -bounds[1], 0))
+        yield f"tiles/mat-{name}.obj", parts
 
 
 def piece_meshes(kind):
@@ -120,23 +141,27 @@ def piece_meshes(kind):
     else:
         stroke = box(-CROSS_HALF_LENGTH, -CROSS_HALF_WIDTH, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH)
         glyph = rotate(stroke, 45, origin=(0,0)).union(rotate(stroke, -45, origin=(0,0)))
-    body = mesh_from_surfaces(disc, glyph, MARK_DEPTH, PIECE_HEIGHT)
-    colour = mesh_from_surfaces(glyph, None, 0, MARK_DEPTH)
+    body = mesh_from_surfaces(disc, PIECE_HEIGHT, ((glyph, MARK_DEPTH),))
+    colour = mesh_from_surfaces(glyph, MARK_DEPTH)
     if abs(body.volume + colour.volume - disc.area*PIECE_HEIGHT) > 0.03:
         raise ValueError("The two print colours leave a gap or overlap.")
     return [("Body", body), ("Mark", colour)]
 
 
-def write_obj(path, parts):
+def write_obj(path, parts, material_file=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="\n") as stream:
         stream.write("# Dobot Studio tic-tac-toe · coordinates in millimetres\n")
+        if material_file:
+            stream.write(f"mtllib {material_file}\n")
         offset = 1
         for name, mesh in parts:
             stream.write(f"o {name}\n")
             for x, y, z in mesh.vertices:
                 stream.write(f"v {x:.5f} {y:.5f} {z:.5f}\n")
             stream.write(f"g {name}\n")
+            if material_file:
+                stream.write(f"usemtl {name}\n")
             for a, b, c in mesh.faces:
                 stream.write(f"f {offset+a} {offset+b} {offset+c}\n")
             offset += len(mesh.vertices)
@@ -187,12 +212,18 @@ def write_pieces(output, scale=1.0):
         write_3mf(output / f"{kind}.3mf", parts)
 
 
+def write_mat(output):
+    for name, parts in mat_meshes():
+        write_obj(output / name, parts, MAT_MATERIAL_FILE)
+    for folder in (output, output / "tiles"):
+        (folder / MAT_MATERIAL_FILE).write_text(MAT_MATERIALS, encoding="ascii", newline="\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("printables/tictactoe"))
     output = parser.parse_args().output
-    for path, mesh in mat_meshes():
-        write_obj(output / path, [("Mat", mesh)])
+    write_mat(output)
     write_pieces(output)
     write_pieces(output / "a3-pieces", A3_MAT.piece_scale)
 
