@@ -135,6 +135,22 @@ class FlatFirstLayerTests(unittest.TestCase):
                 self.assertIn('name="Body"', model)
                 self.assertIn('name="Mark"', model)
 
+    def test_each_obj_names_a_colour_file_beside_it_with_a_light_body_and_a_black_mark(self):
+        for name in PIECES:
+            with self.subTest(name):
+                obj = SET / f"{name}.obj"
+                lines = obj.read_text(encoding="utf-8").splitlines()
+                self.assertEqual(lines[1], "mtllib mat-colours.mtl")
+                self.assertEqual([line for line in lines if line.startswith("usemtl")], ["usemtl Body", "usemtl Mark"])
+                colours, current = {}, None
+                for line in (obj.parent / "mat-colours.mtl").read_text(encoding="ascii").splitlines():
+                    if line.startswith("newmtl "):
+                        current = line.split()[1]
+                    elif line.startswith("Kd "):
+                        colours[current] = [float(value) for value in line.split()[1:]]
+                self.assertGreater(min(colours["Body"]), 0.8)
+                self.assertEqual(colours["Mark"], [0.0, 0.0, 0.0])
+
     def test_the_first_layer_is_solid_with_no_gaps_or_overlaps(self):
         for name in PIECES:
             with self.subTest(name):

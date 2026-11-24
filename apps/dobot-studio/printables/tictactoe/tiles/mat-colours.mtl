@@ -1,0 +1,13 @@
+newmtl Body
+Ka 0 0 0
+Kd 0.92 0.92 0.92
+Ks 0 0 0
+d 1.0
+illum 1
+
+newmtl Mark
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+d 1.0
+illum 1

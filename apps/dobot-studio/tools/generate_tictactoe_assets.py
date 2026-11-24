@@ -23,6 +23,22 @@ from dobot_studio.tictactoe import (
     NOUGHT_INNER, NOUGHT_OUTER, PIECE_HEIGHT, PIECE_RADIUS,
 )
 
+# Beside each mat OBJ, so Bambu Studio assigns the colours on import: light Body, black Mark.
+MAT_MATERIAL_FILE = "mat-colours.mtl"
+MAT_MATERIALS = """newmtl Body
+Ka 0 0 0
+Kd 0.92 0.92 0.92
+Ks 0 0 0
+d 1.0
+illum 1
+
+newmtl Mark
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+d 1.0
+illum 1
+"""
 SVG = "{http://www.w3.org/2000/svg}"
 PRINTABLES = Path("printables/tictactoe")
 # Printability for a 0.4 mm nozzle. Paper artwork finer than this is thickened, and the
@@ -203,16 +219,20 @@ def piece_meshes(kind):
     return [("Body", body), ("Mark", colour)]
 
 
-def write_obj(path, parts):
+def write_obj(path, parts, material_file=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="\n") as stream:
         stream.write("# Dobot Studio tic-tac-toe · coordinates in millimetres\n")
+        if material_file:
+            stream.write(f"mtllib {material_file}\n")
         offset = 1
         for name, mesh in parts:
             stream.write(f"o {name}\n")
             for x, y, z in mesh.vertices:
                 stream.write(f"v {x:.5f} {y:.5f} {z:.5f}\n")
             stream.write(f"g {name}\n")
+            if material_file:
+                stream.write(f"usemtl {name}\n")
             for a, b, c in mesh.faces:
                 stream.write(f"f {offset+a} {offset+b} {offset+c}\n")
             offset += len(mesh.vertices)
@@ -284,8 +304,9 @@ def main():
     output = arguments.output
     if arguments.only != "pieces":
         for path, parts in mat_meshes(arguments.source):
-            write_obj(output / f"{path}.obj", parts)
+            write_obj(output / f"{path}.obj", parts, MAT_MATERIAL_FILE)
             write_3mf(output / f"{path}.3mf", parts)
+            (output / path).parent.joinpath(MAT_MATERIAL_FILE).write_text(MAT_MATERIALS, encoding="ascii", newline="\n")
     if arguments.only != "mat":
         write_pieces(output)
         write_pieces(output / "a3-pieces", A3_MAT.piece_scale)

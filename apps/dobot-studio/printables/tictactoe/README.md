@@ -16,7 +16,7 @@ paper SVG. The A3 mat uses the **Ø40 × 5.12 mm** pieces. Models use millimetre
 
 | File | Use |
 | --- | --- |
-| [mat-300x300.obj](mat-300x300.obj), [3MF](mat-300x300.3mf) | The whole 300 mm mat. It fits a Bambu **H2D** bed (325 × 320 mm). |
+| [mat-300x300.obj](mat-300x300.obj), [3MF](mat-300x300.3mf), [mat-colours.mtl](mat-colours.mtl) | The whole 300 mm mat. It fits a Bambu **H2D** bed (325 × 320 mm). |
 | [tiles/](tiles/) | The 300 mm mat as four tiles for **256 mm** beds (P1, X1, A1). Largest tile 150 × 160 mm. |
 | [mat-a3.obj](mat-a3.obj), [3MF](mat-a3.3mf) | The whole A3 mat, 420 × 297 mm. Only for a printer with a bed over 420 mm. |
 | [a3-halves/](a3-halves/) | The A3 mat in **two pieces** for a **Bambu H2D**. Left 155 × 297 mm, right 265 × 297 mm. |
@@ -48,8 +48,10 @@ paper SVG. The A3 mat uses the **Ø40 × 5.12 mm** pieces. Models use millimetre
    accept a single object with multiple parts, or use **Split → To Parts**. Use the
    matching `.3mf` if OBJ import merges the parts. For the A3 halves, import each
    half as its own object.
-2. Assign a **light matte** filament to **Body** and a **dark matte** filament to
-   **Mark**, as on the paper mat. The camera reads the markers as black on white,
+2. Keep `mat-colours.mtl` in the same folder as the OBJ. Bambu Studio then
+   offers a light colour for **Body** and black for **Mark** on import. Otherwise
+   assign a **light matte** filament to **Body** and a **dark matte** filament to
+   **Mark** yourself, as on the paper mat. The camera reads the markers as black on white,
    so the Body needs to be white or very light, and the Mark black or very dark.
    Avoid glossy filament, which can glare under the camera. Choose piece colours
    a little different from the mat so their edges show.
