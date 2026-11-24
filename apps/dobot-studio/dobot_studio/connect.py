@@ -53,6 +53,7 @@ class ConnectScreen:
         ui._label(intro, "Connect your Dobot", size=20, weight="bold", fg=PURPLE, bg="#dcebf7").pack(anchor="w")
         ui._label(intro, "Check the arm works before you choose a program.", size=10, fg=MUTED,
                   bg="#dcebf7").pack(anchor="w")
+        ui._button(header, "Check for updates…", ui.show_updates).pack(side="right", anchor="n")
 
         columns = tk.Frame(card, bg=PANEL)
         columns.pack(fill="x")

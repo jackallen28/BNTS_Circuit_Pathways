@@ -56,6 +56,7 @@ def build_program_picker(studio):
                   "Dobot connected, not homed" if live else "Demo mode: a simulated Dobot",
                   size=10, weight="bold", fg=GREEN if live and studio.homed else MUTED).pack(side="left")
     studio._button(status, "Dobot connection…", studio.show_connect).pack(side="right")
+    studio._button(status, "Check for updates…", studio.show_updates).pack(side="right", padx=(0, 6))
 
     tiles = tk.Frame(card, bg=PANEL)
     tiles.pack(fill="x")
@@ -70,4 +71,6 @@ def build_program_picker(studio):
                        "Purple" if key == "control" else "Teal").pack(fill="x")
         studio._label(tile, description, size=9, fg=MUTED, bg="#edf4fb",
                       wraplength=210, justify="left").pack(fill="x", pady=(6, 2))
+    version = studio.version()
+    studio._label(card, "Dobot Studio  ·  " + version if version else "Dobot Studio", size=8, fg=MUTED).pack(anchor="e")
     return canvas

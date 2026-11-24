@@ -1,9 +1,11 @@
 """Dobot Studio desktop app. Tk owns the UI; USB and camera I/O run off-thread."""
 import argparse
+import os
 from pathlib import Path
 from queue import Empty, SimpleQueue
 from threading import Event, Thread
 from time import monotonic
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -12,6 +14,7 @@ from .learning import (
 )
 from .block_program import BlockProgram
 from .connect import ConnectScreen
+from . import desktop
 from .programs import build_program_picker
 from .teach_program import TeachProgram
 from .tictactoe_program import TicTacToeProgram
@@ -19,6 +22,8 @@ from .robot import Magician, MotionStopped, Pose, POSITION_LIMIT_MM, ROTATION_LI
 from .theme import BORDER, DARK, DARKER, GREEN, INK, MUTED, PANEL, PURPLE, WHITE
 from .theme import Theme, gradient, icon
 from .trainer import TrainingWindow
+from .update_dialog import UpdateDialog
+from .updater import Updater
 from .vision import Camera, Detection, GestureGate, HAND, POSE
 from .workcell import Workcell
 
@@ -28,6 +33,8 @@ SOURCE = {HAND: ("Thumb up", "Victory sign", "Closed fist"),
           CUSTOM_HAND: ("Trained hand sign", "Trained hand sign", "A trained stop sign"),
           SYMBOL: ("Trained symbol", "Trained symbol", "A trained stop symbol")}
 TRACK_TIMEOUT = 0.75
+APP_FOLDER = Path(__file__).resolve().parents[1]
+ICON = APP_FOLDER / "assets" / "dobot-studio.png"
 
 
 class Studio:
@@ -36,6 +43,10 @@ class Studio:
         self.training_folder = training_folder if training_folder is not None else default_training_folder()
         self.training_window = self.classifier = None
         self.workcell = self.program_menu = self.connect_screen = None
+        self.app_folder = APP_FOLDER
+        self.update_dialog = None
+        self.restart_requested = False
+        self._version = None
         self.theme = Theme(root)
         self.demo = True
         self.armed = self.homed = self.closing = False
@@ -500,6 +511,27 @@ class Studio:
             self.program_menu = self.connect_screen = None
         self.show_programs()
 
+    def version(self):
+        """The commit this copy is on, for the footer. Empty if it is not a git copy."""
+        if self._version is None:
+            self._version = Updater(self.app_folder).version()
+        return self._version
+
+    def show_updates(self):
+        """Open the Check for updates window."""
+        if self.update_dialog and self.update_dialog.window.winfo_exists():
+            self.update_dialog.window.lift()
+            return
+        self.update_dialog = UpdateDialog(self)
+        self.update_dialog.window.wait_visibility()
+        self.update_dialog.window.grab_set()
+
+    def restart(self):
+        """Close Dobot Studio as usual, then start it again. Used after an update."""
+        self.restart_requested = True
+        self._version = None
+        self.quit()
+
     def jog(self, delta):
         """Move the tool a small step from where it is."""
         if self.robot and self.homed and not self.busy and not self.armed and not self.closing:
@@ -864,6 +896,26 @@ def main():
                         help="folder for local training profiles")
     args = parser.parse_args()
     root = tk.Tk()
+    set_window_icon(root)
     studio = Studio(root, args.models.resolve(), args.training_data.resolve())
     studio.show_connect()
+    if desktop.ensure():
+        studio.status_text.set("A Dobot Studio icon was added to the desktop and the applications menu.")
     root.mainloop()
+    if studio.restart_requested:
+        relaunch()
+
+
+def set_window_icon(root):
+    """The picture in the title bar and the taskbar. A missing icon is not a reason to stop."""
+    try:
+        root._icon = tk.PhotoImage(file=str(ICON))       # kept so it is not garbage collected
+        root.iconphoto(True, root._icon)
+    except tk.TclError:
+        pass
+
+
+def relaunch():
+    """Start Dobot Studio again from its own folder with the same options."""
+    os.chdir(APP_FOLDER)
+    os.execv(sys.executable, [sys.executable, "-m", "dobot_studio", *sys.argv[1:]])

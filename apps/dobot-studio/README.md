@@ -49,12 +49,56 @@ webcam, and an original Dobot Magician with its power supply and USB data cable.
 Initial dependency and model downloads need internet access. Once installed, the app
 works offline.
 
+To keep it up to date later, install it with git, which also lets the app update itself:
+
 ```sh
 sudo apt update
-sudo apt install -y python3-venv python3-tk curl libgl1 libegl1 libgles2 libportaudio2
+sudo apt install -y git python3-venv python3-tk curl libgl1 libegl1 libgles2 libportaudio2
+git clone -b codex/dobot-studio https://github.com/jackallen28/BNTS_Circuit_Pathways.git
+cd BNTS_Circuit_Pathways/apps/dobot-studio
 sh setup-pi.sh
-sh launch.sh
 ```
+
+`setup-pi.sh` also adds a **Dobot Studio icon** to the desktop and the applications menu, so from
+then on you just double-click it. (`sh launch.sh` starts it from a terminal.)
+
+### The desktop icon
+
+Double-click **Dobot Studio** on the desktop. The first time, Raspberry Pi OS may ask whether to
+execute the file. Choose **Execute**, and tick the box to stop it asking again. The same icon is in the
+applications menu. If you installed before the icon existed, it is added the first time you start the
+updated app, once. To add it by hand or remove it:
+
+```sh
+sh install-desktop.sh
+sh install-desktop.sh --remove
+```
+
+If you move the Dobot Studio folder, run `sh install-desktop.sh` again so the icon points at the new place.
+
+### Check for updates
+
+![The Check for updates window listing what is new, with Update now](docs/images/update-available.png)
+
+Click **Check for updates…** on the Connect screen or the programs page. It asks GitHub, tells you
+the version you have, and lists what is new. **Update now** brings it up to date, installs any new
+Python packages it needs, and **Restart now** starts the new version. The Pi needs internet for this.
+
+It is careful with your copy:
+
+- It only ever **fast-forwards**. It never merges, rewrites or throws anything away.
+- If you changed a file on this copy that the update also changes, it **stops and names the file**
+  instead of overwriting your change. Files it does not touch, and untracked files such as `models/`,
+  are left alone.
+- It will not update while the arm is moving or controls are enabled.
+- It never waits for a password. If GitHub needs a sign-in for this copy, it says so. Run `git pull`
+  once in the Dobot Studio folder and enter your login. `git config --global credential.helper store`
+  stops it asking again.
+- If this copy was not installed with git (for example, from a zip file), it says so and cannot
+  update itself. Install it with the commands above.
+
+The first time you move to a version that has this button, update by hand once:
+`cd BNTS_Circuit_Pathways/apps/dobot-studio && git pull`, then start the app.
 
 If serial connection fails with **Permission denied**, check the group on the USB
 serial device with `ls -l /dev/ttyUSB*`. On Raspberry Pi OS that group is usually
