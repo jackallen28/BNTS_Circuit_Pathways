@@ -1,6 +1,6 @@
 """Bounded USB transport for the Dobot Magician serial protocol."""
 from dataclasses import dataclass
-from math import dist, isfinite
+from math import ceil, dist, hypot, isfinite
 import struct
 from time import monotonic
 
@@ -11,6 +11,12 @@ QUEUE_START, QUEUE_STOP, QUEUE_FORCE_STOP, QUEUE_CLEAR, QUEUE_INDEX = 240, 241, 
 READ, WRITE, QUEUED_WRITE, LINEAR = 0, 1, 3, 2
 POSITION_LIMIT_MM, ROTATION_LIMIT_DEG = 100, 25
 TRANSFER_SEGMENT_MM = 150
+# A sanity box for moves that are not between taught positions. The arm cannot fold in near its
+# base or stretch past its reach, and nothing here should go through the table.
+REACH_MM = (130, 310)
+HEIGHT_MM = (-60, 160)
+JOG_LIMIT_MM = 25
+SLOW, QUICK = 25, 60      # tool speeds in mm per second
 SUCTION_TOOL, GRIPPER_TOOL = "Suction cup", "Gripper"
 ATTACHMENTS = (SUCTION_TOOL, GRIPPER_TOOL)
 
@@ -125,7 +131,7 @@ class Magician:
     def close(self):
         self.port.close()
 
-    def _run(self, command, params, target, stop, timeout):
+    def _run(self, command, params, target, stop, timeout, speed=SLOW):
         try:
             if stop.is_set():
                 raise MotionStopped("Motion stopped.")
@@ -133,7 +139,7 @@ class Magician:
             self._request(QUEUE_FORCE_STOP if command == HOME else QUEUE_STOP, WRITE)
             self._request(QUEUE_CLEAR, WRITE)
             if command == MOVE:
-                self._request(COORDINATE_SPEED, WRITE, struct.pack("<4f", 25, 15, 40, 30))
+                self._request(COORDINATE_SPEED, WRITE, struct.pack("<4f", speed, 15, 40, 30))
                 self._request(COMMON_SPEED, WRITE, struct.pack("<2f", 60, 60))
             index, = struct.unpack("<Q", self._request(command, QUEUED_WRITE, params, 8))
             if stop.is_set():
@@ -181,6 +187,49 @@ class Magician:
             raise RobotError("The requested move exceeds the demo's travel limit.")
         return self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop, timeout=15)
 
+
+    @staticmethod
+    def check_reach(target, floor=HEIGHT_MM[0]):
+        """Refuse a point the arm cannot reach, or one below ``floor``, before any motion."""
+        if not all(isfinite(value) for value in target.wire()):
+            raise RobotError("That position is not a number.")
+        radius = hypot(target.x, target.y)
+        if not REACH_MM[0] <= radius <= REACH_MM[1]:
+            raise RobotError(f"That point is {radius:.0f} mm from the arm's base. The arm can reach {REACH_MM[0]} to {REACH_MM[1]} mm.")
+        if not floor <= target.z <= HEIGHT_MM[1]:
+            raise RobotError(f"That height ({target.z:.0f} mm) is outside {floor:.0f} to {HEIGHT_MM[1]} mm.")
+
+    def jog(self, delta, stop, floor=HEIGHT_MM[0]):
+        """Nudge the tool by (dx, dy, dz) mm from where it is, a small step at a time."""
+        if max(abs(value) for value in delta) > JOG_LIMIT_MM:
+            raise RobotError(f"Move the arm in steps of {JOG_LIMIT_MM} mm or less.")
+        self.check_alarms()
+        here = self.pose()
+        target = Pose(here.x + delta[0], here.y + delta[1], here.z + delta[2], here.r)
+        self.check_reach(target, floor)
+        return self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop, timeout=15)
+
+    def travel(self, path, stop, speed=QUICK, arrived=None, floor=HEIGHT_MM[0]):
+        """Visit each pose in turn in straight legs, none longer than the transfer limit.
+
+        ``arrived(index, pose)`` is called when a pose of ``path`` is reached. A stop ends the
+        journey where it is, and the arm's own force-stop clears whatever was queued.
+        """
+        self.check_alarms()
+        for pose in path:
+            self.check_reach(pose, floor)
+        here = self.pose()
+        for index, goal in enumerate(path):
+            gap = dist(here.xyz(), goal.xyz())
+            steps = max(1, ceil(gap / TRANSFER_SEGMENT_MM))
+            for step in range(1, steps + 1):
+                fraction = step / steps
+                leg = Pose(*(a + (b - a) * fraction for a, b in zip(here.wire(), goal.wire())))
+                self._run(MOVE, struct.pack("<B4f", LINEAR, *leg.wire()), leg, stop, timeout=20, speed=speed)
+            here = goal
+            if arrived:
+                arrived(index, goal)
+        return self.pose()
 
     def set_suction(self, enabled):
         self._request(SUCTION, WRITE, bytes((1, int(enabled))))

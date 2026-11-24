@@ -30,7 +30,23 @@ class MatView:
     layout: MatLayout
 
 
+def _view(rgb, matrix, corners, layout):
+    import cv2
+
+    grey = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+    warped = cv2.warpPerspective(grey, matrix, (layout.width*DENSITY, layout.height*DENSITY))
+    clear_matrix = matrix.copy()
+    clear_matrix[:2] *= CLEAR_DENSITY / DENSITY
+    colour = cv2.warpPerspective(rgb, clear_matrix, (layout.width*CLEAR_DENSITY, layout.height*CLEAR_DENSITY))
+    return MatView(warped, colour, corners, grey.shape, matrix, layout)
+
+
 def rectify(rgb):
+    """Find the mat from its four corner markers. This is only a rough reference.
+
+    It is used until the empty mat is captured. After that the registration is locked, so a
+    marker hidden by the arm, or read a little out, cannot change where the mat is taken to be.
+    """
     import cv2
     import numpy as np
 
@@ -43,13 +59,17 @@ def rectify(rgb):
     if not cv2.isContourConvex(corners) or abs(cv2.contourArea(corners)) < 12000:
         raise ValueError("Move the camera closer and keep the full mat in view.")
     target = np.asarray(tuple(layout.anchors.values()), dtype=np.float32) * DENSITY
-    matrix = cv2.getPerspectiveTransform(corners, target)
-    grey = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-    warped = cv2.warpPerspective(grey, matrix, (layout.width*DENSITY, layout.height*DENSITY))
-    clear_matrix = matrix.copy()
-    clear_matrix[:2] *= CLEAR_DENSITY / DENSITY
-    colour = cv2.warpPerspective(rgb, clear_matrix, (layout.width*CLEAR_DENSITY, layout.height*CLEAR_DENSITY))
-    return MatView(warped, colour, corners, grey.shape, matrix, layout)
+    return _view(rgb, cv2.getPerspectiveTransform(corners, target), corners, layout)
+
+
+def lock_view(rgb, reference):
+    """Read a frame through the registration that was made when the empty mat was captured.
+
+    No markers are looked for, so nothing in front of them matters.
+    """
+    if rgb.shape[:2] != reference.shape:
+        raise ValueError("The camera picture changed size. Capture the empty mat again.")
+    return _view(rgb, reference.matrix, reference.corners, reference.layout)
 
 
 def _patch(image, centre, scale):

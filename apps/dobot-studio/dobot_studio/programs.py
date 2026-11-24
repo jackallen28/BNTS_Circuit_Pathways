@@ -1,7 +1,7 @@
 """Dobot Studio program picker."""
 import tkinter as tk
 
-from .theme import BORDER, MUTED, PANEL, PURPLE, gradient, icon
+from .theme import BORDER, GREEN, MUTED, PANEL, PURPLE, gradient, icon
 
 
 PROGRAMS = (
@@ -48,6 +48,14 @@ def build_program_picker(studio):
                   bg="#dcebf7").pack(anchor="w")
     studio._label(introduction, "Choose a program", size=11, fg=MUTED,
                   bg="#dcebf7").pack(anchor="w")
+
+    status = tk.Frame(card, bg=PANEL)
+    status.pack(fill="x", pady=(0, 9))
+    live = studio.robot is not None
+    studio._label(status, "Dobot connected and homed" if live and studio.homed else
+                  "Dobot connected, not homed" if live else "Demo mode: a simulated Dobot",
+                  size=10, weight="bold", fg=GREEN if live and studio.homed else MUTED).pack(side="left")
+    studio._button(status, "Dobot connection…", studio.show_connect).pack(side="right")
 
     tiles = tk.Frame(card, bg=PANEL)
     tiles.pack(fill="x")

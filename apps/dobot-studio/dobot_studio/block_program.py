@@ -168,8 +168,7 @@ class BlockProgram:
     def setup_usb(self):
         self.close()
         if self.studio.workcell is None:
-            self.studio.set_mode(False)
-            self.studio.status_text.set("Connect and home the arm, then reopen 3D Block Lab.")
+            self.studio.show_connect()
 
     def toggle_camera(self):
         if self.busy or self.pending:

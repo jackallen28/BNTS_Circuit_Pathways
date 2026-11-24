@@ -1,5 +1,4 @@
 """A camera-verified physical game and a screen-only demo."""
-from math import dist
 from queue import Empty, SimpleQueue
 from threading import Event, Thread
 from time import monotonic
@@ -8,14 +7,19 @@ from tkinter import messagebox, ttk
 
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .tictactoe import (
-    CELLS, EMPTY, HARD, LEVELS, O, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X, describe_slot,
+    CELLS, EMPTY, HARD, LEVELS, O, STANDARD_MAT, UNKNOWN, X, describe_slot,
     human_change, outcome, robot_move, tidy_plan, winning_line, with_move,
 )
-from .tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
+from .tictactoe_setup import SetupWizard
+from .tictactoe_vision import DENSITY, Position, lock_view, mat_clear, read_position, rectify
 from .vision import Camera, TABLETOP
 
 TURN_DELAY = 1.5
 VIEW_TIMEOUT = 0.55
+# The markers are only a rough reference. They can only raise a warning, and only when all four
+# are seen out of place for a good while, which means the camera itself was knocked.
+CAMERA_DRIFT_PX = 4.0
+CAMERA_DRIFT_FRAMES = 20
 
 
 class TurnDelay:
@@ -49,7 +53,7 @@ class TicTacToeProgram:
         self.window.bind("<Escape>", lambda _event: self.stop())
 
         self.device = tk.StringVar(value=studio.camera_device.get())
-        self.teaching = tk.StringVar(value=TEACH_ORDER[0])
+        self.teaching = tk.StringVar(value="")
         self.status = tk.StringVar()
         self.detail = tk.StringVar()
         self.camera_status = tk.StringVar(value="Camera offline")
@@ -72,7 +76,10 @@ class TicTacToeProgram:
         self.tidy_pending = self.tidying = False
         self.tidy, self.tidy_left = [], 0
         self.poses = {}
-        self.reference = self.rectified = self.feed = self.photo = None
+        self.reference = self.rectified = self.found = self.feed = self.photo = None
+        self.camera_moved, self.drift_frames = False, 0
+        self.setup_done = False
+        self.wizard = None
         self.latest = self.chosen = self.checking = None
         self.view_clear = False
         self.turn_delay = TurnDelay()
@@ -84,8 +91,14 @@ class TicTacToeProgram:
         self.abort = Event()
 
         self._build()
+        saved = getattr(studio, "tictactoe_saved", None)
+        if saved and not studio.demo and self.wizard:
+            # The mat has not moved since it was set up, so the arm still knows where everything is.
+            self.reference, self.setup_done = saved["reference"], saved["done"]
+            self.wizard.restore(saved["wizard"])
+            self.poses = self.wizard.calibration.poses()
         self.status.set("Your turn. Pick an empty cell." if studio.demo else
-                        "Start the camera, capture the empty mat and teach the tool positions.")
+                        "Follow the steps on the Setup tab to get the mat and the arm ready.")
         self._render()
         self.window.after(65, self._tick)
 
@@ -134,37 +147,7 @@ class TicTacToeProgram:
             self.side_tabs.add(setup_tab, text="Setup")
             self.side_tabs.add(self.match_tab, text="Match")
             match_parent = self.match_tab
-            pane, body = ui._pane(setup_tab, "Mat and suction setup")
-            pane.pack(fill="x", pady=(0, 7))
-            line = tk.Frame(body, bg=PANEL)
-            line.pack(fill="x", pady=(2, 4))
-            ui._label(line, "Camera", size=9, fg=MUTED).pack(side="left")
-            ttk.Entry(line, textvariable=self.device, width=6).pack(side="left", padx=5)
-            self.camera_button = ui._button(line, "Start camera", self.toggle_camera)
-            self.camera_button.pack(side="right")
-            self.empty_button = ui._button(body, "Capture empty mat", self.capture_empty, "Purple")
-            self.empty_button.pack(fill="x", pady=(0, 5))
-            select = tk.Frame(body, bg=PANEL)
-            select.pack(fill="x", pady=(0, 4))
-            self.slot_picker = ttk.Combobox(select, textvariable=self.teaching, values=TEACH_ORDER,
-                                            state="readonly", width=11)
-            self.slot_picker.pack(side="left")
-            self.slot_picker.bind("<<ComboboxSelected>>", lambda _event: self._draw_camera())
-            self.teach_button = ui._button(select, "Teach tool position", self.teach)
-            self.teach_button.pack(side="right", padx=(4, 0))
-            ui._label(body, textvariable=self.guide_text, size=9, fg=PURPLE, weight="bold", wraplength=245,
-                      justify="left").pack(fill="x", pady=(2, 3))
-            self.guide = tk.Canvas(body, width=245, height=230, bg="#f6faff", highlightthickness=1,
-                                   highlightbackground="#bcd0e2")
-            self.guide.pack(fill="x")
-            self.guide.bind("<Configure>", lambda _event: self._draw_guide(force=True))
-            self.guide.bind("<Button-1>", self._guide_click)
-            tk.Checkbutton(body, text="View from the Dobot’s side", variable=self.dobot_side,
-                           command=lambda: self._draw_guide(force=True), bg=PANEL, activebackground=PANEL,
-                           fg=DARK, font=ui.theme.font(9), anchor="w", borderwidth=0,
-                           highlightthickness=0).pack(fill="x", pady=(2, 0))
-            ui._label(body, textvariable=self.camera_status, size=9, fg=MUTED, wraplength=245,
-                      justify="left").pack(fill="x", pady=(4, 0))
+            self.wizard = SetupWizard(self, setup_tab)
 
         pane, body = ui._pane(match_parent, "Match")
         pane.pack(fill="x", pady=(0, 7))
@@ -204,6 +187,24 @@ class TicTacToeProgram:
         self.stop_button = ui._button(footer, "Stop  ·  Esc", self.stop, "Stop")
         self.stop_button.pack(side="right")
 
+    def _build_guide(self, parent):
+        """The map of the mat: names the circle being worked on, and a circle can be clicked to choose it."""
+        ui = self.studio
+        self.guide = tk.Canvas(parent, width=245, height=150, bg="#f6faff", highlightthickness=1,
+                               highlightbackground="#bcd0e2")
+        self.guide.pack(fill="both", expand=True, pady=(2, 0))
+        self.guide.bind("<Configure>", lambda _event: self._draw_guide(force=True))
+        self.guide.bind("<Button-1>", self._guide_click)
+        tk.Checkbutton(parent, text="View from the Dobot’s side", variable=self.dobot_side,
+                       command=lambda: self._draw_guide(force=True), bg=PANEL, activebackground=PANEL,
+                       fg=DARK, font=ui.theme.font(9), anchor="w", borderwidth=0,
+                       highlightthickness=0).pack(fill="x", pady=(2, 0))
+        return self.guide
+
+    @property
+    def calibration(self):
+        return self.wizard.calibration if self.wizard else None
+
     @property
     def dobot(self):
         return O if self.human == X else X
@@ -225,8 +226,7 @@ class TicTacToeProgram:
     def setup_usb(self):
         self.close()
         if self.studio.workcell is None:
-            self.studio.set_mode(False)
-            self.studio.status_text.set("Connect and home the arm, then reopen Tic-tac-toe.")
+            self.studio.show_connect()
 
     def _job(self, name, action):
         if self.busy:
@@ -250,7 +250,7 @@ class TicTacToeProgram:
             self.camera.close()
             self.studio.camera_closing = self.camera
             self.camera_epoch += 1
-            self.camera = self.feed = self.rectified = self.latest = None
+            self.camera = self.feed = self.rectified = self.found = self.latest = None
             self.ready = False
             self.view_clear = False
             self.turn_delay.reset()
@@ -266,68 +266,76 @@ class TicTacToeProgram:
         self._draw_camera()
 
     def capture_empty(self):
+        """Lock the camera's view of the mat. The corner markers are only used to find it this once."""
         if self.busy or self.checking or self.ready:
             return
-        if self.rectified is None or monotonic() - self.analysed > VIEW_TIMEOUT:
+        if self.found is None or monotonic() - self.analysed > VIEW_TIMEOUT:
             self.status.set("Wait until all four markers are visible.")
             return
         if not messagebox.askokcancel("Capture the empty mat", "Remove all pieces and take your hands off the mat. "
-                                      "For play, capture the mat with the tool at Park.", parent=self.window):
+                                      "Keep the arm out of the camera's view.", parent=self.window):
             return
-        if self.rectified is None or monotonic() - self.analysed > VIEW_TIMEOUT:
+        if self.found is None or monotonic() - self.analysed > VIEW_TIMEOUT:
             self.status.set("Show all four mat markers again.")
             return
-        if self.reference is None or self._shifted(self.rectified):
-            self.poses.clear()
-        self.reference = self.rectified
+        if self.reference is not None and self.reference.layout is not self.found.layout:
+            self.poses.clear()                  # a different mat. The same mat keeps its arm setup.
+        self.reference = self.found
+        self.camera_moved, self.drift_frames = False, 0
         self.latest = None
         self.view_clear = False
         self.seen = 0
-        if all(place in self.poses for place in self.teach_order):
-            self.status.set("Empty mat captured. Load the reserves and start a new game.")
-        else:
-            self.status.set("Empty mat captured. Teach each centre with a sample playing piece.")
+        self.status.set("Empty mat captured. Go on to the next step.")
         self._render()
 
-    def _shifted(self, view):
+    def _watch_camera(self):
+        """Warn if the camera itself was knocked. It never touches the arm setup or the registration.
+
+        This looks only at times when all four markers are seen, so the arm passing in front of
+        a marker cannot cause it. A marker read out of place for a moment is ignored.
+        """
         import numpy as np
 
-        return (view.layout is not self.reference.layout or view.shape != self.reference.shape
-                or np.linalg.norm(view.corners - self.reference.corners, axis=1).max() > 2.0)
-
-    def teach(self):
-        if self.busy or self.checking or self.ready or not self.studio.robot or not self.studio.homed:
+        found = self.found
+        if found is None:
             return
-        if (self.reference is None or self.rectified is None or monotonic()-self.analysed > VIEW_TIMEOUT
-                or self._shifted(self.rectified)):
-            self.status.set("Capture the empty mat with the camera and mat fixed in place.")
-            return
-        name, reference = self.teaching.get(), self.reference
-        self._job("teach", lambda: (reference, name, self.studio.robot.pose()))
+        same = found.layout is self.reference.layout and found.shape == self.reference.shape
+        drift = np.linalg.norm(found.corners - self.reference.corners, axis=1).max() if same else float("inf")
+        if drift <= CAMERA_DRIFT_PX:
+            self.drift_frames, self.camera_moved = 0, False
+        else:
+            self.drift_frames += 1
+            self.camera_moved = self.camera_moved or self.drift_frames >= CAMERA_DRIFT_FRAMES
 
     def _check_setup(self):
         if not self.studio.robot or not self.studio.homed:
             raise ValueError("Connect and home the Dobot first.")
-        if self.reference is None or not all(place in self.poses for place in self.teach_order):
-            raise ValueError("Capture the empty mat and teach every cell, reserve slot and Park.")
-        layout = self.reference.layout
-        positions = layout.positions
+        if self.reference is None or self.calibration is None or not self.setup_done:
+            raise ValueError("Finish the mat setup first. It is on the Setup tab.")
+        problems = self.calibration.problems()
+        if problems:
+            raise ValueError(problems[0])
         park = self.poses["Park"]
-        points = list(positions)
-        for i, first in enumerate(points):
-            pose = self.poses[first]
-            for second in points[i+1:]:
-                other = self.poses[second]
-                actual = dist((pose.x, pose.y), (other.x, other.y))
-                expected = dist(positions[first], positions[second])
-                if abs(actual - expected) > 7 or abs(pose.z - other.z) > 3:
-                    raise ValueError(f"Check the taught centres and piece height at {first} and {second}.")
-            if not 12 <= park.z - pose.z <= 75 or abs(park.r - pose.r) > 5:
-                raise ValueError("Teach Park above the playing surface with the same tool rotation.")
-            if dist((pose.x, pose.y), (park.x, park.y)) > layout.park_limit:
-                raise ValueError("Teach Park above the small ring so the tool can reach the cells and reserves.")
+        for name in self.layout.positions:
+            if not 12 <= park.z - self.poses[name].z <= 75 or abs(park.r - self.poses[name].r) > 5:
+                raise ValueError("Park must be 12 to 75 mm above the pieces. Run the setup again.")
+
+    def finish_setup(self):
+        """The arm knows the mat, the camera has read some pieces: play can start."""
+        self.setup_done = True
+        self.poses = self.calibration.poses()
+        self.save_setup()
+        self.status.set("Setup is finished. Open the Match tab and choose New game.")
+
+    def save_setup(self):
+        """Keep the setup for the rest of this session, so reopening Tic-tac-toe does not repeat it."""
+        if self.wizard and self.wizard.calibration and self.reference is not None:
+            self.studio.tictactoe_saved = {"reference": self.reference, "wizard": self.wizard.save(),
+                                           "done": self.setup_done}
 
     def _steady(self, robot_mark=None, *, min_frames=2):
+        if self.camera_moved:
+            raise ValueError("The camera has moved. Capture the empty mat again. The arm setup is not affected.")
         if self.latest is None or self.seen < min_frames or monotonic() - self.analysed > VIEW_TIMEOUT:
             raise ValueError("Wait for a steady view of the entire mat.")
         if not self.view_clear:
@@ -577,6 +585,8 @@ class TicTacToeProgram:
         if self.busy == "demo":
             self.window.after_cancel(self.demo_timer)
             self.demo_timer = self.busy = None
+        elif self.busy in ("tour", "visit", "park", "touch"):
+            self.abort.set()
         elif self.busy == "place":
             self.abort.set()
             self.studio.homed = False
@@ -592,32 +602,37 @@ class TicTacToeProgram:
         if sample.timestamp - self.analysed < 0.15:
             return False
         self.analysed = sample.timestamp
+        rgb = np.asarray(image)
         try:
-            self.rectified = rectify(np.asarray(image))
-            view = self.rectified
-            if self.reference is None:
-                self.camera_status.set(f"{view.layout.label} mat found. Capture it while empty.")
-            elif self._shifted(view):
-                raise ValueError("The mat or camera moved. Re-register the empty mat.")
+            self.found = rectify(rgb)
+            problem = ""
+        except (ImportError, ValueError) as error:
+            self.found, problem = None, str(error)
+        if self.reference is None:
+            self.rectified = self.found
+            self.latest, self.seen, self.view_clear = None, 0, False
+            self.camera_status.set(f"{self.found.layout.label} mat found. Capture it while empty." if self.found
+                                   else problem)
+        else:
+            # The view was locked when the empty mat was captured. The markers are not needed any more.
+            self._watch_camera()
+            try:
+                view = lock_view(rgb, self.reference)
+            except ValueError as error:
+                self.rectified, self.latest, self.seen, self.view_clear = None, None, 0, False
+                self.camera_status.set(str(error))
             else:
+                self.rectified = view
                 position = read_position(view.grey, self.reference.grey, view.layout)
                 clear = self.busy != "place" and mat_clear(view, self.reference, position)
                 self.seen = self.seen+1 if position == self.latest and clear and self.view_clear else 1
                 self.view_clear = clear
                 self.latest = position
-                self.camera_status.set(f"{view.layout.label} mat · {sum(bool(piece) for piece in position.reserve)} in reserve")
-        except (ImportError, ValueError) as error:
-            if self.rectified is not None and self.reference is not None and self._shifted(self.rectified):
-                self.stop()
-                self.reference = self.rectified = None
-                self.poses.clear()
-                self.status.set("The registered mat moved. Capture it again and re-teach the tool.")
-            else:
-                self.rectified = None
-            self.latest = None
-            self.seen = 0
-            self.view_clear = False
-            self.camera_status.set(str(error))
+                if self.camera_moved:
+                    self.camera_status.set("The camera has moved. Capture the empty mat again.")
+                else:
+                    self.camera_status.set(f"{view.layout.label} mat · "
+                                           f"{sum(bool(piece) for piece in position.reserve)} in reserve")
         self._draw_camera()
         return True
 
@@ -627,31 +642,29 @@ class TicTacToeProgram:
                 name, value, error = self.events.get_nowait()
             except Empty:
                 break
+            if name == "arrived":
+                self.wizard.arrived(value)
+                continue
             if name == "camera":
                 if value == self.camera_epoch:
                     self.stop()
                     self.camera_status.set(str(error))
                     if self.camera:
                         self.studio.camera_closing = self.camera
-                    self.camera = self.feed = self.latest = self.rectified = None
+                    self.camera = self.feed = self.latest = self.rectified = self.found = None
                     self.view_clear = False
                     self._draw_camera()
                 continue
             self.busy = None
+            if name in ("touch", "tour", "visit", "park"):
+                self.wizard.finished(name, value, error)
+                continue
             if error:
                 if name == "place":
                     self.ready = self.studio.homed = False
                     self.studio.points.clear()
                     self._cancel_tidy()
                 self.status.set(str(error))
-            elif name == "teach":
-                reference, place, pose = value
-                if reference is self.reference:
-                    self.poses[place] = pose
-                    order = self.teach_order
-                    following = order[(order.index(place)+1) % len(order)]
-                    self.teaching.set(following)
-                    self.status.set(f"{place} taught. Next: {following}.")
             elif name == "place" and (self.ready or self.tidying):
                 self.checking, self.studio.position = value
                 self.deadline = monotonic() + 3.5
@@ -713,21 +726,14 @@ class TicTacToeProgram:
         if ui.demo:
             self.detail.set("Select an empty cell on the blue board. Dobot replies automatically.")
         else:
-            order = self.teach_order
             self.detail.set("Place one piece and take your hand away. Dobot replies after 1.5 clear seconds."
-                            if self.ready else f"{len(self.poses)}/{len(order)} tool positions taught. "
-                            "Capture the mat empty before loading the reserves.")
+                            if self.ready else "Ready to play. Choose New game." if self.setup_done
+                            else "Finish the setup on the Setup tab first.")
+            self.wizard.refresh()
             self._draw_guide()
-            self.camera_button.configure(text="Stop camera" if self.camera else "Start camera")
-            self.slot_picker.configure(values=order, state="readonly" if idle and not self.ready else "disabled")
-            if self.teaching.get() not in order:
-                self.teaching.set(order[0])
-            ui._set_button(self.camera_button, idle)
-            ui._set_button(self.empty_button, idle and not self.ready and self.rectified is not None)
-            ui._set_button(self.teach_button, idle and not self.ready and ui.homed and self.reference is not None)
             ui._set_button(self.release_button, idle and not self.ready and ui.robot is not None)
-        ui._set_button(self.new_button, idle and (ui.demo or not self.ready) and not resetting)
-        can_reset = any(self.board) if ui.demo else ui.homed and self.reference is not None
+        ui._set_button(self.new_button, idle and (ui.demo or (not self.ready and self.setup_done)) and not resetting)
+        can_reset = any(self.board) if ui.demo else ui.homed and self.setup_done
         ui._set_button(self.reset_button, idle and not self.ready and not resetting and can_reset)
         ui._set_button(self.stop_button, self.ready or not idle or self.tidy_pending)
         self._draw_game()
@@ -749,7 +755,8 @@ class TicTacToeProgram:
 
     def _draw_guide(self, force=False):
         layout = self.layout
-        key = (layout, self.teaching.get(), frozenset(self.poses), self.dobot_side.get(),
+        taught = frozenset(self.poses) | frozenset(self.wizard.touched if self.wizard else ())
+        key = (layout, self.teaching.get(), taught, self.dobot_side.get(),
                self.guide.winfo_width(), self.guide.winfo_height())
         if key == self.guide_key and not force:
             return
@@ -757,6 +764,7 @@ class TicTacToeProgram:
         place_name = self.teaching.get()
         if place_name in self.teach_order:
             self.guide_text.set(describe_slot(layout, place_name, self.dobot_side.get()))
+        known = taught
         canvas = self.guide
         canvas.delete("all")
         layout, scale, place, (width, height) = self._guide_layout()
@@ -769,14 +777,14 @@ class TicTacToeProgram:
         radius = max(5, 10.9 * layout.piece_scale * scale)
         for name, (x, y) in layout.positions.items():
             cx, cy = place(x, y)
-            current, taught = name == place_name, name in self.poses
+            current, taught = name == place_name, name in known
             canvas.create_oval(cx-radius, cy-radius, cx+radius, cy+radius, tags=(f"slot:{name}",), width=2 if current else 1,
                                fill="#ffd997" if current else "#bfeee9" if taught else "#f6faff",
                                outline="#a8681a" if current else "#2e8f8a" if taught else "#6d86a0")
             canvas.create_text(cx, cy, text=name.replace("Reserve ", "R"), tags=(f"slot:{name}",), fill="#17283b",
                                font=self.studio.theme.font(7, "bold"))
         px, py = place(*layout.park)
-        current, taught = place_name == "Park", "Park" in self.poses
+        current, taught = place_name == "Park", "Park" in known
         canvas.create_oval(px-4, py-4, px+4, py+4, tags=("slot:Park",), width=2 if current else 1,
                            fill="#ffd997" if current else "#bfeee9" if taught else "#f6faff",
                            outline="#a8681a" if current else "#2e8f8a" if taught else "#6d86a0")
@@ -795,7 +803,10 @@ class TicTacToeProgram:
         name, (cx, cy) = min(((n, place(*p)) for n, p in spots.items()),
                              key=lambda item: (item[1][0]-event.x)**2 + (item[1][1]-event.y)**2)
         if (cx - event.x)**2 + (cy - event.y)**2 <= (radius + 2)**2:
-            self.teaching.set(name)
+            if self.wizard:
+                self.wizard.picked(name)
+            else:
+                self.teaching.set(name)
             self._draw_camera()
             self._draw_guide()
 
@@ -880,6 +891,7 @@ class TicTacToeProgram:
         if self.busy or self.checking:
             self.stop()
             return
+        self.save_setup()
         if self.camera:
             self.camera.close()
             self.studio.camera_closing = self.camera

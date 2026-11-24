@@ -64,7 +64,7 @@ def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False):
     h, w = rgb.shape[:2]
     src = np.float32([(0, 0), (w-1, 0), (w-1, h-1), (0, h-1)])
     if layout.width > layout.height:      # a wide sheet: A3 or the compact A4 mat
-        dst = np.float32([(62, 53), (590, 62), (584, 432), (47, 411)])
+        dst = np.float32([(62+shift, 53), (590+shift, 62), (584+shift, 432), (47+shift, 411)])
     else:
         dst = np.float32([(120+shift,23),(559+shift,34),(543+shift,458),(100+shift,443)])
     return cv2.warpPerspective(rgb, cv2.getPerspectiveTransform(src,dst), (640,480),

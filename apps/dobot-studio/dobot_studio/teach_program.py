@@ -166,8 +166,7 @@ class TeachProgram:
     def setup_usb(self):
         self.close()
         if self.studio.workcell is None:
-            self.studio.set_mode(False)
-            self.studio.show_programs()
+            self.studio.show_connect()
 
     def _job(self, name, action):
         if self.busy:

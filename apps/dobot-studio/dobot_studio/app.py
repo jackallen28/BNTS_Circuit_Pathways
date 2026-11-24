@@ -11,6 +11,7 @@ from .learning import (
     CUSTOM_HAND, SYMBOL, TRAINABLE, Recognizer, default_training_folder, empty_classes, load_classes,
 )
 from .block_program import BlockProgram
+from .connect import ConnectScreen
 from .programs import build_program_picker
 from .teach_program import TeachProgram
 from .tictactoe_program import TicTacToeProgram
@@ -34,7 +35,7 @@ class Studio:
         self.root, self.models = root, models
         self.training_folder = training_folder if training_folder is not None else default_training_folder()
         self.training_window = self.classifier = None
-        self.workcell = self.program_menu = None
+        self.workcell = self.program_menu = self.connect_screen = None
         self.theme = Theme(root)
         self.demo = True
         self.armed = self.homed = self.closing = False
@@ -299,6 +300,8 @@ class Studio:
             text = "Controls disarmed"
         self.control_text.configure(text=text, fg=GREEN if self.armed else PURPLE)
         self.pose_text.configure(text=self.position.label() if self.position else "Position unavailable")
+        if self.connect_screen:
+            self.connect_screen.refresh()
 
     def _simulated_input(self):
         return self.demo and self.camera is None and self.input_mode.get() not in TRAINABLE
@@ -472,6 +475,45 @@ class Studio:
         self.desktop.pack_forget()
         self.program_menu.pack(fill="both", expand=True)
 
+    def show_connect(self):
+        """The first screen, and the way back to it: connect and home the arm, then try it."""
+        if (self.armed or self.busy or self.camera or self.camera_closing
+                or self.training_window or self.workcell):
+            return
+        if self.program_menu:
+            self.program_menu.destroy()
+            self.program_menu = self.connect_screen = None
+        else:
+            self.desktop.pack_forget()
+        if self.demo and not self.robot:
+            self.set_mode(False)
+        self.connect_screen = ConnectScreen(self)
+        self.program_menu = self.connect_screen.canvas
+        self.program_menu.pack(fill="both", expand=True)
+        if not self.demo and not self.robot:
+            self.scan_ports()
+        self._render()
+
+    def leave_connect(self):
+        if self.program_menu:
+            self.program_menu.destroy()
+            self.program_menu = self.connect_screen = None
+        self.show_programs()
+
+    def jog(self, delta):
+        """Move the tool a small step from where it is."""
+        if self.robot and self.homed and not self.busy and not self.armed and not self.closing:
+            self.status_text.set("Moving…")
+            self._launch("jog", lambda: self.robot.jog(delta, self.stop_signal))
+
+    def hold(self, tool, holding):
+        """Turn the suction on or off, or close or open the gripper, to try it."""
+        if self.robot and not self.busy and not self.armed and not self.closing:
+            def apply():
+                self.robot.set_attachment(tool, holding)
+                return tool, holding
+            self._launch("tool", apply)
+
     def open_program(self, name):
         if self.program_menu:
             self.program_menu.destroy()
@@ -624,7 +666,7 @@ class Studio:
         self.armed = False
         self.gate.reset()
         self.status_text.set(reason)
-        if self.busy in ("home", "move"):
+        if self.busy in ("home", "move", "jog"):
             self.stop_signal.set()
             if not self.demo:
                 self.homed = False
@@ -682,6 +724,8 @@ class Studio:
         self.busy = None
         if error:
             self.armed = False
+            if job == "jog" and isinstance(error, StopUnconfirmed):
+                self.homed = False
             if job in ("move", "home", "stop") and not self.demo:
                 self.homed = False
                 self.position = None
@@ -717,6 +761,14 @@ class Studio:
                 self._draw_preview()
         elif job == "stop":
             self.status_text.set("Dobot force-stop acknowledged. Controls disarmed.")
+        elif job == "jog":
+            self.position = result
+            self.status_text.set("Moved. Tool at " + result.label())
+        elif job == "tool":
+            tool, holding = result
+            action = {(True, True): "Suction on.", (False, True): "Gripper closed.",
+                      (True, False): "Suction off.", (False, False): "Gripper open."}
+            self.status_text.set(action[(tool == "Suction cup", holding)])
         self._render()
 
     def _tick(self):
@@ -813,5 +865,5 @@ def main():
     args = parser.parse_args()
     root = tk.Tk()
     studio = Studio(root, args.models.resolve(), args.training_data.resolve())
-    studio.show_programs()
+    studio.show_connect()
     root.mainloop()

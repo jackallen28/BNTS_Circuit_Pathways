@@ -102,9 +102,16 @@ script. Symbol mode uses OpenCV and the locally trained classifier.
 1. Keep the arm's workspace clear and have a physical way to stop it within reach.
    Power the Dobot with its own adapter. Plug its USB data cable and the webcam
    into the Pi.
-2. In **USB hardware**, scan and select the arm's port. You can also type a stable
-   path from `/dev/serial/by-id/` if one is available. Click **Connect**, then
-   **Home**. Homing moves the arm.
+2. Dobot Studio opens on **Connect your Dobot**, before the programs page. Choose the
+   arm's port (**Scan** finds it, or type a stable path from `/dev/serial/by-id/`), click
+   **Connect**, then **Home**. Homing moves the arm. Then **try it**: move the tool in
+   small steps (1, 5, 10 or 20 mm) with the arrow buttons, and turn the suction on and
+   off, or close and open the gripper. The steps refuse any point the arm cannot reach, **Stop**
+   or Esc stops a move, and **Choose a program** unlocks once the arm is homed. **Use Demo
+   mode** skips the arm. The picker has a **Dobot connection…** button to come back.
+
+![The Connect your Dobot screen with the arm connected and homed, and the test pad ready](docs/images/connect-screen.png)
+
 3. With controls disarmed, use the Magician's hand-guiding button to position the
    tool. Release the button and let the arm settle, then click **Teach** for A.
    Repeat for B, and leave the tool at A or B. This prototype limits the two
@@ -353,40 +360,50 @@ position instead (see step 3).
 
 ### Set up the physical game
 
-![Tic-tac-toe setup with the mat map naming the next position to teach, X3, and the overhead camera view highlighting the same circle](docs/images/tictactoe-setup-guide.png)
+![Tic-tac-toe setup, step 4 of 7: the mat map and the camera view show the next circle to touch, O1](docs/images/tictactoe-setup-guide.png)
 
-1. Secure the mat flat with both reserves and all nine cells in reach. Attach
-   the four marker cards only if you have an older single-bank 3D mat. The paper
-   and current 3D mats have the markers built in. Mount the webcam overhead and
-   frame all four markers. Select **USB hardware**, connect the Magician with
-   the suction cup fitted, and home it.
-2. Open **Tic-tac-toe** and start the camera. Remove all pieces, then choose
-   **Capture empty mat**. The app registers the layout from its markers.
-3. For each play cell and reserve slot, centre a sample piece and hand-guide
-   the cup to the centre of its flat top. Click **Teach tool position**.
-   The picker advances to the next position. The **map of the mat** under the
-   picker names the position and highlights it, and the overhead camera view
-   highlights the same circle. Taught positions turn green on the map, and you
-   can click any circle on the map to teach it next. If you stand behind the mat
-   with the Dobot, tick **View from the Dobot’s side**. The map and its wording
-   turn end for end to match what you see. Teach **Park** at a clear height
-   above the guide using the same tool rotation. Return the tool to Park and
-   remove the sample piece. If the tool is visible over the mat, capture the
-   empty mat again with the tool at Park. Re-teach after moving the mat or
-   changing layouts.
-4. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least
+1. Secure the mat flat with both reserves and all nine cells in reach. Mount the webcam
+   overhead. Connect and home the Dobot on the first screen, with the suction cup fitted,
+   then open **Tic-tac-toe**. The **Setup** tab walks through seven steps, and the
+   map beside the steps and the camera view show which circle each step means.
+2. **Show the mat.** Start the camera and move the mat or camera until it says
+   **Good to go**. The four corner markers are only a rough guide to find the mat once.
+3. **Capture the empty mat.** Clear the mat and move the arm out of the camera's view.
+   This locks the camera's view. After that the markers are not used again, so the arm
+   passing in front of them, or a marker read a little out, changes nothing.
+4. **Touch the centre mark, then the four corners.** Hand-guide the arm (hold its button)
+   until the suction cup touches the small ring in the middle of the mat, and save it. Then
+   do the same on the middle of each of the four outer circles, one at a time. That is
+   all the arm is taught. It works out the mat's position, rotation, true printed size and
+   slope from those five touches, and so where every other circle is, without the
+   camera. If one touch looks off by more than 3 mm it is named, and you can click it on
+   the map and touch it again.
+5. **Check every point.** Press **Check all points**. The arm visits all 19 circles a little
+   above the mat. Click any circle on the map to look at it: **Go to selected**, **Lower**
+   the cup onto it, and **nudge** it by 0.5, 1 or 2 mm if it is off centre. If you stand
+   behind the mat with the Dobot, tick **View from the Dobot’s side**. The map and its
+   wording turn end for end to match what you see.
+6. **Check the pieces.** The arm moves to Park by itself, and the camera takes a second
+   look with the arm there, so the resting arm is not mistaken for something in the way.
+   Put some X and O pieces on the mat and press **Capture pieces**. The camera's reading
+   appears beside each circle. If it cannot read one, that circle is named. Then finish.
+
+The setup is kept until you close Dobot Studio, so reopening Tic-tac-toe does not repeat
+it. Run it again if the mat or the arm is moved. If the camera is knocked, a warning appears
+and you only need to capture the empty mat again. The arm's setup is not affected.
+7. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least
    four of O1–O5 with noughts. On the single-bank mat, put the Dobot’s mark in
    the reserve slots. Load five if it plays X or four if it plays O. Select
    **New game**.
-5. On your turn, centre one piece in an empty cell and take your hand away.
+8. On your turn, centre one piece in an empty cell and take your hand away.
    Once the camera sees one legal move and a clear, unchanged mat for 1.5
    seconds, the Dobot makes its move. A change, obstruction or lost camera view
    restarts the countdown. If you play O, the Dobot opens after the same check.
    The camera verifies the destination and the cleared reserve slot after transfer.
-6. Keep hands clear until the tool returns to Park and the screen shows your
+9. Keep hands clear until the tool returns to Park and the screen shows your
    turn. Use **Stop** or Escape to interrupt. Support any held piece before using
    **Release suction**. Watch the first lift and placement to check reach and suction.
-7. When the game ends, leave the mat still and clear. After 1.5 seconds the Dobot
+10. When the game ends, leave the mat still and clear. After 1.5 seconds the Dobot
    returns each piece from the cells to a free reserve slot, one at a time, and the
    camera confirms every move before the next. On the paper, A3 and compact mats it returns
    both marks to their own banks. On the single-bank 3D mat it returns only its own

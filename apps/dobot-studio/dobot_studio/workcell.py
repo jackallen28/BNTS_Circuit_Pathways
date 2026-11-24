@@ -191,8 +191,7 @@ class Workcell:
         self.close()
         if self.studio.workcell:
             return
-        self.studio.set_mode(False)
-        self.studio.status_text.set("Connect and home the arm, then return to Chip sorting from Programs.")
+        self.studio.show_connect()
 
     def _forget_view(self):
         self.frame = self.empty = None

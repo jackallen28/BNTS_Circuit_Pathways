@@ -7,12 +7,14 @@ from types import SimpleNamespace
 import tkinter as tk
 import unittest
 
+from dobot_studio.matcalib import MatCalibration
 from dobot_studio.robot import Pose
 from dobot_studio.tictactoe import (
     A3_MAT, CELLS, COMPACT_MAT, EMPTY, MAT_LAYOUTS, O, PAPER_MAT, STANDARD_MAT, X, describe_slot, outcome, tidy_plan,
     with_move,
 )
 from dobot_studio.tictactoe_vision import Position
+from tests.test_matcalib import TruePlacement
 
 FINISHED = (X, O, "", X, O, "", X, "", "")   # X wins the left column
 assert outcome(FINISHED) == X
@@ -134,13 +136,15 @@ class PhysicalResetTests(unittest.TestCase):
 
     def program(self, layout, board, human=X):
         studio = self.studio
-        poses = {name: Pose(150 + x, -150 + y, 30, 0) for name, (x, y) in layout.positions.items()}
-        poses["Park"] = Pose(150 + layout.width/2, -150 + layout.height/2, 60, 0)
+        # The arm's calibration, as the setup works it out from the touched points.
+        calibration = MatCalibration(layout, TruePlacement(layout).touched())
+        poses = calibration.poses()
         self.world = World(layout, board)
         studio.robot = FakeRobot(self.world, poses)
         program = self.program_class(studio)
         self.addCleanup(lambda: program.window.winfo_exists() and program.window.destroy())
-        program.poses = poses
+        program.wizard.calibration = calibration
+        program.poses, program.setup_done = poses, True
         program.reference = SimpleNamespace(layout=layout)
         program.human = program.player_choice.set(human) or human
         program.board = tuple(board)
@@ -297,14 +301,29 @@ class MatGuideTests(unittest.TestCase):
         self.assertEqual(self.circle("A1")[2], "#bfeee9")
         self.assertEqual(self.circle("A3")[2], "#f6faff")
 
-    def test_clicking_a_circle_chooses_it_and_clicking_empty_space_does_not(self):
+    def test_clicking_a_circle_chooses_it_for_checking_and_empty_space_does_nothing(self):
+        wizard = self.program.wizard
+        wizard.step = 4                       # Check every point
         self.program.teaching.set("A1")
         self.settle()
         x, y, _ = self.circle("O4")
         self.program._guide_click(SimpleNamespace(x=x, y=y))
-        self.assertEqual(self.program.teaching.get(), "O4")
+        self.assertEqual((self.program.teaching.get(), wizard.selected), ("O4", "O4"))
         self.program._guide_click(SimpleNamespace(x=2, y=40))
-        self.assertEqual(self.program.teaching.get(), "O4")
+        self.assertEqual(wizard.selected, "O4")
+
+    def test_while_touching_the_corners_only_a_corner_can_be_chosen_to_touch_again(self):
+        from dobot_studio.matcalib import outer_points
+        wizard = self.program.wizard
+        wizard.step = 3                       # Touch the four corners
+        self.settle()
+        x, y, _ = self.circle("B2")
+        self.program._guide_click(SimpleNamespace(x=x, y=y))
+        self.assertIsNone(wizard.redo)
+        corner = outer_points(A3_MAT)[2]
+        x, y, _ = self.circle(corner)
+        self.program._guide_click(SimpleNamespace(x=x, y=y))
+        self.assertEqual((wizard.redo, wizard.target()), (corner, corner))
 
     def test_the_dobots_side_turns_the_map_and_the_wording(self):
         self.program.teaching.set("A1")
@@ -332,13 +351,22 @@ class MatGuideTests(unittest.TestCase):
             return widget.winfo_ismapped() and widget.winfo_rooty() >= window.winfo_rooty() \
                 and bottom <= window.winfo_rooty() + window.winfo_height()
 
-        for tab, names in ((program.side_tabs.tabs()[0], ("camera_button", "empty_button", "teach_button", "guide", "stop_button")),
-                           (str(program.match_tab), ("symbol_picker", "level_picker", "new_button", "reset_button",
-                                                     "release_button", "stop_button"))):
-            program.side_tabs.select(tab)
+        wizard = program.wizard
+        program.side_tabs.select(program.side_tabs.tabs()[0])
+        for step in range(len(wizard.frames)):
+            wizard.step = step
+            wizard._show_step()
             self.settle()
-            for name in names:
-                self.assertTrue(inside(getattr(program, name)), f"{name} is outside the window")
+            for name in ("heading", "status_label", "back_button", "next_button", "controls", "guide"):
+                widget = getattr(wizard, name, None) or getattr(program, name)
+                self.assertTrue(inside(widget), f"{name} is outside the window at step {step + 1}")
+            for child in wizard.frames[step].winfo_children():
+                self.assertTrue(inside(child), f"a control is outside the window at step {step + 1}")
+            self.assertTrue(inside(program.stop_button), f"the stop button is outside the window at step {step + 1}")
+        program.side_tabs.select(str(program.match_tab))
+        self.settle()
+        for name in ("symbol_picker", "level_picker", "new_button", "reset_button", "release_button", "stop_button"):
+            self.assertTrue(inside(getattr(program, name)), f"{name} is outside the window")
 
     def test_the_stop_button_stays_visible_even_if_the_side_panel_grows_too_tall(self):
         program, window = self.program, self.program.window
@@ -356,6 +384,7 @@ class MatGuideTests(unittest.TestCase):
         self.assertEqual(program.side_tabs.select(), str(program.match_tab))
 
     def test_every_position_can_be_chosen_on_every_mat(self):
+        self.program.wizard.step = 4
         for layout in (PAPER_MAT, A3_MAT, COMPACT_MAT, STANDARD_MAT):
             self.program.reference = SimpleNamespace(layout=layout)
             self.program.teaching.set("A1")
@@ -363,7 +392,7 @@ class MatGuideTests(unittest.TestCase):
             for label in (*layout.positions, "Park"):
                 x, y, _ = self.circle(label)
                 self.program._guide_click(SimpleNamespace(x=x, y=y))
-                self.assertEqual(self.program.teaching.get(), label, f"{layout.label} {label}")
+                self.assertEqual(self.program.wizard.selected, label, f"{layout.label} {label}")
 
 
 @unittest.skipUnless(__import__("os").environ.get("DISPLAY") or __import__("sys").platform == "win32",
