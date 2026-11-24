@@ -334,8 +334,8 @@ at least 8 mm from the paper edge and uses
 [Ø40 mm tokens](printables/tictactoe/a3-pieces). The 300 mm SVG uses Ø25 mm
 tokens. **Print at 100%, not Fit**, and check the A3 sheet's 100 mm line (see
 [Print the paper mat](printables/tictactoe/README.md#print-the-paper-mat)).
-The play and reserve spots are hollow rings, with an X bank on the left and an
-O bank on the right. Use the small Park ring as a guide for the tool's clearance
+The play and reserve spots are solid black circles, with an X bank on the left and
+an O bank on the right. Use the small Park ring as a guide for the tool's clearance
 position. The four corner codes register the mat with the camera.
 
 The mats carry **no printed names** such as A1 or X3. The camera finds each

@@ -1,36 +1,36 @@
 <?xml version='1.0' encoding='utf-8'?>
 <svg xmlns="http://www.w3.org/2000/svg" width="300mm" height="300mm" viewBox="0 0 300 300" role="img" aria-labelledby="title description" font-family="Arial, sans-serif">
   <title id="title">Dobot Studio tic-tac-toe mat</title>
-  <desc id="description">300 mm square with nine cells, separate X and O reserves and four camera markers.</desc>
+  <desc id="description">300 mm square with nine solid black circles, separate X and O reserves and four camera markers.</desc>
   <g id="300-mm-outline">
     <rect x="0.5" y="0.5" width="299" height="299" rx="0" fill="#ffffff" stroke="#879caf" stroke-width="0.35" />
   </g>
   <g id="board-grid">
-    <rect x="53" y="52.5" width="162" height="165" rx="3" fill="none" stroke="#879caf" stroke-width="0.65" />
-    <line x1="107" y1="52.5" x2="107" y2="217.5" fill="none" stroke="#879caf" stroke-width="0.45" />
-    <line x1="161" y1="52.5" x2="161" y2="217.5" fill="none" stroke="#879caf" stroke-width="0.45" />
-    <line x1="53" y1="107.5" x2="215" y2="107.5" fill="none" stroke="#879caf" stroke-width="0.45" />
-    <line x1="53" y1="162.5" x2="215" y2="162.5" fill="none" stroke="#879caf" stroke-width="0.45" />
-    <circle cx="80" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="134" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="188" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="80" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="134" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="188" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="80" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="134" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="188" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="34" cy="86" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="34" cy="116" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="34" cy="146" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="34" cy="176" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="34" cy="206" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="234" cy="86" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="234" cy="116" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="234" cy="146" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="234" cy="176" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="234" cy="206" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <circle cx="153" cy="154" r="2.3" fill="none" stroke="#1e596b" stroke-width="0.35" />
+    <rect x="53" y="52.5" width="162" height="165" rx="3" fill="none" stroke="#000000" stroke-width="1.4" />
+    <line x1="107" y1="52.5" x2="107" y2="217.5" fill="none" stroke="#000000" stroke-width="1.0" />
+    <line x1="161" y1="52.5" x2="161" y2="217.5" fill="none" stroke="#000000" stroke-width="1.0" />
+    <line x1="53" y1="107.5" x2="215" y2="107.5" fill="none" stroke="#000000" stroke-width="1.0" />
+    <line x1="53" y1="162.5" x2="215" y2="162.5" fill="none" stroke="#000000" stroke-width="1.0" />
+    <circle cx="80" cy="80" r="11.725" fill="#000000" />
+    <circle cx="134" cy="80" r="11.725" fill="#000000" />
+    <circle cx="188" cy="80" r="11.725" fill="#000000" />
+    <circle cx="80" cy="135" r="11.725" fill="#000000" />
+    <circle cx="134" cy="135" r="11.725" fill="#000000" />
+    <circle cx="188" cy="135" r="11.725" fill="#000000" />
+    <circle cx="80" cy="190" r="11.725" fill="#000000" />
+    <circle cx="134" cy="190" r="11.725" fill="#000000" />
+    <circle cx="188" cy="190" r="11.725" fill="#000000" />
+    <circle cx="34" cy="86" r="11.725" fill="#000000" />
+    <circle cx="34" cy="116" r="11.725" fill="#000000" />
+    <circle cx="34" cy="146" r="11.725" fill="#000000" />
+    <circle cx="34" cy="176" r="11.725" fill="#000000" />
+    <circle cx="34" cy="206" r="11.725" fill="#000000" />
+    <circle cx="234" cy="86" r="11.725" fill="#000000" />
+    <circle cx="234" cy="116" r="11.725" fill="#000000" />
+    <circle cx="234" cy="146" r="11.725" fill="#000000" />
+    <circle cx="234" cy="176" r="11.725" fill="#000000" />
+    <circle cx="234" cy="206" r="11.725" fill="#000000" />
+    <circle cx="153" cy="154" r="2.3" fill="none" stroke="#000000" stroke-width="0.6" />
   </g>
   <g id="camera-markers">
     <rect x="7" y="7" width="20" height="20" rx="0" fill="#ffffff" />

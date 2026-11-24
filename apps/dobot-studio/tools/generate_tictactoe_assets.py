@@ -2,7 +2,7 @@
 
 The mats are built from the same SVG artwork as the paper mats, so the 3D print
 and the paper print cannot drift apart. Each mat is a Body and a Mark. The Mark is
-the artwork (rings, grid and camera markers) as a flush inlay in the first
+the artwork (solid circles, grid and camera markers) as a flush inlay in the first
 layers, so the build-plate face is flat and solid for multicolour printing.
 
 Requires Shapely 2.1+ and trimesh. Run with PYTHONPATH=. from apps/dobot-studio.
@@ -51,7 +51,7 @@ SEAM_CLEARANCE = 0.2  # marks stop this far from a tile edge so the Body stays c
 # Paper-only guides that have no place on a printed mat.
 PAPER_ONLY = {"print-area", "300-mm-outline", "print-scale"}
 # (SVG file, output name, folder for the pieces it can be cut into, cut at x, cut at y), cuts
-# in millimetres across the finished mat, chosen where no ring or marker is crossed.
+# in millimetres across the finished mat, chosen where no circle or marker is crossed.
 # The 300 mm mat fits a Bambu H2D bed (325 x 320 mm) whole, and splits in four for 256 mm beds.
 # A3 (420 x 297 mm) splits in two for the H2D, whose bed is 325 mm wide at most.
 MATS = (
@@ -125,7 +125,7 @@ def svg_marks(path):
     """
     root = ET.parse(path).getroot()
     width, height = (float(value) for value in root.attrib["viewBox"].split()[2:])
-    shapes, fragile = [], []   # fragile: rings and markers, which a cut must never touch
+    shapes, fragile = [], []   # fragile: circles and markers, which a cut must never touch
     for group in root.findall(f"{SVG}g"):
         if group.attrib.get("id") in PAPER_ONLY:
             continue
@@ -136,6 +136,9 @@ def svg_marks(path):
             outlined = element.attrib.get("stroke") and element.attrib.get("fill", "none") == "none"
             if tag == "circle" and outlined:
                 shapes.append(ring(Point(number("cx"), number("cy")), number("r"), stroke))
+                fragile.append(shapes[-1])
+            elif tag == "circle" and element.attrib.get("fill") == "#000000":
+                shapes.append(Point(number("cx"), number("cy")).buffer(number("r"), quad_segs=16))
                 fragile.append(shapes[-1])
             elif tag == "line":
                 shapes.append(LineString([(number("x1"), number("y1")), (number("x2"), number("y2"))])
@@ -193,7 +196,7 @@ def mat_meshes(source):
         if cut_y is not None:
             seams = seams.union(box(0, cut_y - SEAM_CLEARANCE, width, cut_y + SEAM_CLEARANCE))
         if fragile.intersects(seams):
-            raise ValueError(f"{svg}: a cut line runs through a ring or marker.")
+            raise ValueError(f"{svg}: a cut line runs through a circle or marker.")
         columns = (("left", cut_x, width), ("right", 0, cut_x))
         rows = ((("top", cut_y, height), ("bottom", 0, cut_y)) if cut_y is not None else (("", 0, height),))
         for row, y0, y1 in rows:

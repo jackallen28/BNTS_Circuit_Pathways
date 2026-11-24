@@ -16,8 +16,11 @@ from dobot_studio.tictactoe_program import TurnDelay
 from dobot_studio.tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
 
 
-def camera_view(contents, shift=0, layout=STANDARD_MAT):
-    """An angled, 640 px camera view of the mat and the supplied glyphs."""
+def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False):
+    """An angled, 640 px camera view of the mat and the supplied glyphs.
+
+    ``solid`` draws the circles as solid black discs, as on the current printed mats, instead of rings.
+    """
     density = 3
     piece_density = layout.piece_scale * density
     background = (43, 68, 75) if layout is STANDARD_MAT else (250, 250, 250)
@@ -35,6 +38,8 @@ def camera_view(contents, shift=0, layout=STANDARD_MAT):
         cx, cy = round(x*density), round(y*density)
         if layout is STANDARD_MAT:
             cv2.circle(rgb, (cx, cy), round(13.6*density), (31, 49, 58), -1, cv2.LINE_AA)
+        elif solid:
+            cv2.circle(rgb, (cx, cy), round((10.9 + 0.825)*piece_density), (0, 0, 0), -1, cv2.LINE_AA)
         else:
             cv2.circle(rgb, (cx, cy), round(10.9*piece_density), (34, 54, 74),
                        round(1.65*piece_density), cv2.LINE_AA)
@@ -167,6 +172,42 @@ class TicTacToeTests(unittest.TestCase):
                 self.assertTrue(mat_clear(clear, base, position))
 
                 # The hand is visible between the cells even though the pieces still read correctly.
+                cv2.ellipse(rgb, (325, 166), (8, 15), -15, 0, 360, (190, 144, 115), -1)
+                blocked = rectify(rgb)
+                self.assertEqual(read_position(blocked.grey, base.grey, layout), position)
+                self.assertFalse(mat_clear(blocked, base, position))
+
+    def test_solid_black_circles_read_as_well_as_rings_at_any_camera_angle(self):
+        contents = {"paper": {"A1": X, "B2": O, "C3": X, "X2": X, "X5": X, "O1": O, "O4": O},
+                    "A3": {"A1": X, "B2": O, "C3": X, "X2": X, "X5": X, "O1": O, "O4": O}}
+        expected_board = (X, "", "", "", O, "", "", "", X)
+        for layout, key in ((PAPER_MAT, "paper"), (A3_MAT, "A3")):
+            for turn, name in ((None, "as printed"), (cv2.ROTATE_180, "camera behind the mat"),
+                               (cv2.ROTATE_90_CLOCKWISE, "turned a quarter")):
+                with self.subTest(f"{layout.label} {name}"):
+                    def view(items, turn=turn):
+                        image = camera_view(items, layout=layout, solid=True)
+                        return image if turn is None else cv2.rotate(image, turn)
+
+                    base = rectify(view({}))
+                    played = rectify(view(contents[key]))
+                    self.assertIs(played.layout, layout)
+                    position = read_position(played.grey, base.grey, layout)
+                    self.assertEqual(position.board, expected_board)
+                    expected_reserve = tuple(contents[key].get(slot, "") for slot in layout.reserve)
+                    self.assertEqual(position.reserve, expected_reserve)
+                    self.assertTrue(mat_clear(played, base, position))
+
+    def test_solid_circles_still_show_an_obstruction_and_an_empty_mat_reads_empty(self):
+        for layout in (PAPER_MAT, A3_MAT):
+            with self.subTest(layout.label):
+                base = rectify(camera_view({}, layout=layout, solid=True))
+                self.assertEqual(read_position(base.grey, base.grey, layout),
+                                 Position(EMPTY, ("",) * len(layout.reserve)))
+                rgb = camera_view({"A1": X}, layout=layout, solid=True)
+                clear = rectify(rgb)
+                position = read_position(clear.grey, base.grey, layout)
+                self.assertTrue(mat_clear(clear, base, position))
                 cv2.ellipse(rgb, (325, 166), (8, 15), -15, 0, 360, (190, 144, 115), -1)
                 blocked = rectify(rgb)
                 self.assertEqual(read_position(blocked.grey, base.grey, layout), position)

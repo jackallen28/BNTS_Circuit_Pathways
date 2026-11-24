@@ -16,10 +16,11 @@ THICKNESS, MARK_DEPTH = 2.8, 0.6
 H2D_BED = (325, 320)       # Bambu H2D
 SMALL_BED = (256, 256)     # Bambu P1, X1 and A1
 
-# name: (layout, width, height, park, ring radius, park ring radius)
+# name: (layout, width, height, park, circle radius, park ring radius). Each circle is a solid black
+# disc the size of the old ring's outer edge: radius 10.9 plus half of a 1.65 mm stroke, times the piece scale.
 MATS = {
-    "mat-300x300": (PAPER_MAT, 300, 300, PAPER_PARK, 10.9, 2.3),
-    "mat-a3": (A3_MAT, 420, 297, A3_PARK, 10.9 * 1.6, 3.2),
+    "mat-300x300": (PAPER_MAT, 300, 300, PAPER_PARK, 11.725, 2.3),
+    "mat-a3": (A3_MAT, 420, 297, A3_PARK, 11.725 * 1.6, 3.2),
 }
 # file: (mat, x offset, y offset of the piece in the full model, width, height)
 PIECES = {
@@ -175,15 +176,17 @@ class FlatFirstLayerTests(unittest.TestCase):
 
 
 class SameAsThePaperMatTests(unittest.TestCase):
-    def test_every_cell_and_reserve_slot_has_its_ring_at_the_layout_position(self):
+    def test_every_cell_and_reserve_slot_has_a_solid_black_circle_at_the_layout_position(self):
         for name in ("mat-300x300", "mat-a3"):
             mat = Mat(name)
             self.assertEqual(len(mat.layout.positions), 19)
             for label, centre in mat.layout.positions.items():
                 with self.subTest(f"{name} {label}"):
-                    self.assertTrue(mat.marked(ring_points(centre, mat.ring)).all(), "ring is missing or off position")
-                    self.assertFalse(mat.marked([centre]).any(), "the ring must be hollow")
-                    self.assertFalse(mat.marked(ring_points(centre, mat.ring * 0.6)).any())
+                    self.assertTrue(mat.marked([centre]).all(), "the circle must be solid")
+                    for fraction in (0.3, 0.6, 0.97):
+                        self.assertTrue(mat.marked(ring_points(centre, mat.ring * fraction)).all(), "the circle has a gap")
+                    # Just outside the edge is plain Body, so the circle is the right size and in the right place.
+                    self.assertFalse(mat.marked(ring_points(centre, mat.ring + 1.0)).any(), "the circle is too big or off position")
 
     def test_x_pieces_are_on_the_left_and_o_pieces_on_the_right(self):
         for name in ("mat-300x300", "mat-a3"):
@@ -263,7 +266,7 @@ class PrintabilityTests(unittest.TestCase):
                 if mat.has(centre):
                     expected += 1
                     with self.subTest(f"{name} {label}"):
-                        self.assertTrue(mat.marked(ring_points(centre, mat.ring)).all())
+                        self.assertTrue(mat.marked(ring_points(centre, mat.ring * 0.9)).all())
             self.assertGreater(expected, 0, name)
         # Every circle is in exactly one piece of each split mat.
         for pieces in (("tiles/mat-top-left", "tiles/mat-top-right", "tiles/mat-bottom-left", "tiles/mat-bottom-right"),

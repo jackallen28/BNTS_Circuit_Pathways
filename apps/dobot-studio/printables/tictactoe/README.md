@@ -3,7 +3,7 @@
 There are two mats, a **300 × 300 mm** mat and an **A3 landscape (420 × 297 mm)**
 mat. Each comes as a 3D print and as a paper print, and the two are the same
 artwork. Both have nine play circles, an **X bank** of five reserve circles on the
-left, an **O bank** of five on the right, the grid, a small Park ring and four
+left, an **O bank** of five on the right, a heavy grid, a small Park ring and four
 camera markers. The mats carry **no printed names** such as A1 or X3. Dobot Studio
 names and highlights each position during setup, and the camera finds every
 position from the four markers, so the mat can sit any way round.
@@ -63,13 +63,15 @@ paper SVG. The A3 mat uses the **Ø40 × 5.12 mm** pieces. Models use millimetre
    flat first layer is the play surface, with the X bank on the left, the O bank on
    the right and a marker in each corner.
 
-The artwork is flat colour, not shallow wells, so pieces sit on the surface. Use the
-rings to place pieces, as on the paper mats.
+The artwork is flat colour, not shallow wells, so pieces sit on the surface. Each play
+and reserve position is a **solid black circle**, the same as on the paper mats. Place a
+piece over a circle. A light piece on the black circle also gives the camera strong
+contrast, so keep the pieces light, as in the piece steps above.
 
-**Printable detail.** Lines and rings are at least **0.6 mm** wide. The paper
+**Printable detail.** Lines and the Park ring are at least **0.6 mm** wide, and the grid is much heavier. The paper
 artwork has some finer lines, and these are thickened for the 3D mat. The generator
 refuses to write a mat with detail thinner than 0.58 mm. Where a mat is split, the
-cut runs between rings, so only thin grid lines are interrupted, and each
+cut runs between circles, so only grid lines are interrupted, and each
 interruption is about 0.4 mm wide.
 
 **Which bed?** A Bambu **H2D** prints the 300 mm mat whole. It prints the A3 mat as
@@ -143,6 +145,6 @@ PYTHONPATH=. python tools/generate_tictactoe_assets.py --only mat --zip
 editing `mat-a3.svg`, rebuild the paper PDF with `pip install cairosvg pypdf` and
 `python tools/make_a3_pdf.py`, then rebuild the zip. The
 generator refuses to write a mat if it has printed text, detail too fine to print, or
-a cut line through a ring or marker.
+a cut line through a circle or marker.
 
 For camera and robot setup, see [Tic-tac-toe in Dobot Studio](../../README.md#tic-tac-toe).
