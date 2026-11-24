@@ -317,21 +317,23 @@ flush, two-colour **Ø25 mm** playing pieces. Keep the supplied print orientatio
 so each mark begins on the first layer. Flip each piece mark side up for play.
 
 For a paper mat, use the [300 mm SVG](printables/tictactoe/mat-300x300.svg) or
-[A3 landscape PDF](printables/tictactoe/mat-a3.pdf). Print the PDF at Actual Size
-and check the 100 mm line. The play and reserve spots are hollow rings, with an
-X bank on the left, an O bank on the right and a small ring for Park. The four
-corner codes use solid dark squares and a white border for camera registration.
+[full-size A3 PDF](printables/tictactoe/mat-a3.pdf). The A3 layout has 5 mm print
+margins and uses [Ø40 mm tokens](printables/tictactoe/a3-pieces). The 300 mm SVG
+uses Ø25 mm tokens. Print at Actual Size and check the A3 sheet's 100 mm line.
+The play and reserve spots are hollow rings, with an X bank on the left and an
+O bank on the right. Use the small Park ring as a guide for the tool's clearance
+position. The four corner codes register the mat with the camera.
 
 ![3D-printed mat layout showing cells, a single reserve bank and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
 ### Set up the physical game
 
-1. Secure the mat flat. Attach the four marker cards if using the 3D mat.
-   Mount the webcam overhead and frame all four markers. Select **USB hardware**,
-   connect the Magician with the suction cup fitted, and home it.
+1. Secure the mat flat with both reserves and all nine cells in reach. Attach
+   the four marker cards if using the 3D mat. Mount the webcam overhead and
+   frame all four markers. Select **USB hardware**, connect the Magician with
+   the suction cup fitted, and home it.
 2. Open **Tic-tac-toe** and start the camera. Remove all pieces, then choose
-   **Capture empty mat**. The app registers the paper or single-bank layout
-   from its markers.
+   **Capture empty mat**. The app registers the layout from its markers.
 3. For each play cell and reserve slot, centre a sample piece and hand-guide
    the cup to the centre of its flat top. Click **Teach tool position**.
    The picker advances to the next position. Teach **Park** at a clear height
@@ -352,7 +354,7 @@ corner codes use solid dark squares and a white border for camera registration.
    turn. Use **Stop** or Escape to interrupt. Support any held piece before using
    **Release suction**. Watch the first lift and placement to check reach and suction.
 
-![Overhead view of the outlined paper mat during an automatic turn countdown](docs/images/tictactoe-camera.png)
+![Overhead view of the full-size A3 mat during an automatic turn countdown](docs/images/tictactoe-camera.png)
 
 The camera and suction examples use simulated hardware. Print scale, camera
 contrast, reach and suction sealing need checking with the physical setup.

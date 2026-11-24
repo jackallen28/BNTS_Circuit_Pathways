@@ -15,7 +15,7 @@ from shapely.geometry.polygon import orient
 from trimesh import Trimesh
 
 from dobot_studio.tictactoe import (
-    ANCHORS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MARK_DEPTH, MAT_FLOOR, MAT_HEIGHT,
+    A3_MAT, ANCHORS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MARK_DEPTH, MAT_FLOOR, MAT_HEIGHT,
     MAT_POSITIONS, MAT_TOP, MAT_WIDTH, NEST_RADIUS, NOUGHT_INNER, NOUGHT_OUTER,
     PIECE_HEIGHT, PIECE_RADIUS, SUGGESTED_PARK,
 )
@@ -175,18 +175,26 @@ def write_3mf(path, parts):
         package.writestr("3D/3dmodel.model", ET.tostring(model, encoding="utf-8", xml_declaration=True))
 
 
+def write_pieces(output, scale=1.0):
+    for kind in ("nought", "cross"):
+        parts = piece_meshes(kind)
+        if scale != 1.0:
+            for _, mesh in parts:
+                mesh.apply_scale(scale)
+        write_obj(output / f"{kind}.obj", parts)
+        for name, mesh in parts:
+            write_obj(output / "parts" / f"{kind}-{name.lower()}.obj", [(name, mesh)])
+        write_3mf(output / f"{kind}.3mf", parts)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("printables/tictactoe"))
     output = parser.parse_args().output
     for path, mesh in mat_meshes():
         write_obj(output / path, [("Mat", mesh)])
-    for kind in ("nought", "cross"):
-        parts = piece_meshes(kind)
-        write_obj(output / f"{kind}.obj", parts)
-        for name, mesh in parts:
-            write_obj(output / "parts" / f"{kind}-{name.lower()}.obj", [(name, mesh)])
-        write_3mf(output / f"{kind}.3mf", parts)
+    write_pieces(output)
+    write_pieces(output / "a3-pieces", A3_MAT.piece_scale)
 
 
 if __name__ == "__main__":

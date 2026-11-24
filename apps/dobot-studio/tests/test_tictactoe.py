@@ -1,60 +1,66 @@
+from math import dist
 from threading import Event
 import unittest
 
 import cv2
 import numpy as np
 
-from dobot_studio.robot import Magician, Pose, RobotError
+from dobot_studio.robot import Magician, Pose, RobotError, TRANSFER_SEGMENT_MM
 from dobot_studio.tictactoe import (
-    ANCHOR_SIZE, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, EMPTY, MAT_HEIGHT, MAT_WIDTH,
-    NOUGHT_INNER, NOUGHT_OUTER, O, PAPER_MAT, PIECE_RADIUS, STANDARD_MAT, UNKNOWN, X,
+    A3_MAT, A3_PARK, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, EMPTY, NOUGHT_INNER,
+    NOUGHT_OUTER, O, PAPER_MAT, PIECE_RADIUS, STANDARD_MAT, UNKNOWN, X,
     human_change, outcome, robot_move, with_move,
 )
 from dobot_studio.tictactoe_program import TurnDelay
-from dobot_studio.tictactoe_vision import Position, mat_clear, read_position, rectify
+from dobot_studio.tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
 
 
 def camera_view(contents, shift=0, layout=STANDARD_MAT):
-    """An angled, 640 px view of the 300 mm mat and the supplied glyphs."""
+    """An angled, 640 px camera view of the mat and the supplied glyphs."""
     density = 3
-    background = (250, 250, 250) if layout is PAPER_MAT else (43, 68, 75)
-    rgb = np.full((MAT_HEIGHT*density, MAT_WIDTH*density, 3), background, np.uint8)
+    piece_density = layout.piece_scale * density
+    background = (43, 68, 75) if layout is STANDARD_MAT else (250, 250, 250)
+    rgb = np.full((layout.height*density, layout.width*density, 3), background, np.uint8)
     aruco = cv2.aruco
     dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
     for key, (x, y) in layout.anchors.items():
         cx, cy = round(x*density), round(y*density)
-        radius = round(ANCHOR_SIZE*density/2)
+        radius = round(layout.anchor_size*density/2)
         border = radius + density*2
         rgb[cy-border:cy+border, cx-border:cx+border] = 251
         image = aruco.generateImageMarker(dictionary, key, 2*radius)
         rgb[cy-radius:cy+radius, cx-radius:cx+radius] = image[:, :, None]
     for label, (x, y) in layout.positions.items():
         cx, cy = round(x*density), round(y*density)
-        if layout is PAPER_MAT:
-            cv2.circle(rgb, (cx, cy), round(10.9*density), (34, 54, 74), round(1.65*density), cv2.LINE_AA)
-        else:
+        if layout is STANDARD_MAT:
             cv2.circle(rgb, (cx, cy), round(13.6*density), (31, 49, 58), -1, cv2.LINE_AA)
+        else:
+            cv2.circle(rgb, (cx, cy), round(10.9*piece_density), (34, 54, 74),
+                       round(1.65*piece_density), cv2.LINE_AA)
         glyph = contents.get(label)
         if not glyph:
             continue
-        cv2.circle(rgb, (cx, cy), round(PIECE_RADIUS*density), (230, 233, 225), -1, cv2.LINE_AA)
+        cv2.circle(rgb, (cx, cy), round(PIECE_RADIUS*piece_density), (230, 233, 225), -1, cv2.LINE_AA)
         if glyph == O:
-            cv2.circle(rgb, (cx, cy), round(NOUGHT_OUTER*density), (23, 29, 34), -1, cv2.LINE_AA)
-            cv2.circle(rgb, (cx, cy), round(NOUGHT_INNER*density), (230, 233, 225), -1, cv2.LINE_AA)
+            cv2.circle(rgb, (cx, cy), round(NOUGHT_OUTER*piece_density), (23, 29, 34), -1, cv2.LINE_AA)
+            cv2.circle(rgb, (cx, cy), round(NOUGHT_INNER*piece_density), (230, 233, 225), -1, cv2.LINE_AA)
         elif glyph == X:
             for sign in (-1, 1):
                 theta = np.radians(24 + sign*45)
                 vx, vy = np.cos(theta), np.sin(theta)
                 wx, wy = -vy, vx
-                vertices = [(round(cx + (vx*u*CROSS_HALF_LENGTH + wx*v*CROSS_HALF_WIDTH)*density),
-                             round(cy + (vy*u*CROSS_HALF_LENGTH + wy*v*CROSS_HALF_WIDTH)*density))
+                vertices = [(round(cx + (vx*u*CROSS_HALF_LENGTH + wx*v*CROSS_HALF_WIDTH)*piece_density),
+                             round(cy + (vy*u*CROSS_HALF_LENGTH + wy*v*CROSS_HALF_WIDTH)*piece_density))
                             for u,v in ((-1,-1), (1,-1), (1,1), (-1,1))]
                 cv2.fillConvexPoly(rgb, np.asarray(vertices), (23,29,34), cv2.LINE_AA)
         elif glyph == UNKNOWN:
             cv2.rectangle(rgb, (cx-16,cy-16), (cx+16,cy+16), (23,29,34), -1)
-    src = np.float32([(0,0),(MAT_WIDTH*density-1,0),
-                      (MAT_WIDTH*density-1,MAT_HEIGHT*density-1),(0,MAT_HEIGHT*density-1)])
-    dst = np.float32([(120+shift,23),(559+shift,34),(543+shift,458),(100+shift,443)])
+    h, w = rgb.shape[:2]
+    src = np.float32([(0, 0), (w-1, 0), (w-1, h-1), (0, h-1)])
+    if layout is A3_MAT:
+        dst = np.float32([(62, 53), (590, 62), (584, 432), (47, 411)])
+    else:
+        dst = np.float32([(120+shift,23),(559+shift,34),(543+shift,458),(100+shift,443)])
     return cv2.warpPerspective(rgb, cv2.getPerspectiveTransform(src,dst), (640,480),
                                borderValue=(24, 28, 33))
 
@@ -121,6 +127,24 @@ class TicTacToeTests(unittest.TestCase):
                 self.assertEqual(read_position(blocked.grey, base.grey, layout), position)
                 self.assertFalse(mat_clear(blocked, base, position))
 
+    def test_a3_mat_reads_40_mm_pieces_across_the_wide_layout(self):
+        base = rectify(camera_view({}, layout=A3_MAT))
+        rgb = camera_view({"A3": X, "C1": O, "X1": X, "O5": O}, layout=A3_MAT)
+        view = rectify(rgb)
+        self.assertIs(view.layout, A3_MAT)
+        self.assertEqual(view.grey.shape, (297 * DENSITY, 420 * DENSITY))
+        position = read_position(view.grey, base.grey, A3_MAT)
+        self.assertEqual(position.board, with_move(with_move(EMPTY, 2, X), 6, O))
+        self.assertEqual(position.reserve, (X, "", "", "", "", "", "", "", "", O))
+        self.assertTrue(mat_clear(view, base, position))
+
+        park = np.float32([[A3_PARK]]) * DENSITY
+        x, y = cv2.perspectiveTransform(park, np.linalg.inv(view.matrix))[0, 0]
+        cv2.circle(rgb, (round(x), round(y)), 8, (190, 144, 115), -1)
+        blocked = rectify(rgb)
+        self.assertEqual(read_position(blocked.grey, base.grey, A3_MAT), position)
+        self.assertFalse(mat_clear(blocked, base, position))
+
     def test_turn_delay_restarts_for_changes_obstructions_and_missing_frames(self):
         delay = TurnDelay()
         first = Position(with_move(EMPTY, 0, X), ())
@@ -152,6 +176,24 @@ class TicTacToeTests(unittest.TestCase):
         self.assertEqual(actions[4], park)
         self.assertEqual(actions.count(park), 2)
         self.assertTrue(actions.index(True) < actions.index(park) < actions.index(False))
+
+    def test_a3_transfer_splits_long_clearance_legs_at_park_height(self):
+        arm = Magician.__new__(Magician)
+        moves = []
+        suction = []
+        park = Pose(*A3_PARK, 70, 0)
+        pick = Pose(*A3_MAT.positions["X1"], 40, 0)
+        drop = Pose(*A3_MAT.positions["C3"], 40, 0)
+        arm.check_alarms = lambda: None
+        arm.pose = lambda: park
+        arm._run = lambda command, params, pose, stop, timeout: moves.append(pose)
+        arm.set_suction = lambda enabled: suction.append((enabled, moves[-1]))
+        arm.sort_chip(pick, drop, park, Event(), via_park=True)
+        self.assertEqual(moves[0], Pose((park.x+pick.x)/2, (park.y+pick.y)/2, park.z, park.r))
+        self.assertEqual(moves[-1], park)
+        self.assertEqual(suction, [(True, pick), (False, drop)])
+        self.assertTrue(all(dist(a.xyz(), b.xyz()) <= TRANSFER_SEGMENT_MM
+                            for a, b in zip((park, *moves), moves)))
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ SUCTION, GRIPPER, COORDINATE_SPEED, COMMON_SPEED, MOVE = 62, 63, 81, 83, 84
 QUEUE_START, QUEUE_STOP, QUEUE_FORCE_STOP, QUEUE_CLEAR, QUEUE_INDEX = 240, 241, 242, 245, 246
 READ, WRITE, QUEUED_WRITE, LINEAR = 0, 1, 3, 2
 POSITION_LIMIT_MM, ROTATION_LIMIT_DEG = 100, 25
+TRANSFER_SEGMENT_MM = 150
 SUCTION_TOOL, GRIPPER_TOOL = "Suction cup", "Gripper"
 ATTACHMENTS = (SUCTION_TOOL, GRIPPER_TOOL)
 
@@ -206,12 +207,23 @@ class Magician:
             raise RobotError("Park must be 12 to 75 mm above pickup and drop-off, with the same rotation.")
         near_pick = Pose(pick.x, pick.y, park.z, park.r)
         near_drop = Pose(drop.x, drop.y, park.z, park.r)
-        carry = ((park, None),) if via_park and dist(near_pick.xyz(), near_drop.xyz()) > 150 else ()
+        carry = ((park, None),) if via_park and dist(near_pick.xyz(), near_drop.xyz()) > TRANSFER_SEGMENT_MM else ()
         actions = ((near_pick, None), (pick, True), (near_pick, None), *carry,
                    (near_drop, None), (drop, False), (near_drop, None), (park, None))
+        if via_park:
+            # A wide mat can need an intermediate waypoint along a clearance-height leg.
+            route = []
+            origin = park
+            for target, grip in actions:
+                if origin.z == target.z == park.z and dist(origin.xyz(), target.xyz()) > TRANSFER_SEGMENT_MM:
+                    midpoint = Pose((origin.x + target.x)/2, (origin.y + target.y)/2, park.z, park.r)
+                    route.append((midpoint, None))
+                route.append((target, grip))
+                origin = target
+            actions = route
         path = (park, *(pose for pose, _ in actions))
-        if any(dist(a.xyz(), b.xyz()) > 150 for a, b in zip(path, path[1:])):
-            raise RobotError("A transfer segment exceeds 150 mm. Move the tray or bins closer.")
+        if any(dist(a.xyz(), b.xyz()) > TRANSFER_SEGMENT_MM for a, b in zip(path, path[1:])):
+            raise RobotError(f"A transfer segment exceeds {TRANSFER_SEGMENT_MM} mm. Move the tray or bins closer.")
         holding = False
         try:
             if stop.is_set():

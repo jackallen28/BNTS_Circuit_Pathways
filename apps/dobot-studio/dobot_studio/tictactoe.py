@@ -41,6 +41,11 @@ class MatLayout:
     positions: dict
     cross_bank: tuple
     nought_bank: tuple
+    width: int = MAT_WIDTH
+    height: int = MAT_HEIGHT
+    piece_scale: float = 1.0
+    anchor_size: float = ANCHOR_SIZE
+    park_limit: float = 150
 
     @property
     def reserve(self):
@@ -48,6 +53,9 @@ class MatLayout:
 
     def bank(self, mark):
         return self.cross_bank if mark == X else self.nought_bank
+
+    def reserve_marks(self, robot_mark):
+        return (robot_mark,) if self.cross_bank == self.nought_bank else (X, O)
 
 
 PAPER_CROSSES = tuple(f"X{index}" for index in range(1, 6))
@@ -59,7 +67,17 @@ PAPER_PARK = (153, 154)
 STANDARD_MAT = MatLayout("Standard", ANCHORS, MAT_POSITIONS, BANK, BANK)
 PAPER_MAT = MatLayout("Paper", dict(zip(range(36, 40), ANCHORS.values())),
                       PAPER_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS)
-MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT)
+
+A3_WIDTH, A3_HEIGHT = 420, 297
+A3_POSITIONS = dict(zip((*CELLS, *PAPER_CROSSES, *PAPER_NOUGHTS), (
+    *((x, y) for y in (68.5, 150.5, 232.5) for x in (123.6, 210, 296.4)),
+    *((x, y) for x in (55, 365) for y in (32.5, 80.5, 128.5, 176.5, 224.5)),
+)))
+A3_ANCHORS = {32: (18.5, 18.5), 33: (401.5, 18.5), 34: (401.5, 278.5), 35: (18.5, 278.5)}
+A3_PARK = (210, 191.5)
+A3_MAT = MatLayout("A3", A3_ANCHORS, A3_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS,
+                   width=A3_WIDTH, height=A3_HEIGHT, piece_scale=1.6, anchor_size=20, park_limit=235)
+MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT, A3_MAT)
 
 
 def winning_line(board):

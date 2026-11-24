@@ -8,7 +8,7 @@ from tkinter import messagebox, ttk
 
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .tictactoe import (
-    CELLS, EMPTY, O, PAPER_MAT, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
+    CELLS, EMPTY, O, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
     human_change, outcome, robot_move, winning_line, with_move,
 )
 from .tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
@@ -267,7 +267,9 @@ class TicTacToeProgram:
             raise ValueError("Connect and home the Dobot first.")
         if self.reference is None or not all(place in self.poses for place in self.teach_order):
             raise ValueError("Capture the empty mat and teach every cell, reserve slot and Park.")
-        positions = self.reference.layout.positions
+        layout = self.reference.layout
+        positions = layout.positions
+        park = self.poses["Park"]
         points = list(positions)
         for i, first in enumerate(points):
             pose = self.poses[first]
@@ -277,11 +279,10 @@ class TicTacToeProgram:
                 expected = dist(positions[first], positions[second])
                 if abs(actual - expected) > 7 or abs(pose.z - other.z) > 3:
                     raise ValueError(f"Check the taught centres and piece height at {first} and {second}.")
-            park = self.poses["Park"]
             if not 12 <= park.z - pose.z <= 75 or abs(park.r - pose.r) > 5:
                 raise ValueError("Teach Park above the playing surface with the same tool rotation.")
-            if dist((pose.x, pose.y), (park.x, park.y)) > 150:
-                raise ValueError("Teach Park near the marked clearance point so each cell is within 150 mm.")
+            if dist((pose.x, pose.y), (park.x, park.y)) > layout.park_limit:
+                raise ValueError("Teach Park above the small ring so the tool can reach the cells and reserves.")
 
     def _steady(self, robot_mark=None, *, min_frames=2):
         if self.latest is None or self.seen < min_frames or monotonic() - self.analysed > VIEW_TIMEOUT:
@@ -291,7 +292,7 @@ class TicTacToeProgram:
         if UNKNOWN in self.latest.board:
             raise ValueError("Centre each piece on its circle and check the camera contrast.")
         reserve = dict(zip(self.layout.reserve, self.latest.reserve))
-        for mark in (X, O) if self.layout is PAPER_MAT else (robot_mark or self.dobot,):
+        for mark in self.layout.reserve_marks(robot_mark or self.dobot):
             if any(reserve[name] not in ("", mark) for name in self.layout.bank(mark)):
                 raise ValueError(f"Keep only {mark} pieces in the matching reserve slots.")
         return self.latest
@@ -308,7 +309,7 @@ class TicTacToeProgram:
                 if position.board != EMPTY:
                     raise ValueError("Clear the board before starting a new game.")
                 reserve = dict(zip(self.layout.reserve, position.reserve))
-                for mark in (X, O) if self.layout is PAPER_MAT else (robot,):
+                for mark in self.layout.reserve_marks(robot):
                     count = 5 if mark == X else 4
                     if sum(reserve[name] == mark for name in self.layout.bank(mark)) < count:
                         raise ValueError(f"Load at least {count} {mark} pieces in their reserve slots.")
