@@ -433,6 +433,9 @@ position instead (see step 3).
    **Picking and placing add the thickness of a piece** to that
    height (3.2 mm for the Ø25 mm pieces, 5.12 mm for the Ø40 mm ones). The cup meets the top of
    a piece, and a piece held by its top has its underside on the mat at the same height.
+   If any circle would be beyond the arm's reach (130 to 310 mm from its base), step 4 says
+   which one, and the mat needs moving closer. If the arm refuses a move later, the reason is
+   shown and the arm stays connected and homed.
 5. **Check every point.** Press **Check all points**. The arm visits all 19 circles a little
    above the mat. Click any circle on the map to look at it: **Go to selected**, **Lower**
    the cup onto it (it stops at the top of a piece), and **nudge** it by 0.5, 1 or 2 mm if it is

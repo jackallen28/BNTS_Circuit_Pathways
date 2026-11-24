@@ -157,6 +157,62 @@ class WizardTests(unittest.TestCase):
         wizard.next()
         self.assertEqual(wizard.step, 4)
 
+    def test_a_refused_move_keeps_the_arm_connected_and_homed_and_says_why(self):
+        """Check all points once reported "not connected and homed" when the arm only refused a point."""
+        self.open_program()
+        wizard = self.wizard
+        self.walk_to_corners()
+        wizard.next()
+        wizard.calibration.adjust("A1", dx=300)                 # a point far beyond the arm's reach
+        self.program.poses = wizard.calibration.poses()
+        self.dobot.log.clear()
+        wizard.run_check()
+        self.assertTrue(self.pump(10, lambda: wizard.notice and not self.program.busy))
+        self.pump(0.4)
+        self.assertTrue(self.studio.homed)
+        self.assertIsNotNone(self.studio.robot)
+        self.assertNotIn("not connected", wizard.status.get())
+        self.assertIn("mm from the arm's base", wizard.status.get())
+        self.assertEqual([c for c, _, _ in self.dobot.log if c == R.MOVE], [], "nothing moved")
+        self.assertNotIn("disabled", wizard.tour_button.state())
+        wizard.calibration.adjustments.clear()                  # fix it and the check works again
+        self.program.poses = wizard.calibration.poses()
+        wizard.run_check()
+        self.assertTrue(self.pump(90, lambda: wizard.checked and not self.program.busy))
+        self.assertEqual(wizard.notice, "")
+
+    def test_an_unconfirmed_stop_does_ask_for_homing_again(self):
+        self.open_program()
+        wizard = self.wizard
+        self.walk_to_corners()
+        wizard.next()
+        wizard.pending = ("B2", False)
+        wizard.finished("visit", None, R.StopUnconfirmed("Stop could not be confirmed."))
+        self.assertFalse(self.studio.homed)
+
+    def test_a_mat_placed_out_of_reach_is_named_when_the_corners_are_saved(self):
+        self.open_program()
+        wizard = self.wizard
+        far = TruePlacement(LAYOUT, angle=90, scale=0.99, offset=(330, 0), tilt=(0, 0), surface=-38.0)
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.capture()
+        wizard.next()
+        for name, point in (("centre", LAYOUT.park), *((n, LAYOUT.positions[n]) for n in outer_points(LAYOUT))):
+            pose = far.surface_pose(point)
+            self.dobot.pose = [pose.x, pose.y, pose.z, pose.r]
+            if name == "centre":
+                wizard.save_centre()
+                self.assertTrue(self.pump(5, lambda: PARK in wizard.touched and not self.program.busy))
+                wizard.next()
+            else:
+                wizard.save_corner()
+                self.assertTrue(self.pump(5, lambda name=name: name in wizard.touched and not self.program.busy))
+        self.pump(0.4)
+        self.assertTrue(wizard.unreachable())
+        self.assertIn("cannot reach", wizard.status.get())
+        self.assertIn("disabled", wizard.next_button.state())
+
     def test_the_arm_visits_every_point_and_a_point_can_be_lowered_and_nudged(self):
         self.open_program()
         wizard = self.wizard

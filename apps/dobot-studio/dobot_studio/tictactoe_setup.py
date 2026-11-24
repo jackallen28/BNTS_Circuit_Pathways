@@ -14,7 +14,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .matcalib import MatCalibration, PARK, outer_points
-from .robot import QUICK, SLOW, StopUnconfirmed
+from .robot import Magician, QUICK, RobotError, SLOW, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import O, UNKNOWN, X, describe_slot
 from .tictactoe_vision import lock_view
@@ -39,6 +39,7 @@ class SetupWizard:
         self.corner = 0
         self.touched = {}
         self.calibration = None
+        self.notice = ""               # why the arm last refused or failed to move
         self.accepted = False          # the person chose to go on although a point looks far out
         self.pending = None            # the point a touch is being saved for
         self.selected = None           # the point being checked and nudged
@@ -194,7 +195,20 @@ class SetupWizard:
 
     def usable(self):
         """Corners are saved and nothing is clearly wrong, or the person has chosen to go on anyway."""
-        return self.calibration is not None and (not self.calibration.errors() or self.accepted)
+        return self.calibration is not None and not self.unreachable() and (not self.calibration.errors() or self.accepted)
+
+    def unreachable(self):
+        """Points the arm cannot reach from where the mat sits, as (name, reason). The arm would refuse them."""
+        if self.calibration is None:
+            return []
+        found = []
+        for name in (*self.p.layout.positions, PARK):
+            try:
+                Magician.check_reach(self.calibration.hover(name) if name != PARK else self.calibration.park())
+                Magician.check_reach(self.calibration.pick(name) if name != PARK else self.calibration.park())
+            except RobotError as error:
+                found.append((name, str(error)))
+        return found
 
     def use_anyway(self):
         if self.calibration is not None and self.calibration.errors():
@@ -260,6 +274,7 @@ class SetupWizard:
     def run_check(self):
         if not (self.calibration and self.robot_ready and self.idle):
             return
+        self.notice = ""
         self.order = list(self.p.layout.positions)
         path = []
         if self.low and self.at:
@@ -279,6 +294,7 @@ class SetupWizard:
     def visit(self, lower):
         if not (self.calibration and self.selected and self.robot_ready and self.idle):
             return
+        self.notice = ""
         name, calibration = self.selected, self.calibration
         path = []
         if self.at and self.at != name and self.low:
@@ -357,9 +373,12 @@ class SetupWizard:
     def finished(self, name, value, error):
         if error:
             self.p.status.set(str(error))
-            if name in ("tour", "visit", "park") or isinstance(error, StopUnconfirmed):
-                self.studio.homed = False      # after an interrupted move, home again. The setup is kept.
+            self.notice = str(error)
+            if isinstance(error, StopUnconfirmed):
+                self.studio.homed = False      # the arm may not have stopped: home it again before trusting it
+            self.p._draw_camera()
             return
+        self.notice = ""
         if name == "touch":
             self.touched[self.pending] = value
             self.redo = None
@@ -488,6 +507,11 @@ class SetupWizard:
                     f"{describe_slot(self.p.layout, self.redo, self.p.dobot_side.get())}",
                     f"Touching {self.redo} again.", None)
         if self.calibration:
+            out = self.unreachable()
+            if out:
+                name, reason = out[0]
+                return ("Move the mat closer to the arm, or turn it, so every circle is within reach. Then touch the "
+                        "centre and corners again.", f"✖  The arm cannot reach {name}. {reason}", False)
             errors, warnings = self.calibration.errors(), self.calibration.warnings()
             if errors and not self.accepted:
                 return ("That looks like a slip. Click the circle on the map that you want to touch again, then save. "
@@ -506,6 +530,8 @@ class SetupWizard:
             return ("The arm must be connected and homed first.", "✖  The Dobot is not connected and homed.", False)
         words = ("Press Check all points to watch the arm visit every circle. Then click a circle on the map to look "
                  "at it, lower the cup onto it, and nudge it if it is off centre.")
+        if self.notice:
+            return (words, "✖  " + self.notice, False)
         if self.checked:
             return (words, "✔  Every point has been visited.", True)
         return (words, "Not checked yet.", None)
