@@ -113,6 +113,45 @@ class CalibrationTests(unittest.TestCase):
             self.assertTrue(12 <= poses[PARK].z - poses[name].z <= 75, name)
         self.assertAlmostEqual(poses[PARK].z - calibration.pick(PARK).z, CLEARANCE)
 
+    def test_picking_and_placing_are_the_surface_plus_the_thickness_of_a_piece(self):
+        """The arm is touched onto the surface, which is height zero. A piece adds its thickness."""
+        for layout, thickness in ((COMPACT_MAT, 3.2), (PAPER_MAT, 3.2), (A3_MAT, 5.12)):
+            with self.subTest(layout.label):
+                truth = TruePlacement(layout, tilt=(0.0, 0.0), surface=-41.0)
+                calibration = MatCalibration(layout, truth.touched())
+                self.assertAlmostEqual(calibration.piece_height, thickness)
+                for name in layout.positions:
+                    self.assertAlmostEqual(calibration.pick(name).z, -41.0 + thickness, places=1)
+                    self.assertAlmostEqual(calibration.hover(name).z, -41.0 + thickness + HOVER, places=1)
+                self.assertAlmostEqual(calibration.park().z, -41.0 + thickness + CLEARANCE, places=1)
+
+    def test_thicker_pieces_raise_every_height_by_the_same_amount_and_nothing_else(self):
+        truth = TruePlacement(COMPACT_MAT, tilt=(0.0, 0.0))
+        calibration = MatCalibration(COMPACT_MAT, truth.touched())
+        before = calibration.poses()
+        calibration.set_piece_height(5.0)
+        for name, pose in calibration.poses().items():
+            self.assertAlmostEqual(pose.z - before[name].z, 1.8, places=1, msg=name)
+            self.assertEqual((pose.x, pose.y), (before[name].x, before[name].y))
+        for bad in (0.5, 13):
+            with self.assertRaises(ValueError):
+                calibration.set_piece_height(bad)
+        self.assertEqual(calibration.piece_height, 5.0)
+        self.assertAlmostEqual(MatCalibration(COMPACT_MAT, truth.touched(), piece_height=4.1).piece_height, 4.1)
+
+    def test_a_piece_is_set_down_at_the_height_it_was_picked_up(self):
+        """Placing uses the same height as picking, so a piece held by its top lands with its underside on the mat."""
+        level = TruePlacement(COMPACT_MAT, tilt=(0.0, 0.0))
+        calibration = MatCalibration(COMPACT_MAT, level.touched())
+        poses = calibration.poses()
+        heights = {round(poses[name].z, 1) for name in COMPACT_MAT.positions}
+        self.assertEqual(len(heights), 1, "on a level mat every pick and place height matches")
+        # On a sloping mat each circle has its own height, because the arm measured the slope.
+        sloped = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT, tilt=(0.004, -0.002)).touched()).poses()
+        self.assertGreater(len({round(sloped[name].z, 1) for name in COMPACT_MAT.positions}), 3)
+        # sort_chip insists Park is 12 to 75 mm above both the pick and the drop pose.
+        self.assertTrue(12 <= poses[PARK].z - poses["A1"].z <= 75 and 12 <= poses[PARK].z - poses["O5"].z <= 75)
+
     def test_a_hand_nudge_moves_one_point_and_stacks(self):
         calibration = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT).touched())
         before = calibration.pick("B2")

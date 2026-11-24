@@ -193,6 +193,29 @@ class WizardTests(unittest.TestCase):
         self.assertNotIn("B2", wizard.calibration.adjustments)
         self.assertAlmostEqual(self.dobot.pose[0], before[0], delta=0.4)
 
+    def test_the_piece_thickness_is_shown_adjustable_and_kept_with_the_setup(self):
+        self.open_program()
+        wizard = self.wizard
+        self.walk_to_corners()
+        wizard.next()
+        self.pump(0.3)
+        self.assertIn("3.2 mm", wizard.thickness_text.get())
+        wizard.picked("B2")
+        wizard.visit(True)
+        self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        centre = TRUTH.surface_pose(LAYOUT.positions["B2"])
+        self.assertAlmostEqual(self.dobot.pose[2], centre.z + 3.2, delta=0.6)
+        for _ in range(5):
+            wizard.change_thickness(0.2)                 # 5 presses on +: the pieces are 4.2 mm thick
+            self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        self.assertIn("4.2 mm", wizard.thickness_text.get() if self.pump(0.3) is None else "")
+        self.assertAlmostEqual(self.dobot.pose[2], centre.z + 4.2, delta=0.6, msg="the lowered cup follows the thickness")
+        self.assertAlmostEqual(self.program.poses["A1"].z - TRUTH.surface_pose(LAYOUT.positions["A1"]).z, 4.2, delta=0.6)
+        self.assertEqual(wizard.save()["piece_height"], wizard.calibration.piece_height)
+        for _ in range(60):
+            wizard.change_thickness(0.2)                  # it stops at a sensible limit
+        self.assertLessEqual(wizard.calibration.piece_height, 12.0)
+
     def test_a_badly_touched_corner_is_named_and_can_be_touched_again(self):
         self.open_program()
         wizard = self.wizard

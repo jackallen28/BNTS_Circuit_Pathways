@@ -372,15 +372,20 @@ position instead (see step 3).
    This locks the camera's view. After that the markers are not used again, so the arm
    passing in front of them, or a marker read a little out, changes nothing.
 4. **Touch the centre mark, then the four corners.** Hand-guide the arm (hold its button)
-   until the suction cup touches the small ring in the middle of the mat, and save it. Then
+   until the suction cup just touches the mat on the small ring in the middle, without
+   pressing, and save it. That is the height of the mat, which is height zero for the arm. Then
    do the same on the middle of each of the four outer circles, one at a time. That is
    all the arm is taught. It works out the mat's position, rotation, true printed size and
    slope from those five touches, and so where every other circle is, without the
    camera. If one touch looks off by more than 3 mm it is named, and you can click it on
-   the map and touch it again.
+   the map and touch it again. **Picking and placing add the thickness of a piece** to that
+   height (3.2 mm for the Ø25 mm pieces, 5.12 mm for the Ø40 mm ones). The cup meets the top of
+   a piece, and a piece held by its top has its underside on the mat at the same height.
 5. **Check every point.** Press **Check all points**. The arm visits all 19 circles a little
    above the mat. Click any circle on the map to look at it: **Go to selected**, **Lower**
-   the cup onto it, and **nudge** it by 0.5, 1 or 2 mm if it is off centre. If you stand
+   the cup onto it (it stops at the top of a piece), and **nudge** it by 0.5, 1 or 2 mm if it is
+   off centre. If your printed pieces are not the size shown, change **Piece thickness** with the
+   − and + buttons, and every pick and place height follows. If you stand
    behind the mat with the Dobot, tick **View from the Dobot’s side**. The map and its
    wording turn end for end to match what you see.
 6. **Check the pieces.** The arm moves to Park by itself, and the camera takes a second

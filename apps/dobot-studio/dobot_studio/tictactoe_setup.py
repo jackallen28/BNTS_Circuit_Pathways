@@ -23,6 +23,7 @@ STEPS = ("Show the mat", "Capture the empty mat", "Touch the centre mark", "Touc
          "Check every point", "Check the pieces", "Ready to play")
 PIECES, READY = 5, 6
 NUDGES = ("0.5 mm", "1 mm", "2 mm")
+THICKNESS_STEP = 0.2
 # Directions as the arm sees them: x runs away from its base and y to its left.
 PAD = {"forward": ("▲  Forward", (1, 0, 0)), "back": ("▼  Back", (-1, 0, 0)), "left": ("◀  Left", (0, 1, 0)),
        "right": ("Right  ▶", (0, -1, 0)), "up": ("⬆  Up", (0, 0, 1)), "down": ("⬇  Down", (0, 0, -1))}
@@ -48,6 +49,7 @@ class SetupWizard:
         self.title, self.text, self.status = tk.StringVar(), tk.StringVar(), tk.StringVar()
         self.nudge_step = tk.StringVar(value=NUDGES[1])
         self.adjust_text = tk.StringVar()
+        self.thickness_text = tk.StringVar()
         self._build(parent)
 
     # ---- the layout of the panel
@@ -126,6 +128,14 @@ class SetupWizard:
         self.reset_button.pack(side="right")
         ui._label(frame, textvariable=self.adjust_text, size=9, fg=MUTED, wraplength=320, justify="left").pack(
             fill="x", pady=(3, 0))
+        thickness = tk.Frame(frame, bg=PANEL)
+        thickness.pack(fill="x", pady=(3, 0))
+        ui._label(thickness, textvariable=self.thickness_text, size=9, fg=DARK, wraplength=250,
+                  justify="left").pack(side="left")
+        self.thicker_button = ui._button(thickness, "+", lambda: self.change_thickness(THICKNESS_STEP))
+        self.thicker_button.pack(side="right")
+        self.thinner_button = ui._button(thickness, "−", lambda: self.change_thickness(-THICKNESS_STEP))
+        self.thinner_button.pack(side="right", padx=(0, 4))
 
     def _build_pieces(self, frame):
         self.pieces_button = self.studio._button(frame, "Capture pieces", self.capture_pieces, "Purple")
@@ -162,14 +172,14 @@ class SetupWizard:
     def restore(self, saved):
         """Take back the setup made earlier in this session. The mat has not moved, so the arm still knows."""
         self.touched = dict(saved["touched"])
-        self.calibration = MatCalibration(self.p.layout, self.touched, saved["adjustments"])
+        self.calibration = MatCalibration(self.p.layout, self.touched, saved["adjustments"], saved.get("piece_height"))
         self.corner = 4
         self.checked = self.parked = self.pieces_ok = True
         self.step = READY
 
     def save(self):
-        return {"touched": dict(self.touched), "adjustments": dict(self.calibration.adjustments)} \
-            if self.calibration else None
+        return {"touched": dict(self.touched), "adjustments": dict(self.calibration.adjustments),
+                "piece_height": self.calibration.piece_height} if self.calibration else None
 
     # ---- moving between steps
     def next(self):
@@ -242,8 +252,9 @@ class SetupWizard:
 
     def _calibrate(self):
         old = self.calibration.adjustments if self.calibration else {}
+        thickness = self.calibration.piece_height if self.calibration else None
         if PARK in self.touched and all(name in self.touched for name in self.corners()):
-            self.calibration = MatCalibration(self.p.layout, self.touched, old)
+            self.calibration = MatCalibration(self.p.layout, self.touched, old, thickness)
             self.p.poses = self.calibration.poses()
 
     # ---- step 5: watching the arm visit every point
@@ -285,6 +296,20 @@ class SetupWizard:
         self.calibration.adjust(self.selected, *(value * amount for value in delta))
         self.p.poses = self.calibration.poses()
         self.visit(self.low)
+
+    def change_thickness(self, delta):
+        """The pieces are thicker or thinner than expected: every pick and place height follows."""
+        if not self.calibration:
+            return
+        try:
+            self.calibration.set_piece_height(self.calibration.piece_height + delta)
+        except ValueError as error:
+            self.p.status.set(str(error))
+            return
+        self.p.poses = self.calibration.poses()
+        self.p.setup_done = False
+        self.pieces_ok = False
+        self.visit(self.low) if self.selected else None
 
     def reset_adjustment(self):
         if self.calibration and self.selected and self.selected in self.calibration.adjustments:
@@ -401,6 +426,11 @@ class SetupWizard:
         for button in (self.go_button, self.lower_button, *self.pad_buttons.values(), self.reset_button):
             ui._set_button(button, arm and chosen)
         ui._set_button(self.tour_button, arm and self.calibration is not None)
+        for button in (self.thicker_button, self.thinner_button):
+            ui._set_button(button, idle and self.calibration is not None)
+        if self.calibration:
+            self.thickness_text.set(f"Piece thickness {self.calibration.piece_height:.1f} mm. Picking and placing "
+                                    "are the mat plus this.")
         self.reset_button.configure(state="normal" if arm and chosen and self.selected in
                                     (self.calibration.adjustments if self.calibration else {}) else "disabled")
         ui._set_button(self.pieces_button, idle and self.parked and self.p.reference is not None)
@@ -437,8 +467,10 @@ class SetupWizard:
             pose = self.touched[PARK]
             return ("The centre mark is saved. Go on, or touch it again if the cup slipped.",
                     f"✔  Saved at {pose.x:.0f}, {pose.y:.0f}, {pose.z:.0f} mm.", True)
-        return ("Hold the arm's button and guide the suction cup down onto the small ring in the middle of the mat. "
-                "Keep the tool pointing straight down, then save.", "Touch the cup to the centre mark.", None)
+        return ("Hold the arm's button and guide the suction cup down until it just touches the mat on the small ring "
+                "in the middle. Do not press. This is the height of the mat, and the arm adds the thickness of a "
+                "piece itself. Keep the tool pointing straight down, then save.",
+                "Touch the cup to the centre mark.", None)
 
     def _words3(self):
         corners = self.corners()
@@ -463,8 +495,8 @@ class SetupWizard:
     def _words4(self):
         if not self.robot_ready:
             return ("The arm must be connected and homed first.", "✖  The Dobot is not connected and homed.", False)
-        words = ("Press Check all points. The arm visits every circle, a little above the mat. Click a circle on "
-                 "the map to look at it, lower the cup onto it, and nudge it if it is off centre.")
+        words = ("Press Check all points to watch the arm visit every circle. Then click a circle on the map to look "
+                 "at it, lower the cup onto it, and nudge it if it is off centre.")
         if self.checked:
             return (words, "✔  Every point has been visited.", True)
         return (words, "Not checked yet.", None)

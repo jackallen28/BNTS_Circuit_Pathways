@@ -79,8 +79,10 @@ class FakeRobot:
     def __init__(self, world, poses):
         self.world, self.names = world, {pose: name for name, pose in poses.items()}
         self.on_move = None
+        self.calls = []
 
     def sort_chip(self, pick, drop, park, stop, attachment=None, *, via_park=False):
+        self.calls.append((pick, drop, park))
         source, target = self.names[pick], self.names[drop]
         self.world.moves.append((source, target))
         if not self.world.refuse:
@@ -188,6 +190,22 @@ class PhysicalResetTests(unittest.TestCase):
         self.assertEqual(len(self.world.moves), 5)
         self.assertIn("Board reset", program.status.get())
         self.assertEqual(program.board, EMPTY)
+
+    def test_every_pick_and_place_is_at_the_mat_surface_plus_the_thickness_of_a_piece(self):
+        for layout in (COMPACT_MAT, A3_MAT):
+            with self.subTest(layout.label):
+                program = self.program(layout, FINISHED)
+                program.ready = True
+                program._announce()
+                self.assertTrue(self.pump(program, 15, lambda: not program.tidy_pending and not program.tidying and not program.busy))
+                calibration = program.calibration
+                thickness = 3.2 * layout.piece_scale
+                self.assertEqual(len(self.studio.robot.calls), 5)
+                for pick, drop, park in self.studio.robot.calls:
+                    for pose in (pick, drop):
+                        surface = calibration.surface_z(pose.x, pose.y)
+                        self.assertAlmostEqual(pose.z - surface, thickness, places=1, msg="a pick or place is at the wrong height")
+                    self.assertTrue(12 <= park.z - pick.z <= 75 and 12 <= park.z - drop.z <= 75)
 
     def test_a_finished_game_is_reset_onto_the_compact_mat(self):
         program = self.program(COMPACT_MAT, FINISHED)

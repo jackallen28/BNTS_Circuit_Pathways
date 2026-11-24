@@ -20,6 +20,7 @@ CLEARANCE = 40        # mm above that height, for Park and for travelling betwee
 MAX_RESIDUAL = 3.0    # mm a taught point may sit from where the other points say it should
 MAX_SCALE_ERROR = 0.05
 MAX_TILT = 3.0        # degrees of slope the playing surface may have
+THICKNESS_RANGE = (1.0, 12.0)   # mm a piece may be, when it is adjusted by hand
 
 
 def outer_points(layout):
@@ -71,12 +72,18 @@ def fit_plane(points):
 class MatCalibration:
     """The arm's map of the mat, with a small hand adjustment for each point."""
 
-    def __init__(self, layout, touched, adjustments=None):
-        """``touched`` maps a circle name, or "Park", to the pose where the cup touched the mat there."""
+    def __init__(self, layout, touched, adjustments=None, piece_height=None):
+        """``touched`` maps a circle name, or "Park", to the pose where the cup touched the mat there.
+
+        The arm is touched onto the surface of the mat, so the surface is height zero. Everything
+        the arm does with a piece is that plus the thickness of a piece: the cup meets the top of a
+        piece lying on the mat there, and a piece held by its top has its underside on the surface
+        when the cup is at the same height.
+        """
         self.layout = layout
         self.touched = dict(touched)
         self.adjustments = dict(adjustments or {})
-        self.piece_height = PIECE_HEIGHT * layout.piece_scale
+        self.piece_height = PIECE_HEIGHT * layout.piece_scale if piece_height is None else float(piece_height)
         names = [name for name in self.touched if name == PARK or name in layout.positions]
         if len(names) < 3:
             raise ValueError("Touch at least three points on the mat.")
@@ -128,8 +135,18 @@ class MatCalibration:
         z = self.surface_z(x, y) + self.piece_height + above + self.adjustments.get(name, (0, 0, 0))[2]
         return Pose(round(float(x), 2), round(float(y), 2), round(float(z), 2), round(self.rotation, 2))
 
+    def set_piece_height(self, millimetres):
+        """The thickness of a piece, if the printed ones are not the size the layout expects."""
+        if not THICKNESS_RANGE[0] <= millimetres <= THICKNESS_RANGE[1]:
+            raise ValueError(f"A piece is between {THICKNESS_RANGE[0]:g} and {THICKNESS_RANGE[1]:g} mm thick.")
+        self.piece_height = round(float(millimetres), 3)
+        return self.piece_height
+
     def pick(self, name):
-        """Where the cup meets the top of a piece lying on this circle."""
+        """Where the cup meets the top of a piece lying on this circle: the surface plus a piece.
+
+        The same height places a piece, since its underside is then on the surface.
+        """
         return self._pose(name, 0)
 
     def hover(self, name):
