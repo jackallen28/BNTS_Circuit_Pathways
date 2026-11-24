@@ -1,23 +1,46 @@
-"""Generate the playable fixture from the same dimensions as camera registration.
+"""Generate the 3D print files: the playing pieces and the flat, two-colour mats.
+
+The mats are built from the same SVG artwork as the paper mats, so the 3D print
+and the paper print cannot drift apart. Each mat is a Body and a Mark. The Mark is
+the artwork (rings, grid and camera markers) as a flush inlay in the first
+layers, so the build-plate face is flat and solid for multicolour printing.
 
 Requires Shapely 2.1+ and trimesh. Run with PYTHONPATH=. from apps/dobot-studio.
 """
 import argparse
 from pathlib import Path
 import xml.etree.ElementTree as ET
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-import numpy as np
-from shapely import constrained_delaunay_triangles, unary_union
-from shapely.affinity import rotate
-from shapely.geometry import Point, box
+from shapely import constrained_delaunay_triangles, set_precision, unary_union
+from shapely.affinity import affine_transform, rotate
+from shapely.geometry import LineString, Point, box
 from shapely.geometry.polygon import orient
 from trimesh import Trimesh
 
 from dobot_studio.tictactoe import (
-    A3_MAT, ANCHORS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MARK_DEPTH, MAT_FLOOR, MAT_HEIGHT,
-    MAT_POSITIONS, MAT_TOP, MAT_WIDTH, NEST_RADIUS, NOUGHT_INNER, NOUGHT_OUTER,
-    PIECE_HEIGHT, PIECE_RADIUS, SUGGESTED_PARK,
+    A3_MAT, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MARK_DEPTH, MAT_MARK_DEPTH, MAT_TOP,
+    NOUGHT_INNER, NOUGHT_OUTER, PIECE_HEIGHT, PIECE_RADIUS,
+)
+
+SVG = "{http://www.w3.org/2000/svg}"
+PRINTABLES = Path("printables/tictactoe")
+# Printability for a 0.4 mm nozzle. Paper artwork finer than this is thickened, and the
+# generator refuses to write a mat that still has detail below the limit.
+MIN_LINE = 0.6        # grid lines, rings and the Park ring
+MIN_DETAIL = 0.58     # nothing in the artwork may be thinner than this
+OPEN = 0.01           # cells that only touch at a corner are parted by this much (mm)
+GRID = 0.001          # shapes are snapped to this grid (mm) so vertices agree exactly
+SEAM_CLEARANCE = 0.2  # marks stop this far from a tile edge so the Body stays closed
+# Paper-only guides that have no place on a printed mat.
+PAPER_ONLY = {"print-area", "300-mm-outline", "print-scale"}
+# (SVG file, output name, folder for the pieces it can be cut into, cut at x, cut at y), cuts
+# in millimetres across the finished mat, chosen where no ring or marker is crossed.
+# The 300 mm mat fits a Bambu H2D bed (325 x 320 mm) whole, and splits in four for 256 mm beds.
+# A3 (420 x 297 mm) splits in two for the H2D, whose bed is 325 mm wide at most.
+MATS = (
+    ("mat-300x300.svg", "mat-300x300", "tiles", 150, 160),
+    ("mat-a3.svg", "mat-a3", "a3-halves", 155, None),
 )
 
 
@@ -73,44 +96,97 @@ def circle(x, y, radius, segments=12):
     return Point(x, y).buffer(radius, quad_segs=segments)
 
 
-def mat_meshes():
-    outline = box(4, 4, MAT_WIDTH - 4, MAT_HEIGHT - 4).buffer(4, quad_segs=8)
+def ring(centre, radius, stroke):
+    return centre.buffer(radius + stroke / 2, quad_segs=16).difference(
+        centre.buffer(radius - stroke / 2, quad_segs=16))
 
-    def flat(label):
-        x, y = label
-        return x, MAT_HEIGHT - y
 
-    wells = [circle(*flat(centre), NEST_RADIUS) for centre in MAT_POSITIONS.values()]
-    grooves = []
-    for x in (107, 161):
-        grooves.append(box(x - 0.65, 79, x + 0.65, 247))
-    for y in (192.5, 137.5):
-        grooves.append(box(53, y - 0.65, 215, y + 0.65))
-    grooves.append(box(209, 62, 211, 238))
-    for centre in ANCHORS.values():
-        x, y = flat(centre)
-        grooves.append(box(x - 11, y - 11, x + 11, y + 11).difference(
-            box(x - 10, y - 10, x + 10, y + 10)))
-    x, y = flat(SUGGESTED_PARK)
-    grooves.extend((box(x-5, y-0.45, x+5, y+0.45), box(x-0.45, y-5, x+0.45, y+5)))
-    seams = box(149.25, 0, 150.75, MAT_HEIGHT).union(box(0, 149.25, MAT_WIDTH, 150.75))
-    pockets = unary_union(wells + [groove.difference(seams) for groove in grooves])
+def svg_marks(path):
+    """The dark artwork of a paper mat as shapes in millimetres, with y running down.
 
-    def make(solid):
-        result = mesh_from_surfaces(solid, pockets.intersection(solid), MAT_TOP-MAT_FLOOR, MAT_TOP)
-        result.apply_transform(np.array(((1,0,0,0), (0,1,0,0), (0,0,-1,MAT_TOP), (0,0,0,1))))
-        if not result.is_volume:
-            raise ValueError("Mat recesses did not produce a solid upper face.")
-        return result
+    The mats carry no printed position names (A1, X3 and so on). Dobot Studio's setup
+    screen names and highlights each position instead.
+    """
+    root = ET.parse(path).getroot()
+    width, height = (float(value) for value in root.attrib["viewBox"].split()[2:])
+    shapes, fragile = [], []   # fragile: rings and markers, which a cut must never touch
+    for group in root.findall(f"{SVG}g"):
+        if group.attrib.get("id") in PAPER_ONLY:
+            continue
+        for element in group:
+            tag = element.tag.removeprefix(SVG)
+            number = lambda name, default=0.0: float(element.attrib.get(name, default))
+            stroke = max(MIN_LINE, number("stroke-width"))
+            outlined = element.attrib.get("stroke") and element.attrib.get("fill", "none") == "none"
+            if tag == "circle" and outlined:
+                shapes.append(ring(Point(number("cx"), number("cy")), number("r"), stroke))
+                fragile.append(shapes[-1])
+            elif tag == "line":
+                shapes.append(LineString([(number("x1"), number("y1")), (number("x2"), number("y2"))])
+                              .buffer(stroke / 2, cap_style="flat"))
+            elif tag == "rect" and outlined:
+                x, y, w, h, corner = number("x"), number("y"), number("width"), number("height"), number("rx")
+                path_shape = (box(x + corner, y + corner, x + w - corner, y + h - corner).buffer(corner, quad_segs=8)
+                              if corner else box(x, y, x + w, y + h))
+                shapes.append(path_shape.buffer(stroke / 2).difference(path_shape.buffer(-stroke / 2)))
+            elif tag == "rect" and element.attrib.get("fill") == "#000000":
+                shapes.append(box(number("x"), number("y"), number("x") + number("width"),
+                                  number("y") + number("height")))
+                fragile.append(shapes[-1])
+            elif tag == "text":
+                raise ValueError(f"{path.name}: the mat has no printed labels. Remove the text {element.text!r}.")
+    artwork = unary_union(shapes)
+    lost = artwork.difference(artwork.buffer(-MIN_DETAIL / 2, join_style="mitre")
+                              .buffer(MIN_DETAIL / 2, join_style="mitre")).area
+    if lost > 1:
+        raise ValueError(f"{path.name}: {lost:.1f} mm2 of the artwork is thinner than {MIN_DETAIL} mm.")
+    return width, height, artwork, unary_union(fragile)
 
-    yield "mat-300x300.obj", make(outline)
-    for name, bounds in (
-        ("top-left", (0,150,150,300)), ("top-right", (150,150,300,300)),
-        ("bottom-left", (0,0,150,150)), ("bottom-right", (150,0,300,150)),
-    ):
-        tile = make(outline.intersection(box(*bounds)))
-        tile.apply_translation((-bounds[0], -bounds[1], 0))
-        yield f"tiles/mat-{name}.obj", tile
+
+def mat_meshes(source):
+    """Yield (name, [(part, mesh), ...]) for each mat and its pieces, from the SVGs in ``source``.
+
+    The mat prints face-down so its play face is the flat first layer, like the pieces.
+    The model is therefore the play face seen from behind: turned end for end,
+    which mirrors it left to right once the print is flipped over.
+    """
+    for svg, name, folder, cut_x_play, cut_y_play in MATS:
+        width, height, artwork, fragile = svg_marks(source / svg)
+        turn = [-1, 0, 0, -1, width, height]
+        artwork, fragile = affine_transform(artwork, turn), affine_transform(fragile, turn)
+        # Diagonal marker cells touch at a point, which would pinch the solid. Part them.
+        artwork = artwork.buffer(-OPEN, join_style="mitre").buffer(OPEN, join_style="round")
+        outline = box(4, 4, width - 4, height - 4).buffer(4, quad_segs=8)
+        if not outline.contains(artwork):
+            raise ValueError(f"{svg}: the artwork reaches the edge of the mat.")
+
+        def make(solid, marks):
+            solid = set_precision(solid, GRID)
+            marks = set_precision(marks.intersection(solid), GRID).intersection(solid)
+            body = mesh_from_surfaces(solid, marks, MAT_MARK_DEPTH, MAT_TOP)
+            mark = mesh_from_surfaces(marks, None, 0, MAT_MARK_DEPTH)
+            if abs(body.volume + mark.volume - solid.area*MAT_TOP) > 0.5:
+                raise ValueError("The two print colours leave a gap or overlap.")
+            return [("Body", body), ("Mark", mark)]
+
+        yield name, make(outline, artwork)
+        # Cut lines run across the mat as it looks when played; the model is turned end for end.
+        cut_x = width - cut_x_play
+        cut_y = None if cut_y_play is None else height - cut_y_play
+        seams = box(cut_x - SEAM_CLEARANCE, 0, cut_x + SEAM_CLEARANCE, height)
+        if cut_y is not None:
+            seams = seams.union(box(0, cut_y - SEAM_CLEARANCE, width, cut_y + SEAM_CLEARANCE))
+        if fragile.intersects(seams):
+            raise ValueError(f"{svg}: a cut line runs through a ring or marker.")
+        columns = (("left", cut_x, width), ("right", 0, cut_x))
+        rows = ((("top", cut_y, height), ("bottom", 0, cut_y)) if cut_y is not None else (("", 0, height),))
+        for row, y0, y1 in rows:
+            for column, x0, x1 in columns:
+                parts = make(outline.intersection(box(x0, y0, x1, y1)), artwork.difference(seams))
+                for _, mesh in parts:
+                    mesh.apply_translation((-x0, -y0, 0))
+                label = "-".join(part for part in (row, column) if part)
+                yield f"{folder}/mat-{label}", parts
 
 
 def piece_meshes(kind):
@@ -187,14 +263,34 @@ def write_pieces(output, scale=1.0):
         write_3mf(output / f"{kind}.3mf", parts)
 
 
+def write_zip(folder):
+    """Bundle the whole print set for download. Fixed timestamps keep the zip reproducible."""
+    with ZipFile(folder.parent / "tictactoe-300mm.zip", "w", ZIP_DEFLATED) as package:
+        for path in sorted(folder.rglob("*")):
+            if path.is_file():
+                info = ZipInfo(f"{folder.name}/{path.relative_to(folder).as_posix()}", (2026, 1, 1, 0, 0, 0))
+                info.compress_type, info.external_attr = ZIP_DEFLATED, 0o644 << 16
+                package.writestr(info, path.read_bytes())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=Path("printables/tictactoe"))
-    output = parser.parse_args().output
-    for path, mesh in mat_meshes():
-        write_obj(output / path, [("Mat", mesh)])
-    write_pieces(output)
-    write_pieces(output / "a3-pieces", A3_MAT.piece_scale)
+    parser.add_argument("--output", type=Path, default=PRINTABLES)
+    parser.add_argument("--source", type=Path, default=PRINTABLES, help="folder holding the mat SVG artwork")
+    parser.add_argument("--only", choices=("all", "mat", "pieces"), default="all",
+                        help="regenerate only the mat or only the pieces")
+    parser.add_argument("--zip", action="store_true", help="also rebuild the download zip beside --output")
+    arguments = parser.parse_args()
+    output = arguments.output
+    if arguments.only != "pieces":
+        for path, parts in mat_meshes(arguments.source):
+            write_obj(output / f"{path}.obj", parts)
+            write_3mf(output / f"{path}.3mf", parts)
+    if arguments.only != "mat":
+        write_pieces(output)
+        write_pieces(output / "a3-pieces", A3_MAT.piece_scale)
+    if arguments.zip:
+        write_zip(output)
 
 
 if __name__ == "__main__":

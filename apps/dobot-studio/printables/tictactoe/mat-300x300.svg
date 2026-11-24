@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <svg xmlns="http://www.w3.org/2000/svg" width="300mm" height="300mm" viewBox="0 0 300 300" role="img" aria-labelledby="title description" font-family="Arial, sans-serif">
   <title id="title">Dobot Studio tic-tac-toe mat</title>
-  <desc id="description">300 mm square with nine labelled cells, separate X and O reserves and four camera markers.</desc>
+  <desc id="description">300 mm square with nine cells, separate X and O reserves and four camera markers.</desc>
   <g id="300-mm-outline">
     <rect x="0.5" y="0.5" width="299" height="299" rx="0" fill="#ffffff" stroke="#879caf" stroke-width="0.35" />
   </g>
@@ -12,43 +12,24 @@
     <line x1="53" y1="107.5" x2="215" y2="107.5" fill="none" stroke="#879caf" stroke-width="0.45" />
     <line x1="53" y1="162.5" x2="215" y2="162.5" fill="none" stroke="#879caf" stroke-width="0.45" />
     <circle cx="80" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="59" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A1</text>
     <circle cx="134" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="113" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A2</text>
     <circle cx="188" cy="80" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="167" y="61" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">A3</text>
     <circle cx="80" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="59" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B1</text>
     <circle cx="134" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="113" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B2</text>
     <circle cx="188" cy="135" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="167" y="116" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">B3</text>
     <circle cx="80" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="59" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C1</text>
     <circle cx="134" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="113" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C2</text>
     <circle cx="188" cy="190" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="167" y="171" fill="#17283b" text-anchor="start" font-size="3.9" font-weight="bold">C3</text>
     <circle cx="34" cy="86" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="16" y="87.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X1</text>
     <circle cx="34" cy="116" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="16" y="117.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X2</text>
     <circle cx="34" cy="146" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="16" y="147.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X3</text>
     <circle cx="34" cy="176" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="16" y="177.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X4</text>
     <circle cx="34" cy="206" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="16" y="207.3" fill="#17283b" text-anchor="end" font-size="3.7" font-weight="bold">X5</text>
     <circle cx="234" cy="86" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="252" y="87.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O1</text>
     <circle cx="234" cy="116" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="252" y="117.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O2</text>
     <circle cx="234" cy="146" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="252" y="147.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O3</text>
     <circle cx="234" cy="176" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="252" y="177.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O4</text>
     <circle cx="234" cy="206" r="10.9" fill="none" stroke="#22364a" stroke-width="1.65" />
-    <text x="252" y="207.3" fill="#17283b" text-anchor="start" font-size="3.7" font-weight="bold">O5</text>
     <circle cx="153" cy="154" r="2.3" fill="none" stroke="#1e596b" stroke-width="0.35" />
   </g>
   <g id="camera-markers">
