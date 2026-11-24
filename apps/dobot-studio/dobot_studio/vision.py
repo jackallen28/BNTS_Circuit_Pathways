@@ -92,9 +92,16 @@ def classify_hand(result):
     return None, "Neutral hand", True
 
 
+WIDE = (1920, 1080)       # what a high-definition camera is asked for
+WIDE_PROCESSING = 1280    # pictures wider than this are shrunk to it, which keeps a Pi quick
+
+
 class Camera:
-    def __init__(self, device, mode, models, report, classifier=None):
+    def __init__(self, device, mode, models, report, classifier=None, high_definition=False):
+        """``high_definition`` asks for a 1080p picture, kept up to 1280 wide, instead of 640 by 480."""
         self.device, self.mode, self.models, self.report = device, mode, Path(models), report
+        self.limit = WIDE_PROCESSING if high_definition else 640
+        self.high_definition = high_definition
         self.stop = Event()
         self.lock = Lock()
         self.latest = None
@@ -146,8 +153,11 @@ class Camera:
                 capture = cv2.VideoCapture(device, cv2.CAP_V4L2)
                 if not capture.isOpened():
                     raise RuntimeError(f"Cannot open camera {self.device}. Check the USB connection and device.")
-                capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                if self.high_definition:
+                    capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))   # most USB cameras only do 1080p in MJPG
+                width, height = WIDE if self.high_definition else (640, 480)
+                capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+                capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                 capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 last_ms = -1
                 while not self.stop.is_set():
@@ -156,8 +166,9 @@ class Camera:
                     if not ok:
                         raise RuntimeError("Camera stopped returning frames.")
                     height, width = bgr.shape[:2]
-                    if width > 640:
-                        bgr = cv2.resize(bgr, (640, max(1, round(height * 640 / width))))
+                    if width > self.limit:
+                        bgr = cv2.resize(bgr, (self.limit, max(1, round(height * self.limit / width))),
+                                         interpolation=cv2.INTER_AREA)
                     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
                     height, width = rgb.shape[:2]
                     features, sample_hint = None, ""

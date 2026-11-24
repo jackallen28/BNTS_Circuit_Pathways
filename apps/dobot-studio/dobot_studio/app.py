@@ -482,9 +482,13 @@ class Studio:
         if (self.armed or self.busy or self.camera or self.camera_closing
                 or self.training_window or self.workcell or self.program_menu):
             return
-        self.program_menu = build_program_picker(self)
+        self._build_picker()
         self.desktop.pack_forget()
         self.program_menu.pack(fill="both", expand=True)
+
+    def _build_picker(self):
+        self.picker_notice = tk.StringVar()
+        self.program_menu = build_program_picker(self, self.picker_notice)
 
     def show_connect(self):
         """The first screen, and the way back to it: connect and home the arm, then try it."""
@@ -546,15 +550,33 @@ class Studio:
                 return tool, holding
             self._launch("tool", apply)
 
-    def open_program(self, name):
-        if self.program_menu:
-            self.program_menu.destroy()
-            self.program_menu = None
-            self.desktop.pack(fill="both", expand=True)
-        if name == "train":
-            self.open_training()
-        elif name in ("sort", "inspect", "math", "blocks", "teach", "tictactoe") and not (
-                self.workcell or self.camera or self.camera_closing or self.armed or self.busy):
+    def _notice(self, text):
+        """A short message on the programs page."""
+        if self.program_menu is not None and not self.connect_screen and getattr(self, "picker_notice", None):
+            self.picker_notice.set(text)
+
+    def open_program(self, name, tries=0):
+        if name in ("control", "train"):
+            if self.program_menu:
+                self.program_menu.destroy()
+                self.program_menu = None
+                self.desktop.pack(fill="both", expand=True)
+            if name == "train":
+                self.open_training()
+        elif name in ("sort", "inspect", "math", "blocks", "teach", "tictactoe"):
+            # The programs page stays where it is until the program's own window is up, so a program
+            # that cannot open yet never leaves a different screen behind.
+            if self.workcell or self.armed or self.busy or self.closing:
+                self._notice("Wait for the arm to finish what it is doing, then choose again.")
+                return
+            if self.camera or self.camera_closing:
+                if tries < 40:
+                    self._notice("The camera is closing. The program will open in a moment…")
+                    self.root.after(250, lambda: self.open_program(name, tries + 1) if self.program_menu else None)
+                else:
+                    self._notice("The camera did not close. Unplug it and plug it in again, then choose again.")
+                return
+            self._notice("")
             if name == "blocks":
                 self.workcell = BlockProgram(self)
             elif name == "teach":
@@ -568,7 +590,12 @@ class Studio:
             self._render()
 
     def end_workcell(self):
+        """A program's window closed: back to the programs page, with the arm's state brought up to date."""
         self.workcell = None
+        if self.program_menu is not None and not self.connect_screen:
+            self.program_menu.destroy()
+            self._build_picker()
+            self.program_menu.pack(fill="both", expand=True)
         self._render()
 
     def open_training(self):

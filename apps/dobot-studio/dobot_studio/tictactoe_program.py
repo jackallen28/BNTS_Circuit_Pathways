@@ -11,7 +11,7 @@ from .tictactoe import (
     human_change, outcome, robot_move, tidy_plan, winning_line, with_move,
 )
 from .tictactoe_setup import SetupWizard
-from .tictactoe_vision import DENSITY, Position, lock_view, mat_clear, read_position, rectify
+from .tictactoe_vision import DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify
 from .vision import Camera, TABLETOP
 
 TURN_DELAY = 1.5
@@ -91,12 +91,6 @@ class TicTacToeProgram:
         self.abort = Event()
 
         self._build()
-        saved = getattr(studio, "tictactoe_saved", None)
-        if saved and not studio.demo and self.wizard:
-            # The mat has not moved since it was set up, so the arm still knows where everything is.
-            self.reference, self.setup_done = saved["reference"], saved["done"]
-            self.wizard.restore(saved["wizard"])
-            self.poses = self.wizard.calibration.poses()
         self.status.set("Your turn. Pick an empty cell." if studio.demo else
                         "Follow the steps on the Setup tab to get the mat and the arm ready.")
         self._render()
@@ -259,7 +253,7 @@ class TicTacToeProgram:
             self.camera_epoch += 1
             epoch = self.camera_epoch
             self.camera = Camera(self.device.get().strip(), TABLETOP, self.studio.models,
-                                 lambda error: self.events.put(("camera", epoch, error)))
+                                 lambda error: self.events.put(("camera", epoch, error)), high_definition=True)
             self.timestamp = self.analysed = 0
             self.camera_status.set("Opening the overhead camera…")
         self._render()
@@ -301,7 +295,7 @@ class TicTacToeProgram:
             return
         same = found.layout is self.reference.layout and found.shape == self.reference.shape
         drift = np.linalg.norm(found.corners - self.reference.corners, axis=1).max() if same else float("inf")
-        if drift <= CAMERA_DRIFT_PX:
+        if drift <= CAMERA_DRIFT_PX * found.shape[1] / 640:      # the limit grows with the picture's size
             self.drift_frames, self.camera_moved = 0, False
         else:
             self.drift_frames += 1
@@ -312,9 +306,9 @@ class TicTacToeProgram:
             raise ValueError("Connect and home the Dobot first.")
         if self.reference is None or self.calibration is None or not self.setup_done:
             raise ValueError("Finish the mat setup first. It is on the Setup tab.")
-        problems = self.calibration.problems()
-        if problems:
-            raise ValueError(problems[0])
+        errors = self.calibration.errors()
+        if errors and not (self.wizard and self.wizard.accepted):
+            raise ValueError(errors[0])
         park = self.poses["Park"]
         for name in self.layout.positions:
             if not 12 <= park.z - self.poses[name].z <= 75 or abs(park.r - self.poses[name].r) > 5:
@@ -324,14 +318,7 @@ class TicTacToeProgram:
         """The arm knows the mat, the camera has read some pieces: play can start."""
         self.setup_done = True
         self.poses = self.calibration.poses()
-        self.save_setup()
         self.status.set("Setup is finished. Open the Match tab and choose New game.")
-
-    def save_setup(self):
-        """Keep the setup for the rest of this session, so reopening Tic-tac-toe does not repeat it."""
-        if self.wizard and self.wizard.calibration and self.reference is not None:
-            self.studio.tictactoe_saved = {"reference": self.reference, "wizard": self.wizard.save(),
-                                           "done": self.setup_done}
 
     def _steady(self, robot_mark=None, *, min_frames=2):
         if self.camera_moved:
@@ -886,12 +873,41 @@ class TicTacToeProgram:
                 name = label.replace("Reserve ", "R")
                 canvas.create_text(sx+7, sy-9, text=f"{name} {value}", fill=tint,
                                    anchor="sw", font=self.studio.theme.font(8, "bold"))
+            self._draw_loupe(canvas, w, h)
+
+    def _draw_loupe(self, canvas, w, h):
+        """While the arm is being taught a point: a zoomed look straight down at where it should be.
+
+        The crosshair is the circle's true centre. When the cup covers the crosshair, it is on the point.
+        """
+        wizard = self.wizard
+        target = wizard.target() if wizard and not self.setup_done else None
+        view = self.rectified
+        if not target or view is None or self.feed is None or w < 360 or h < 260:
+            return
+        mat = self.layout.park if target == "Park" else self.layout.positions.get(target)
+        if mat is None or view.layout is not self.layout:
+            return
+        import numpy as np
+        from PIL import Image, ImageTk
+
+        size = min(220, h // 2 - 8, w // 3)
+        picture = loupe(np.asarray(self.feed), view.matrix, mat, size, turned=self.dobot_side.get())
+        self.loupe_photo = ImageTk.PhotoImage(Image.fromarray(picture), master=self.window)
+        x, y = w - size - 8, 8
+        canvas.create_rectangle(x - 2, y - 2, x + size + 2, y + size + 2, fill="#ffffff", outline="#704988", width=2)
+        canvas.create_image(x, y, image=self.loupe_photo, anchor="nw")
+        middle = size / 2
+        canvas.create_line(x + middle, y, x + middle, y + size, fill="#ff3b30")
+        canvas.create_line(x, y + middle, x + size, y + middle, fill="#ff3b30")
+        canvas.create_oval(x + middle - 10, y + middle - 10, x + middle + 10, y + middle + 10, outline="#ff3b30")
+        canvas.create_text(x + 4, y + size - 4, text=f"Close-up of {target}", anchor="sw", fill="#ffffff",
+                           font=self.studio.theme.font(8, "bold"))
 
     def close(self):
         if self.busy or self.checking:
             self.stop()
             return
-        self.save_setup()
         if self.camera:
             self.camera.close()
             self.studio.camera_closing = self.camera

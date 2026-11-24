@@ -127,6 +127,42 @@ class ConnectScreenTests(unittest.TestCase):
         self.assertIsNone(studio.connect_screen)
         self.assertIsNotNone(studio.program_menu)
 
+    def test_a_program_that_cannot_open_yet_never_leaves_the_old_screen_behind(self):
+        """The old gesture screen is only for the Gesture program. Tic-tac-toe waits on the programs page."""
+        studio = self.studio
+        studio.show_connect()
+        studio.connect_screen.use_demo()
+        picker = studio.program_menu
+        studio.camera_closing = mock.Mock(thread=mock.Mock(is_alive=lambda: True))   # the last program's camera
+        with mock.patch("dobot_studio.app.TicTacToeProgram") as program:
+            studio.open_program("tictactoe")
+            self.assertIs(studio.program_menu, picker, "the programs page stays")
+            self.assertFalse(studio.desktop.winfo_ismapped())
+            self.assertIn("camera is closing", studio.picker_notice.get())
+            program.assert_not_called()
+            studio.camera_closing = None                      # the camera has closed
+            self.assertTrue(self.pump(2, lambda: program.called))
+            self.assertFalse(studio.desktop.winfo_ismapped())
+            self.assertEqual(studio.picker_notice.get(), "")
+
+    def test_closing_a_program_returns_to_the_programs_page(self):
+        studio = self.studio
+        studio.show_connect()
+        studio.connect_screen.use_demo()
+        studio.workcell = object()
+        studio.end_workcell()
+        self.assertIsNone(studio.workcell)
+        self.assertTrue(studio.program_menu.winfo_ismapped() or self.pump(1, lambda: studio.program_menu.winfo_ismapped()))
+        self.assertFalse(studio.desktop.winfo_ismapped())
+
+    def test_the_gesture_program_still_opens_the_old_screen(self):
+        studio = self.studio
+        studio.show_connect()
+        studio.connect_screen.use_demo()
+        studio.open_program("control")
+        self.assertIsNone(studio.program_menu)
+        self.assertTrue(self.pump(1, lambda: studio.desktop.winfo_ismapped()))
+
     def test_continue_does_nothing_until_the_arm_is_homed(self):
         studio = self.studio
         studio.show_connect()

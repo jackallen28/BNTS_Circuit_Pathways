@@ -16,7 +16,7 @@ PROGRAMS = (
 )
 
 
-def build_program_picker(studio):
+def build_program_picker(studio, notice=None):
     root = studio.root
     canvas = tk.Canvas(root, highlightthickness=0, bg="#295775")
     card = tk.Frame(canvas, bg=PANEL, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=14)
@@ -55,6 +55,9 @@ def build_program_picker(studio):
     studio._label(status, "Dobot connected and homed" if live and studio.homed else
                   "Dobot connected, not homed" if live else "Demo mode: a simulated Dobot",
                   size=10, weight="bold", fg=GREEN if live and studio.homed else MUTED).pack(side="left")
+    if notice is not None:
+        studio._label(card, textvariable=notice, size=9, weight="bold", fg=PURPLE, wraplength=700,
+                      justify="left").pack(fill="x", pady=(0, 6))
     studio._button(status, "Dobot connection…", studio.show_connect).pack(side="right")
     studio._button(status, "Check for updates…", studio.show_updates).pack(side="right", padx=(0, 6))
 

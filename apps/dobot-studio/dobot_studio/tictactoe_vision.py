@@ -72,6 +72,27 @@ def lock_view(rgb, reference):
     return _view(rgb, reference.matrix, reference.corners, reference.layout)
 
 
+def loupe(rgb, matrix, centre, size=220, window=44, turned=False):
+    """A close-up, looking straight down, of the mat around one point.
+
+    ``centre`` is where the point should be on the mat in millimetres, ``window`` how many
+    millimetres across the close-up shows, and ``turned`` rotates it half a turn to match a map
+    drawn from the Dobot's side. The point is always in the middle of the picture.
+    """
+    import cv2
+    import numpy as np
+
+    pixels = size / window
+    cx, cy = centre
+    to_close_up = np.array([[pixels, 0, size / 2 - pixels * cx],
+                            [0, pixels, size / 2 - pixels * cy],
+                            [0, 0, 1]], dtype=np.float64)
+    from_layout_pixels = np.diag([1 / DENSITY, 1 / DENSITY, 1.0])
+    result = cv2.warpPerspective(rgb, to_close_up @ from_layout_pixels @ matrix, (size, size),
+                                 flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+    return cv2.rotate(result, cv2.ROTATE_180) if turned else result
+
+
 def _patch(image, centre, scale):
     import cv2
 

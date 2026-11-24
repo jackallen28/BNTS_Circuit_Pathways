@@ -28,6 +28,7 @@ THICKNESS_STEP = 0.2
 PAD = {"forward": ("▲  Forward", (1, 0, 0)), "back": ("▼  Back", (-1, 0, 0)), "left": ("◀  Left", (0, 1, 0)),
        "right": ("Right  ▶", (0, -1, 0)), "up": ("⬆  Up", (0, 0, 1)), "down": ("⬇  Down", (0, 0, -1))}
 FRESH = 0.55
+AMBER = "#8a5a00"
 
 
 class SetupWizard:
@@ -38,6 +39,7 @@ class SetupWizard:
         self.corner = 0
         self.touched = {}
         self.calibration = None
+        self.accepted = False          # the person chose to go on although a point looks far out
         self.pending = None            # the point a touch is being saved for
         self.selected = None           # the point being checked and nudged
         self.at, self.low = None, False
@@ -99,6 +101,7 @@ class SetupWizard:
     def _build_corners(self, frame):
         self.corner_button = self.studio._button(frame, "Save this corner", self.save_corner, "Purple")
         self.corner_button.pack(fill="x")
+        self.anyway_button = self.studio._button(frame, "Use these points anyway", self.use_anyway)
 
     def _build_check(self, frame):
         ui = self.studio
@@ -169,18 +172,6 @@ class SetupWizard:
             return self.redo or self.corners()[min(self.corner, 3)]
         return self.selected if self.step == 4 else None
 
-    def restore(self, saved):
-        """Take back the setup made earlier in this session. The mat has not moved, so the arm still knows."""
-        self.touched = dict(saved["touched"])
-        self.calibration = MatCalibration(self.p.layout, self.touched, saved["adjustments"], saved.get("piece_height"))
-        self.corner = 4
-        self.checked = self.parked = self.pieces_ok = True
-        self.step = READY
-
-    def save(self):
-        return {"touched": dict(self.touched), "adjustments": dict(self.calibration.adjustments),
-                "piece_height": self.calibration.piece_height} if self.calibration else None
-
     # ---- moving between steps
     def next(self):
         if self.step == READY:
@@ -198,8 +189,16 @@ class SetupWizard:
 
     def _ready_to_leave(self):
         return {0: self.p.found is not None and self.view_fresh, 1: self.p.reference is not None,
-                2: PARK in self.touched, 3: self.calibration is not None and not self.calibration.problems(),
+                2: PARK in self.touched, 3: self.usable(),
                 4: self.checked}.get(self.step, False) and self.idle
+
+    def usable(self):
+        """Corners are saved and nothing is clearly wrong, or the person has chosen to go on anyway."""
+        return self.calibration is not None and (not self.calibration.errors() or self.accepted)
+
+    def use_anyway(self):
+        if self.calibration is not None and self.calibration.errors():
+            self.accepted = True
 
     def _entered(self):
         if self.step == 4:
@@ -365,6 +364,7 @@ class SetupWizard:
             self.touched[self.pending] = value
             self.redo = None
             self.corner = next((i for i, corner in enumerate(self.corners()) if corner not in self.touched), 4)
+            self.accepted = False
             self.pieces_ok = False
             self.p.setup_done = False
             self._calibrate()
@@ -407,7 +407,7 @@ class SetupWizard:
         text, status, ok = getattr(self, f"_words{self.step}")()
         self.text.set(text)
         self.status.set(status)
-        self.status_label.configure(fg=GREEN if ok else RED if ok is False else MUTED)
+        self.status_label.configure(fg=AMBER if ok == "warn" else GREEN if ok else RED if ok is False else MUTED)
         idle = self.idle
         ui._set_button(self.back_button, idle and self.step > 0)
         self.next_button.configure(text={PIECES: "Finish setup  ▶", READY: "Go to Match  ▶"}.get(self.step, "Next  ▶"))
@@ -418,6 +418,12 @@ class SetupWizard:
         arm = self.robot_ready and idle
         ui._set_button(self.centre_button, arm)
         ui._set_button(self.corner_button, arm)
+        asking = self.step == 3 and self.calibration is not None and bool(self.calibration.errors()) and not self.accepted
+        if asking and not self.anyway_button.winfo_ismapped():
+            self.anyway_button.pack(fill="x", pady=(4, 0))
+        elif not asking:
+            self.anyway_button.pack_forget()
+        ui._set_button(self.anyway_button, idle)
         if self.robot_ready:
             self.connection_button.pack_forget()
         elif not self.connection_button.winfo_ismapped():
@@ -482,10 +488,13 @@ class SetupWizard:
                     f"{describe_slot(self.p.layout, self.redo, self.p.dobot_side.get())}",
                     f"Touching {self.redo} again.", None)
         if self.calibration:
-            problems = self.calibration.problems()
-            if problems:
-                return ("Something looks off. Click the circle on the map that you want to touch again, then save.",
-                        "✖  " + problems[0], False)
+            errors, warnings = self.calibration.errors(), self.calibration.warnings()
+            if errors and not self.accepted:
+                return ("That looks like a slip. Click the circle on the map that you want to touch again, then save. "
+                        "If the points are right, use them anyway.", "✖  " + errors[0], False)
+            if errors or warnings:
+                return ("That is good enough to go on with. In the next step the arm visits every circle, and you can "
+                        "nudge any that are a little off.", "⚠  " + (errors + warnings)[0], "warn")
             return ("The arm now knows where every circle is. You can click a corner to touch it again.",
                     f"✔  All four corners saved. The mat is placed to within {self.calibration.worst[1]:.1f} mm.", True)
         name = corners[self.corner]

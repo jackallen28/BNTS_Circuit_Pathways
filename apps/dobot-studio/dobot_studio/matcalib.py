@@ -17,9 +17,12 @@ from .tictactoe import PIECE_HEIGHT
 PARK = "Park"
 HOVER = 30            # mm above the height where the cup meets the top of a piece, for visiting a point
 CLEARANCE = 40        # mm above that height, for Park and for travelling between points
-MAX_RESIDUAL = 3.0    # mm a taught point may sit from where the other points say it should
-MAX_SCALE_ERROR = 0.05
-MAX_TILT = 3.0        # degrees of slope the playing surface may have
+# Hand-guiding the cup onto a circle is good to a few millimetres, and the circles are large, so a small
+# miss is only a warning. Only a gross one, such as touching the wrong circle, stops the setup.
+WARN_RESIDUAL = 4.0   # mm a taught point may sit from where the other points say it should, before a warning
+BLOCK_RESIDUAL = 10.0   # mm from where the other points say, before the setup stops
+WARN_SCALE_ERROR, BLOCK_SCALE_ERROR = 0.05, 0.15
+WARN_TILT, BLOCK_TILT = 3.0, 8.0   # degrees of slope the playing surface may have
 THICKNESS_RANGE = (1.0, 12.0)   # mm a piece may be, when it is adjusted by hand
 
 
@@ -118,17 +121,34 @@ class MatCalibration:
         name = max(self.residuals, key=self.residuals.get)
         return name, self.residuals[name]
 
-    def problems(self):
-        """Plain-English reasons not to trust this calibration. Empty when it looks good."""
+    def errors(self):
+        """Reasons the calibration cannot be used: something is clearly wrong."""
         found = []
         name, error = self.worst
-        if error > MAX_RESIDUAL:
-            found.append(f"{name} is {error:.1f} mm from where the other points put it. Touch it again.")
-        if abs(self.scale - 1) > MAX_SCALE_ERROR:
-            found.append(f"The mat measures {self.scale * 100:.1f}% of its printed size. Check the print scale.")
-        if self.tilt > MAX_TILT:
-            found.append(f"The mat slopes by {self.tilt:.1f} degrees. Is it lying flat?")
+        if error >= BLOCK_RESIDUAL:
+            found.append(f"{name} is {error:.0f} mm from where the other points put it. Touch it again, "
+                         "or check you touched the right circle.")
+        if abs(self.scale - 1) > BLOCK_SCALE_ERROR:
+            found.append(f"The mat measures {self.scale * 100:.0f}% of its printed size. Check the print scale.")
+        if self.tilt > BLOCK_TILT:
+            found.append(f"The mat slopes by {self.tilt:.0f} degrees. Is it lying flat?")
         return found
+
+    def warnings(self):
+        """Things that are a little off but good enough to go on with. They can be nudged in the next step."""
+        found = []
+        name, error = self.worst
+        if WARN_RESIDUAL < error < BLOCK_RESIDUAL:
+            found.append(f"{name} is {error:.1f} mm from where the other points put it.")
+        if WARN_SCALE_ERROR < abs(self.scale - 1) <= BLOCK_SCALE_ERROR:
+            found.append(f"The mat measures {self.scale * 100:.1f}% of its printed size.")
+        if WARN_TILT < self.tilt <= BLOCK_TILT:
+            found.append(f"The mat slopes by {self.tilt:.1f} degrees.")
+        return found
+
+    def problems(self):
+        """Everything worth mentioning: the errors first, then the warnings."""
+        return self.errors() + self.warnings()
 
     def _pose(self, name, above):
         x, y = self.xy(name)

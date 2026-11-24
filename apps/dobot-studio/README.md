@@ -410,7 +410,9 @@ position instead (see step 3).
    overhead. Connect and home the Dobot on the first screen, with the suction cup fitted,
    then open **Tic-tac-toe**. The **Setup** tab walks through seven steps, and the
    map beside the steps and the camera view show which circle each step means.
-2. **Show the mat.** Start the camera and move the mat or camera until it says
+2. **Show the mat.** Start the camera (Tic-tac-toe asks a USB camera for 1080p, and uses
+   a 1280-wide picture so the close-ups are sharp; a camera that only does 640 × 480 still
+   works) and move the mat or camera until it says
    **Good to go**. The four corner markers are only a rough guide to find the mat once.
 3. **Capture the empty mat.** Clear the mat and move the arm out of the camera's view.
    This locks the camera's view. After that the markers are not used again, so the arm
@@ -421,8 +423,14 @@ position instead (see step 3).
    do the same on the middle of each of the four outer circles, one at a time. That is
    all the arm is taught. It works out the mat's position, rotation, true printed size and
    slope from those five touches, and so where every other circle is, without the
-   camera. If one touch looks off by more than 3 mm it is named, and you can click it on
-   the map and touch it again. **Picking and placing add the thickness of a piece** to that
+   camera. The circles are large, so a few millimetres either way is fine. A touch that is
+   4 mm or more from where the others put it shows an amber warning, and you can go on:
+   the next step visits every circle and you can nudge any that are off. Only a slip of
+   10 mm or more (usually the wrong circle) stops the setup. It is named, and you can click
+   it on the map and touch it again, or choose **Use these points anyway**. While you guide
+   the arm, the camera view shows a **close-up of the circle** from straight above, with a
+   red crosshair on its centre: when the cup covers the crosshair, it is on the point.
+   **Picking and placing add the thickness of a piece** to that
    height (3.2 mm for the Ø25 mm pieces, 5.12 mm for the Ø40 mm ones). The cup meets the top of
    a piece, and a piece held by its top has its underside on the mat at the same height.
 5. **Check every point.** Press **Check all points**. The arm visits all 19 circles a little
@@ -437,9 +445,9 @@ position instead (see step 3).
    Put some X and O pieces on the mat and press **Capture pieces**. The camera's reading
    appears beside each circle. If it cannot read one, that circle is named. Then finish.
 
-The setup is kept until you close Dobot Studio, so reopening Tic-tac-toe does not repeat
-it. Run it again if the mat or the arm is moved. If the camera is knocked, a warning appears
-and you only need to capture the empty mat again. The arm's setup is not affected.
+The setup is never saved. Run it every time you open Tic-tac-toe, because the mat, the camera
+and the arm may have moved since last time. If the camera is knocked during play, a warning
+appears and you only need to capture the empty mat again. The arm's setup is not affected.
 7. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least
    four of O1–O5 with noughts. On the single-bank mat, put the Dobot’s mark in
    the reserve slots. Load five if it plays X or four if it plays O. Select

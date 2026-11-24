@@ -379,6 +379,8 @@ class MatGuideTests(unittest.TestCase):
                 widget = getattr(wizard, name, None) or getattr(program, name)
                 self.assertTrue(inside(widget), f"{name} is outside the window at step {step + 1}")
             for child in wizard.frames[step].winfo_children():
+                if not child.winfo_manager():      # a button that only appears when it is needed
+                    continue
                 self.assertTrue(inside(child), f"a control is outside the window at step {step + 1}")
             self.assertTrue(inside(program.stop_button), f"the stop button is outside the window at step {step + 1}")
         program.side_tabs.select(str(program.match_tab))

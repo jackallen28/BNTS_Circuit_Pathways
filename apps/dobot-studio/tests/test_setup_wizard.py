@@ -193,7 +193,7 @@ class WizardTests(unittest.TestCase):
         self.assertNotIn("B2", wizard.calibration.adjustments)
         self.assertAlmostEqual(self.dobot.pose[0], before[0], delta=0.4)
 
-    def test_the_piece_thickness_is_shown_adjustable_and_kept_with_the_setup(self):
+    def test_the_piece_thickness_is_shown_adjustable(self):
         self.open_program()
         wizard = self.wizard
         self.walk_to_corners()
@@ -211,13 +211,12 @@ class WizardTests(unittest.TestCase):
         self.assertIn("4.2 mm", wizard.thickness_text.get() if self.pump(0.3) is None else "")
         self.assertAlmostEqual(self.dobot.pose[2], centre.z + 4.2, delta=0.6, msg="the lowered cup follows the thickness")
         self.assertAlmostEqual(self.program.poses["A1"].z - TRUTH.surface_pose(LAYOUT.positions["A1"]).z, 4.2, delta=0.6)
-        self.assertEqual(wizard.save()["piece_height"], wizard.calibration.piece_height)
         for _ in range(60):
             wizard.change_thickness(0.2)                  # it stops at a sensible limit
         self.assertLessEqual(wizard.calibration.piece_height, 12.0)
 
-    def test_a_badly_touched_corner_is_named_and_can_be_touched_again(self):
-        self.open_program()
+    def touch_corners(self, slip, bad=2):
+        """Touch the centre and the four corners, with the cup slipping by ``slip`` mm on one of them."""
         wizard = self.wizard
         self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
         wizard.next()
@@ -230,22 +229,90 @@ class WizardTests(unittest.TestCase):
         corners = outer_points(LAYOUT)
         for index, name in enumerate(corners):
             self.touch(LAYOUT.positions[name])
-            if index == 2:
-                self.dobot.pose[0] += 7
-                self.dobot.pose[1] -= 4          # the cup slipped on the third corner
+            if index == bad:
+                self.dobot.pose[0] += slip[0]
+                self.dobot.pose[1] += slip[1]
             wizard.save_corner()
             self.assertTrue(self.pump(5, lambda name=name: name in wizard.touched and not self.program.busy))
-        self.assertTrue(wizard.calibration.problems())
         self.pump(0.4)
+        return corners
+
+    def test_the_camera_shows_a_close_up_of_the_point_being_taught(self):
+        self.open_program()
+        wizard, program = self.wizard, self.program
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.capture()
+        wizard.next()
+        program.window.update_idletasks()
+        self.pump(0.5)
+        texts = lambda: [program.preview.itemcget(item, "text") for item in program.preview.find_all()
+                         if program.preview.type(item) == "text"]
+        self.assertIn("Close-up of Park", texts())
+        self.assertIsNotNone(getattr(program, "loupe_photo", None))
+        self.touch(LAYOUT.park)
+        wizard.save_centre()
+        self.assertTrue(self.pump(5, lambda: PARK in wizard.touched and not program.busy))
+        wizard.next()
+        self.pump(0.5)
+        self.assertIn(f"Close-up of {outer_points(LAYOUT)[0]}", texts())
+        wizard.step = 0                                # no close-up when nothing is being touched
+        wizard._entered()
+        self.pump(0.3)
+        self.assertFalse([text for text in texts() if text.startswith("Close-up")])
+
+    def test_a_small_slip_is_a_warning_and_the_setup_goes_on(self):
+        self.open_program()
+        wizard = self.wizard
+        corners = self.touch_corners((7, -4))
+        self.assertEqual(wizard.calibration.errors(), [])
+        self.assertTrue(wizard.calibration.warnings())
+        self.assertIn(corners[2], wizard.status.get())
+        self.assertIn("⚠", wizard.status.get())
+        self.assertEqual(wizard.status_label.cget("fg"), "#8a5a00")
+        self.assertNotIn("disabled", wizard.next_button.state())
+        self.assertFalse(wizard.anyway_button.winfo_ismapped())
+
+    def test_a_gross_slip_is_named_blocks_next_and_can_be_touched_again(self):
+        self.open_program()
+        wizard = self.wizard
+        corners = self.touch_corners((25, -14))
+        self.assertTrue(wizard.calibration.errors())
         self.assertIn(corners[2], wizard.status.get())
         self.assertIn("disabled", wizard.next_button.state())
         wizard.picked(corners[2])
         self.assertEqual(wizard.target(), corners[2])
         self.touch(LAYOUT.positions[corners[2]])
         wizard.save_corner()
-        self.assertTrue(self.pump(5, lambda: not wizard.calibration.problems() and not self.program.busy))
+        self.assertTrue(self.pump(5, lambda: not wizard.calibration.errors() and not self.program.busy))
         self.pump(0.4)
         self.assertNotIn("disabled", wizard.next_button.state())
+
+    def test_a_gross_slip_can_be_used_anyway(self):
+        self.open_program()
+        wizard = self.wizard
+        self.touch_corners((25, -14))
+        self.assertTrue(wizard.anyway_button.winfo_ismapped())
+        window = self.program.window
+        self.assertLessEqual(wizard.anyway_button.winfo_rooty() + wizard.anyway_button.winfo_height(),
+                             window.winfo_rooty() + window.winfo_height(), "the button must be on screen")
+        self.assertIn("disabled", wizard.next_button.state())
+        wizard.use_anyway()
+        self.pump(0.4)
+        self.assertNotIn("disabled", wizard.next_button.state())
+        self.assertFalse(wizard.anyway_button.winfo_ismapped())
+        self.assertIn("⚠", wizard.status.get())
+        self.program.setup_done = True
+        self.program._check_setup()                           # the arm's own checks accept the choice
+        wizard.accepted = False
+        with self.assertRaises(ValueError):
+            self.program._check_setup()
+        wizard.accepted = True
+        wizard.picked(outer_points(LAYOUT)[2])                # touching a corner again asks again
+        self.touch(LAYOUT.positions[outer_points(LAYOUT)[2]])
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: not self.program.busy))
+        self.assertFalse(wizard.accepted or wizard.calibration.errors())
 
     def test_finishing_parks_the_arm_takes_a_second_look_and_reads_the_pieces(self):
         self.open_program()
@@ -309,7 +376,7 @@ class WizardTests(unittest.TestCase):
             self.assertFalse(program.camera_moved)
         self.assertEqual(wizard.step, 5)
 
-    def test_reopening_tic_tac_toe_keeps_the_setup_because_the_mat_has_not_moved(self):
+    def test_the_setup_is_never_saved_so_every_run_starts_again(self):
         self.open_program()
         program, wizard = self.program, self.wizard
         self.walk_to_corners()
@@ -322,14 +389,14 @@ class WizardTests(unittest.TestCase):
         wizard.capture_pieces()
         wizard.next()
         self.assertTrue(program.setup_done)
-        saved = dict(program.poses)
         program.close()
         self.assertFalse(program.window.winfo_exists())
+        self.assertFalse(hasattr(self.studio, "tictactoe_saved"))
         self.open_program(connect=False)
-        self.assertTrue(self.program.setup_done)
-        self.assertEqual(self.wizard.step, 6)
-        self.assertEqual(self.program.poses, saved)
-        self.assertIsNotNone(self.program.reference)
+        self.assertFalse(self.program.setup_done)
+        self.assertEqual(self.wizard.step, 0)
+        self.assertIsNone(self.wizard.calibration)
+        self.assertIsNone(self.program.reference)
 
 
 if __name__ == "__main__":

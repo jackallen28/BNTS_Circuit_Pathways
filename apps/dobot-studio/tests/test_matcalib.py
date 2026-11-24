@@ -89,18 +89,42 @@ class CalibrationTests(unittest.TestCase):
         self.assertAlmostEqual(calibration.tilt, np.degrees(np.hypot(0.004, 0.002)), delta=0.05)
 
     def test_a_mat_printed_far_too_small_or_on_a_slope_is_reported(self):
-        small = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT, scale=0.9).touched())
-        self.assertTrue(any("printed size" in problem for problem in small.problems()))
-        steep = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT, tilt=(0.1, 0.0)).touched())
-        self.assertTrue(any("slopes" in problem for problem in steep.problems()))
+        small = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT, scale=0.8).touched())
+        self.assertTrue(any("printed size" in problem for problem in small.errors()))
+        steep = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT, tilt=(0.2, 0.0)).touched())
+        self.assertTrue(any("slopes" in problem for problem in steep.errors()))
+
+    def test_a_slightly_small_or_tilted_mat_is_only_a_warning(self):
+        small = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT, scale=0.92).touched())
+        self.assertEqual(small.errors(), [])
+        self.assertTrue(any("printed size" in problem for problem in small.warnings()))
+        tilted = MatCalibration(COMPACT_MAT, TruePlacement(COMPACT_MAT, tilt=(0.07, 0.0)).touched())
+        self.assertEqual(tilted.errors(), [])
+        self.assertTrue(any("slopes" in problem for problem in tilted.warnings()))
 
     def test_one_badly_touched_point_is_named(self):
         touched = TruePlacement(COMPACT_MAT).touched()
         bad = touched["O5"]
-        touched["O5"] = Pose(bad.x + 7, bad.y - 4, bad.z, bad.r)
+        touched["O5"] = Pose(bad.x + 25, bad.y - 14, bad.z, bad.r)
         calibration = MatCalibration(COMPACT_MAT, touched)
         self.assertEqual(calibration.worst[0], "O5")
-        self.assertTrue(calibration.problems()[0].startswith("O5 is"))
+        self.assertTrue(calibration.errors()[0].startswith("O5 is"))
+
+    def test_a_small_miss_is_only_a_warning_and_does_not_stop_the_setup(self):
+        touched = TruePlacement(COMPACT_MAT).touched()
+        bad = touched["O5"]
+        touched["O5"] = Pose(bad.x + 7, bad.y - 4, bad.z, bad.r)         # a hand-guided miss of about 8 mm
+        calibration = MatCalibration(COMPACT_MAT, touched)
+        self.assertEqual(calibration.errors(), [])
+        self.assertTrue(calibration.warnings()[0].startswith("O5 is"))
+        self.assertEqual(calibration.problems(), calibration.warnings())
+
+    def test_a_miss_of_a_few_millimetres_passes_quietly(self):
+        touched = TruePlacement(COMPACT_MAT).touched()
+        bad = touched["O1"]
+        touched["O1"] = Pose(bad.x + 2, bad.y - 1.5, bad.z, bad.r)
+        calibration = MatCalibration(COMPACT_MAT, touched)
+        self.assertEqual((calibration.errors(), calibration.warnings()), ([], []))
 
     def test_heights_follow_the_surface_and_park_is_in_range(self):
         truth = TruePlacement(COMPACT_MAT)
