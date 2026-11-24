@@ -309,6 +309,15 @@ the Pi setup dependencies already listed above. [Dobot serial protocol](https://
 
 Choose **Tic-tac-toe** from the picker, choose X or O under **Play as**, and start
 a new game. X goes first. In Demo mode, click an empty cell to play your turn.
+Set **Dobot difficulty** at any time between turns:
+
+| Level | How the Dobot plays |
+| --- | --- |
+| Easy | Picks any free cell, but takes a win if it sees one. Easy to beat. |
+| Medium | Wins or blocks when it can, otherwise picks any free cell. Beatable with a fork. |
+| Hard | Plays perfectly. It never loses, so the best you can do is draw. |
+
+Hard is the default, and the program remembers the level until Dobot Studio closes.
 
 [Download the print set](printables/tictactoe-300mm.zip) or
 [browse the 3D and paper mat files](printables/tictactoe/README.md).

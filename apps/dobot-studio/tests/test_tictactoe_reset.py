@@ -242,5 +242,58 @@ class DemoResetTests(unittest.TestCase):
         program.close()
 
 
+@unittest.skipUnless(__import__("os").environ.get("DISPLAY") or __import__("sys").platform == "win32",
+                     "needs a display")
+class DifficultyTests(unittest.TestCase):
+    def test_the_chosen_level_reaches_the_dobots_move_and_is_remembered(self):
+        from unittest import mock
+        from dobot_studio import tictactoe_program
+        from dobot_studio.tictactoe import EASY, HARD, LEVELS, MEDIUM
+
+        root = make_root(self)
+        studio = make_studio(self, root)
+        program = tictactoe_program.TicTacToeProgram(studio)
+        self.assertEqual(program.level.get(), HARD)
+        self.assertEqual(tuple(program.level_picker.cget("values")), LEVELS)
+        self.assertEqual(str(program.level_picker.cget("state")), "readonly")
+        seen = []
+        real = tictactoe_program.robot_move
+        with mock.patch.object(tictactoe_program, "robot_move",
+                               lambda board, mark, level: seen.append(level) or real(board, mark, level)):
+            for level in (EASY, MEDIUM, HARD):
+                program.level.set(level)
+                program.new_game()
+                program.board = (X, "", "", "", "", "", "", "", "")
+                program._plan_reply("Test.")
+                program.stop()
+        self.assertEqual(seen, [EASY, MEDIUM, HARD])
+        program.level.set(MEDIUM)
+        program.close()
+        reopened = tictactoe_program.TicTacToeProgram(studio)
+        self.assertEqual(reopened.level.get(), MEDIUM)
+        reopened.close()
+
+    def test_a_demo_game_is_playable_at_every_level(self):
+        from dobot_studio import tictactoe_program
+        from dobot_studio.tictactoe import LEVELS
+
+        root = make_root(self)
+        studio = make_studio(self, root)
+        for level in LEVELS:
+            program = tictactoe_program.TicTacToeProgram(studio)
+            program.level.set(level)
+            program.new_game()
+            end = monotonic() + 20
+            while monotonic() < end and (program.ready or program.busy):
+                if program.turn == program.human and not program.busy and program.ready:
+                    cell = next(i for i in range(9) if not program.board[i])
+                    program.board = with_move(program.board, cell, program.human)
+                    program._after_player(cell)
+                root.update()
+                sleep(0.01)
+            self.assertTrue(program.board == EMPTY and not program.busy, level)
+            program.close()
+
+
 if __name__ == "__main__":
     unittest.main()

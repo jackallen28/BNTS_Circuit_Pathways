@@ -8,7 +8,7 @@ from tkinter import messagebox, ttk
 
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .tictactoe import (
-    CELLS, EMPTY, O, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
+    CELLS, EMPTY, HARD, LEVELS, O, STANDARD_MAT, TEACH_ORDER, UNKNOWN, X,
     human_change, outcome, robot_move, tidy_plan, winning_line, with_move,
 )
 from .tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
@@ -60,6 +60,9 @@ class TicTacToeProgram:
         self.roles = tk.StringVar()
         self.ready = studio.demo
         self.auto_reset = tk.BooleanVar(value=True)
+        # The chosen difficulty is kept for the session, so reopening the program remembers it.
+        self.level = tk.StringVar(value=getattr(studio, "tictactoe_level", HARD))
+        self.level.trace_add("write", lambda *_: setattr(studio, "tictactoe_level", self.level.get()))
         # Resetting: waiting for a still, clear mat (pending), then returning pieces one at a time.
         self.tidy_pending = self.tidying = False
         self.tidy, self.tidy_left = [], 0
@@ -148,6 +151,12 @@ class TicTacToeProgram:
                                           state="readonly", width=4)
         self.symbol_picker.pack(side="right")
         self.symbol_picker.bind("<<ComboboxSelected>>", self._pick_symbol)
+        level = tk.Frame(body, bg=PANEL)
+        level.pack(fill="x", pady=(0, 5))
+        ui._label(level, "Dobot difficulty", size=9, fg=MUTED).pack(side="left")
+        self.level_picker = ttk.Combobox(level, textvariable=self.level, values=LEVELS,
+                                         state="readonly", width=7)
+        self.level_picker.pack(side="right")
         ui._label(body, textvariable=self.roles, size=10, weight="bold",
                   fg=PURPLE).pack(fill="x")
         ui._label(body, textvariable=self.detail, size=9, fg=MUTED, wraplength=245,
@@ -385,7 +394,7 @@ class TicTacToeProgram:
 
     def _plan_reply(self, message):
         self.turn = self.dobot
-        self.chosen = robot_move(self.board, self.dobot)
+        self.chosen = robot_move(self.board, self.dobot, self.level.get())
         self.status.set(f"{message} Dobot chose {CELLS[self.chosen]}.")
         if self.studio.demo:
             self.busy = "demo"
@@ -669,6 +678,7 @@ class TicTacToeProgram:
         can_choose = not self.ready or (ui.demo and self.board == EMPTY)
         resetting = self.tidy_pending or self.tidying
         self.symbol_picker.configure(state="readonly" if idle and can_choose and not resetting else "disabled")
+        self.level_picker.configure(state="readonly" if idle and not resetting else "disabled")
         if ui.demo:
             self.detail.set("Select an empty cell on the blue board. Dobot replies automatically.")
         else:

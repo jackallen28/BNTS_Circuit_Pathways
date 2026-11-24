@@ -1,6 +1,7 @@
 """Tic-tac-toe rules and the physical mat dimensions, in millimetres."""
 from dataclasses import dataclass
 from functools import lru_cache
+import random
 
 
 MAT_WIDTH = 300
@@ -29,6 +30,8 @@ TEACH_ORDER = (*MAT_POSITIONS, "Park")
 
 EMPTY = ("",) * 9
 X, O, UNKNOWN = "X", "O", "?"
+EASY, MEDIUM, HARD = "Easy", "Medium", "Hard"
+LEVELS = (EASY, MEDIUM, HARD)
 ORDER = (4, 0, 2, 6, 8, 1, 3, 5, 7)
 LINES = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8),
          (0, 4, 8), (2, 4, 6))
@@ -109,9 +112,28 @@ def score(board, turn):
     return max(values) if turn == O else min(values)
 
 
-def robot_move(board, mark=O):
+def finishing_move(board, mark):
+    """A free cell that wins the game for ``mark`` right now, or None."""
+    return next((index for index in ORDER
+                 if not board[index] and outcome(with_move(board, index, mark)) == mark), None)
+
+
+def robot_move(board, mark=O, level=HARD, rng=random):
+    """Choose the Dobot's cell.
+
+    Hard plays perfectly and never loses. Medium wins or blocks when it can and
+    otherwise plays any free cell. Easy plays any free cell but takes a win it sees.
+    """
     if outcome(board):
         return None
+    if level != HARD:
+        win = finishing_move(board, mark)
+        if win is not None:
+            return win
+        block = finishing_move(board, X if mark == O else O) if level == MEDIUM else None
+        if block is not None:
+            return block
+        return rng.choice([index for index in range(9) if not board[index]])
     prefer = max if mark == O else min
     next_mark = X if mark == O else O
     return prefer((index for index in ORDER if not board[index]),

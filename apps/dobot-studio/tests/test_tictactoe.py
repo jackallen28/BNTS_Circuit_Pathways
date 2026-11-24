@@ -1,4 +1,5 @@
 from math import dist
+from random import Random
 from threading import Event
 import unittest
 
@@ -9,7 +10,7 @@ from dobot_studio.robot import Magician, Pose, RobotError, TRANSFER_SEGMENT_MM
 from dobot_studio.tictactoe import (
     A3_MAT, A3_PARK, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, EMPTY, NOUGHT_INNER,
     NOUGHT_OUTER, O, PAPER_MAT, PIECE_RADIUS, STANDARD_MAT, UNKNOWN, X,
-    human_change, outcome, robot_move, with_move,
+    EASY, HARD, LEVELS, MEDIUM, human_change, outcome, robot_move, score, with_move,
 )
 from dobot_studio.tictactoe_program import TurnDelay
 from dobot_studio.tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
@@ -87,6 +88,50 @@ class TicTacToeTests(unittest.TestCase):
 
                 play(EMPTY, X)
                 self.assertGreater(len(visited), 25)
+
+    def test_every_level_takes_a_win_and_only_plays_free_cells(self):
+        board = (O, O, "", X, X, "", "", "", "")
+        for level in LEVELS:
+            for seed in range(20):
+                self.assertEqual(robot_move(board, O, level, Random(seed)), 2)
+        for level in LEVELS:
+            for seed in range(40):
+                board = (X, "", O, "", X, "", "", "", "")
+                spot = robot_move(board, O, level, Random(seed))
+                self.assertEqual(board[spot], "")
+
+    def test_medium_and_hard_block_but_easy_does_not_always(self):
+        board = (X, X, "", "", O, "", "", "", "")
+        for level in (MEDIUM, HARD):
+            for seed in range(20):
+                self.assertEqual(robot_move(board, O, level, Random(seed)), 2)
+        self.assertGreater({robot_move(board, O, EASY, Random(seed)) for seed in range(60)} - {2}, set())
+
+    def test_easy_varies_its_moves_and_the_level_is_the_default_for_hard(self):
+        self.assertGreater(len({robot_move(EMPTY, O, EASY, Random(seed)) for seed in range(60)}), 4)
+        self.assertEqual(robot_move(EMPTY, O), robot_move(EMPTY, O, HARD))
+
+    def test_easy_and_medium_can_be_beaten_but_hard_cannot(self):
+        def best_human_result(level, seed):
+            rng = Random(seed)
+
+            def play(board, turn):
+                result = outcome(board)
+                if result:
+                    return result
+                if turn == O:
+                    return play(with_move(board, robot_move(board, O, level, rng), O), X)
+                free = [i for i in range(9) if not board[i]]
+                # A perfect human always picks the best-scoring move.
+                best = min(free, key=lambda i: score(with_move(board, i, X), O))
+                return play(with_move(board, best, X), O)
+
+            return play(EMPTY, X)
+
+        for level in (EASY, MEDIUM):
+            wins = sum(best_human_result(level, seed) == X for seed in range(200))
+            self.assertGreater(wins, 0, level)
+        self.assertEqual(sum(best_human_result(HARD, seed) == X for seed in range(20)), 0)
 
     def test_camera_reads_known_cells_and_rejects_changed_or_ambiguous_marks(self):
         base = rectify(camera_view({}))
