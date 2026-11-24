@@ -82,7 +82,26 @@ A3_PARK = (210, 191.5)
 A3_MAT = MatLayout("A3", A3_ANCHORS, A3_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS,
                    width=A3_WIDTH, height=A3_HEIGHT, piece_scale=1.6, anchor_size=20, park_limit=235,
                    park=A3_PARK)
-MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT, A3_MAT)
+
+# The compact mat: Ø25 mm pieces, 16 mm camera markers and everything centred on an A4 landscape sheet
+# (297 x 210 mm). The 3D mat is cut from the middle of the same sheet, so paper and 3D share one layout.
+COMPACT_WIDTH, COMPACT_HEIGHT = 297, 210
+COMPACT_CENTRE = (COMPACT_WIDTH / 2, COMPACT_HEIGHT / 2)
+COMPACT_BANK_X = 100                      # a reserve bank sits this far from the centre line
+COMPACT_POSITIONS = dict(zip((*CELLS, *PAPER_CROSSES, *PAPER_NOUGHTS), (
+    *((COMPACT_CENTRE[0] + dx, COMPACT_CENTRE[1] + dy) for dy in (-55, 0, 55) for dx in (-54, 0, 54)),
+    *((COMPACT_CENTRE[0] - COMPACT_BANK_X, COMPACT_CENTRE[1] + dy) for dy in (-60, -30, 0, 30, 60)),
+    *((COMPACT_CENTRE[0] + COMPACT_BANK_X, COMPACT_CENTRE[1] + dy) for dy in (-60, -30, 0, 30, 60)),
+)))
+# Marker IDs 28 to 31 are free: 0 to 9 and 40 to 43 belong to the Block Lab, and the other mats use 32 to 39 and 44 to 47.
+COMPACT_ANCHORS = {28: (36.5, 20), 29: (260.5, 20), 30: (260.5, 190), 31: (36.5, 190)}
+COMPACT_PARK = (COMPACT_CENTRE[0], COMPACT_CENTRE[1] + 27.5)   # the middle of the lower grid divider
+COMPACT_MAT = MatLayout("Compact", COMPACT_ANCHORS, COMPACT_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS,
+                        width=COMPACT_WIDTH, height=COMPACT_HEIGHT, park=COMPACT_PARK)
+# The cut for the 3D mat: left, top, right, bottom on the sheet.
+COMPACT_3D_BOUNDS = (21.5, 5, 275.5, 205)
+
+MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT, A3_MAT, COMPACT_MAT)
 
 
 def winning_line(board):

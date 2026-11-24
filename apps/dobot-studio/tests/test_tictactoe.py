@@ -8,7 +8,7 @@ import numpy as np
 
 from dobot_studio.robot import Magician, Pose, RobotError, TRANSFER_SEGMENT_MM
 from dobot_studio.tictactoe import (
-    A3_MAT, A3_PARK, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, EMPTY, NOUGHT_INNER,
+    A3_MAT, A3_PARK, COMPACT_CENTRE, COMPACT_MAT, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, EMPTY, NOUGHT_INNER,
     NOUGHT_OUTER, O, PAPER_MAT, PIECE_RADIUS, STANDARD_MAT, UNKNOWN, X,
     EASY, HARD, LEVELS, MEDIUM, human_change, outcome, robot_move, score, with_move,
 )
@@ -63,7 +63,7 @@ def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False):
             cv2.rectangle(rgb, (cx-16,cy-16), (cx+16,cy+16), (23,29,34), -1)
     h, w = rgb.shape[:2]
     src = np.float32([(0, 0), (w-1, 0), (w-1, h-1), (0, h-1)])
-    if layout is A3_MAT:
+    if layout.width > layout.height:      # a wide sheet: A3 or the compact A4 mat
         dst = np.float32([(62, 53), (590, 62), (584, 432), (47, 411)])
     else:
         dst = np.float32([(120+shift,23),(559+shift,34),(543+shift,458),(100+shift,443)])
@@ -212,6 +212,79 @@ class TicTacToeTests(unittest.TestCase):
                 blocked = rectify(rgb)
                 self.assertEqual(read_position(blocked.grey, base.grey, layout), position)
                 self.assertFalse(mat_clear(blocked, base, position))
+
+    def test_the_compact_mat_is_centred_with_the_circle_and_marker_sizes_unchanged(self):
+        layout = COMPACT_MAT
+        radius = 11.725
+        xs = [x for x, _ in layout.positions.values()]
+        ys = [y for _, y in layout.positions.values()]
+        # The grid and both banks are centred on the sheet, and the banks are centred on the grid.
+        self.assertAlmostEqual((min(xs) + max(xs)) / 2, COMPACT_CENTRE[0])
+        self.assertAlmostEqual((min(ys) + max(ys)) / 2, COMPACT_CENTRE[1])
+        for bank in (layout.cross_bank, layout.nought_bank):
+            self.assertAlmostEqual(sum(layout.positions[name][1] for name in bank) / 5, COMPACT_CENTRE[1])
+        self.assertAlmostEqual(layout.park[0], COMPACT_CENTRE[0])
+        # The markers are symmetric about the centre and 16 mm, as on the printed marker cards.
+        anchors = list(layout.anchors.values())
+        self.assertEqual(layout.anchor_size, STANDARD_MAT.anchor_size)
+        self.assertEqual(layout.anchor_size, PAPER_MAT.anchor_size)
+        self.assertEqual({(round(2 * COMPACT_CENTRE[0] - x, 6), round(2 * COMPACT_CENTRE[1] - y, 6)) for x, y in anchors},
+                         {(round(x, 6), round(y, 6)) for x, y in anchors})
+        # Pieces and the Park ring are in reach, and a marker keeps 3 mm clear of every circle and the grid.
+        self.assertLessEqual(max(dist(layout.park, p) for p in layout.positions.values()), layout.park_limit)
+        grid = (COMPACT_CENTRE[0] - 81 - 0.7, COMPACT_CENTRE[1] - 82.5 - 0.7, COMPACT_CENTRE[0] + 81 + 0.7, COMPACT_CENTRE[1] + 82.5 + 0.7)
+        for x, y in anchors:
+            half = layout.anchor_size / 2
+            for cx, cy in layout.positions.values():
+                nearest = dist((cx, cy), (min(max(cx, x - half), x + half), min(max(cy, y - half), y + half)))
+                self.assertGreaterEqual(nearest - radius, 3, "a marker is too close to a circle")
+            self.assertTrue(x + half + 3 <= grid[0] or x - half - 3 >= grid[2] or y + half + 3 <= grid[1]
+                            or y - half - 3 >= grid[3], "a marker is too close to the grid")
+
+    def test_every_layout_has_its_own_marker_ids_and_none_collide_with_the_block_lab(self):
+        from dobot_studio.blocks import ANCHORS as BLOCK_ANCHORS
+        from dobot_studio.tictactoe import MAT_LAYOUTS
+        seen = {}
+        for layout in MAT_LAYOUTS:
+            for marker in layout.anchors:
+                self.assertNotIn(marker, seen, f"marker {marker} is used by {layout.label} and {seen.get(marker)}")
+                self.assertNotIn(marker, BLOCK_ANCHORS)
+                self.assertNotIn(marker, range(10))
+                self.assertLess(marker, 50)
+                seen[marker] = layout.label
+        # What was printed keeps its size and IDs.
+        self.assertEqual((sorted(STANDARD_MAT.anchors), STANDARD_MAT.anchor_size), ([44, 45, 46, 47], 16))
+        self.assertEqual((sorted(PAPER_MAT.anchors), PAPER_MAT.anchor_size), ([36, 37, 38, 39], 16))
+        self.assertEqual((sorted(A3_MAT.anchors), A3_MAT.anchor_size), ([32, 33, 34, 35], 20))
+
+    def test_compact_mat_reads_both_banks_with_solid_circles_at_any_camera_angle(self):
+        contents = {"A1": X, "B2": O, "C3": X, "X1": X, "X5": X, "O2": O, "O4": O}
+        for turn, name in ((None, "as printed"), (cv2.ROTATE_180, "camera behind the mat"), (cv2.ROTATE_90_CLOCKWISE, "turned")):
+            with self.subTest(name):
+                def view(items, turn=turn):
+                    image = camera_view(items, layout=COMPACT_MAT, solid=True)
+                    return image if turn is None else cv2.rotate(image, turn)
+
+                base = rectify(view({}))
+                played = rectify(view(contents))
+                self.assertIs(played.layout, COMPACT_MAT)
+                position = read_position(played.grey, base.grey, COMPACT_MAT)
+                self.assertEqual(position.board, (X, "", "", "", O, "", "", "", X))
+                self.assertEqual(position.reserve, tuple(contents.get(slot, "") for slot in COMPACT_MAT.reserve))
+                self.assertTrue(mat_clear(played, base, position))
+
+    def test_compact_mat_detects_a_hand_over_a_reserve_bank_and_a_marker_is_not_mistaken_for_another_mat(self):
+        base = rectify(camera_view({}, layout=COMPACT_MAT, solid=True))
+        rgb = camera_view({"A2": X}, layout=COMPACT_MAT, solid=True)
+        position = read_position(rectify(rgb).grey, base.grey, COMPACT_MAT)
+        self.assertTrue(mat_clear(rectify(rgb), base, position))
+        # A hand over the left edge of the X bank, which lies at the edge of the marker rectangle.
+        point = np.float32([[COMPACT_MAT.positions["X3"]]]) * DENSITY
+        x, y = cv2.perspectiveTransform(point, np.linalg.inv(rectify(rgb).matrix))[0, 0]
+        cv2.circle(rgb, (round(x) - 3, round(y)), 9, (190, 144, 115), -1)
+        blocked = rectify(rgb)
+        self.assertEqual(read_position(blocked.grey, base.grey, COMPACT_MAT).board, position.board)
+        self.assertFalse(mat_clear(blocked, base, position))
 
     def test_a3_mat_reads_40_mm_pieces_across_the_wide_layout(self):
         base = rectify(camera_view({}, layout=A3_MAT))

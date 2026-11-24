@@ -7,23 +7,28 @@ import unittest
 import cv2
 import numpy as np
 
-from dobot_studio.tictactoe import A3_MAT, A3_PARK, PAPER_MAT, PAPER_PARK
+from dobot_studio.tictactoe import A3_MAT, A3_PARK, COMPACT_3D_BOUNDS, COMPACT_MAT, COMPACT_PARK, PAPER_MAT, PAPER_PARK
 
 PRINTABLES = Path(__file__).resolve().parents[1] / "printables"
 SET = PRINTABLES / "tictactoe"
 SVG = "{http://www.w3.org/2000/svg}"
+WHOLE_MATS = ("mat-compact", "mat-300x300", "mat-a3")
 THICKNESS, MARK_DEPTH = 2.8, 0.6
 H2D_BED = (325, 320)       # Bambu H2D
 SMALL_BED = (256, 256)     # Bambu P1, X1 and A1
 
 # name: (layout, width, height, park, circle radius, park ring radius). Each circle is a solid black
 # disc the size of the old ring's outer edge: radius 10.9 plus half of a 1.65 mm stroke, times the piece scale.
+# The compact mat is cut from an A4 sheet, so its model starts at the cut: width and height are the sheet's
+# right and bottom edge of the cut, which is what the end-for-end turn is measured from.
 MATS = {
+    "mat-compact": (COMPACT_MAT, COMPACT_3D_BOUNDS[2], COMPACT_3D_BOUNDS[3], COMPACT_PARK, 11.725, 2.3),
     "mat-300x300": (PAPER_MAT, 300, 300, PAPER_PARK, 11.725, 2.3),
     "mat-a3": (A3_MAT, 420, 297, A3_PARK, 11.725 * 1.6, 3.2),
 }
 # file: (mat, x offset, y offset of the piece in the full model, width, height)
 PIECES = {
+    "mat-compact": ("mat-compact", 0, 0, 254, 200),
     "mat-300x300": ("mat-300x300", 0, 0, 300, 300),
     # The cut runs 160 mm from the top, between reserve rings, so the top tiles are 160 mm tall.
     "tiles/mat-top-left": ("mat-300x300", 150, 140, 150, 160),
@@ -177,7 +182,7 @@ class FlatFirstLayerTests(unittest.TestCase):
 
 class SameAsThePaperMatTests(unittest.TestCase):
     def test_every_cell_and_reserve_slot_has_a_solid_black_circle_at_the_layout_position(self):
-        for name in ("mat-300x300", "mat-a3"):
+        for name in WHOLE_MATS:
             mat = Mat(name)
             self.assertEqual(len(mat.layout.positions), 19)
             for label, centre in mat.layout.positions.items():
@@ -189,7 +194,7 @@ class SameAsThePaperMatTests(unittest.TestCase):
                     self.assertFalse(mat.marked(ring_points(centre, mat.ring + 1.0)).any(), "the circle is too big or off position")
 
     def test_x_pieces_are_on_the_left_and_o_pieces_on_the_right(self):
-        for name in ("mat-300x300", "mat-a3"):
+        for name in WHOLE_MATS:
             layout = Mat(name).layout
             self.assertLess(max(layout.positions[slot][0] for slot in layout.cross_bank),
                             min(layout.positions[cell][0] for cell in ("A1", "B1", "C1")))
@@ -197,14 +202,14 @@ class SameAsThePaperMatTests(unittest.TestCase):
                                max(layout.positions[cell][0] for cell in ("A3", "B3", "C3")))
 
     def test_the_park_ring_is_where_the_software_expects_it(self):
-        for name in ("mat-300x300", "mat-a3"):
+        for name in WHOLE_MATS:
             mat = Mat(name)
             self.assertTrue(mat.marked(ring_points(mat.park, mat.park_ring)).all())
             self.assertFalse(mat.marked([mat.park]).any())
 
     def test_each_camera_marker_has_the_right_id_and_orientation(self):
         dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-        for name in ("mat-300x300", "mat-a3"):
+        for name in WHOLE_MATS:
             mat = Mat(name)
             for marker, (x, y) in mat.layout.anchors.items():
                 bits = cv2.aruco.generateImageMarker(dictionary, marker, 6)
@@ -221,12 +226,12 @@ class SameAsThePaperMatTests(unittest.TestCase):
 
     def test_the_mats_have_no_printed_position_names(self):
         """Positions are named on screen during setup, so the artwork carries no lettering."""
-        for svg in ("mat-300x300.svg", "mat-a3.svg"):
+        for svg in ("mat-a4.svg", "mat-300x300.svg", "mat-a3.svg"):
             root = ET.parse(SET / svg).getroot()
             texts = {group.attrib.get("id"): [e.text for e in group.iter(f"{SVG}text")]
                      for group in root.iter(f"{SVG}g")}
             self.assertEqual({key: value for key, value in texts.items() if value},
-                             {"print-scale": ["100 mm"]} if svg == "mat-a3.svg" else {}, svg)
+                             {"print-scale": ["100 mm"]} if svg != "mat-300x300.svg" else {}, svg)
         for pdf in ("mat-a3.pdf",):
             with ZipFile(SET / "mat-a3.3mf") as package:      # the 3D files hold no text at all
                 self.assertNotIn(b"<text", package.read("3D/3dmodel.model"))
@@ -240,7 +245,7 @@ class PrintabilityTests(unittest.TestCase):
             from shapely.geometry import Polygon
         except ImportError:
             self.skipTest("needs shapely")
-        for name in ("mat-300x300", "mat-a3"):
+        for name in WHOLE_MATS:
             with self.subTest(name):
                 shape = union_all([Polygon(triangle).buffer(0.001) for triangle in Mat(name).mark_triangles])
                 opened = shape.buffer(-0.29, join_style="mitre").buffer(0.29, join_style="mitre")
@@ -254,7 +259,7 @@ class PrintabilityTests(unittest.TestCase):
                 bounds = Mat(name).body[0]
                 self.assertAlmostEqual(np.ptp(bounds[:, 0]), width, delta=0.01)
                 self.assertAlmostEqual(np.ptp(bounds[:, 1]), height, delta=0.01)
-                bed = SMALL_BED if name.startswith("tiles/") else H2D_BED
+                bed = SMALL_BED if name.startswith("tiles/") or name == "mat-compact" else H2D_BED
                 self.assertLessEqual(width, bed[0])
                 self.assertLessEqual(height, bed[1])
 

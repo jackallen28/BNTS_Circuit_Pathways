@@ -19,7 +19,7 @@ from shapely.geometry.polygon import orient
 from trimesh import Trimesh
 
 from dobot_studio.tictactoe import (
-    A3_MAT, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MARK_DEPTH, MAT_MARK_DEPTH, MAT_TOP,
+    A3_MAT, COMPACT_3D_BOUNDS, CROSS_HALF_LENGTH, CROSS_HALF_WIDTH, MARK_DEPTH, MAT_MARK_DEPTH, MAT_TOP,
     NOUGHT_INNER, NOUGHT_OUTER, PIECE_HEIGHT, PIECE_RADIUS,
 )
 
@@ -50,13 +50,16 @@ GRID = 0.001          # shapes are snapped to this grid (mm) so vertices agree e
 SEAM_CLEARANCE = 0.2  # marks stop this far from a tile edge so the Body stays closed
 # Paper-only guides that have no place on a printed mat.
 PAPER_ONLY = {"print-area", "300-mm-outline", "print-scale"}
-# (SVG file, output name, folder for the pieces it can be cut into, cut at x, cut at y), cuts
-# in millimetres across the finished mat, chosen where no circle or marker is crossed.
-# The 300 mm mat fits a Bambu H2D bed (325 x 320 mm) whole, and splits in four for 256 mm beds.
-# A3 (420 x 297 mm) splits in two for the H2D, whose bed is 325 mm wide at most.
+# (SVG file, output name, folder for the pieces it can be cut into, cut at x, cut at y, bounds), with
+# cuts in millimetres across the finished mat, chosen where no circle or marker is crossed. Bounds
+# (left, top, right, bottom) crop the 3D mat out of its sheet. Without them the whole sheet is used.
+# The compact mat is cut from the middle of its A4 sheet and fits a 256 mm bed whole. The 300 mm mat
+# fits a Bambu H2D bed (325 x 320 mm) whole, and splits in four for 256 mm beds. A3 (420 x 297 mm)
+# splits in two for the H2D, whose bed is 325 mm wide at most.
 MATS = (
-    ("mat-300x300.svg", "mat-300x300", "tiles", 150, 160),
-    ("mat-a3.svg", "mat-a3", "a3-halves", 155, None),
+    ("mat-a4.svg", "mat-compact", None, None, None, COMPACT_3D_BOUNDS),
+    ("mat-300x300.svg", "mat-300x300", "tiles", 150, 160, None),
+    ("mat-a3.svg", "mat-a3", "a3-halves", 155, None, None),
 )
 
 
@@ -169,9 +172,11 @@ def mat_meshes(source):
     The model is therefore the play face seen from behind: turned end for end,
     which mirrors it left to right once the print is flipped over.
     """
-    for svg, name, folder, cut_x_play, cut_y_play in MATS:
-        width, height, artwork, fragile = svg_marks(source / svg)
-        turn = [-1, 0, 0, -1, width, height]
+    for svg, name, folder, cut_x_play, cut_y_play, bounds in MATS:
+        sheet_width, sheet_height, artwork, fragile = svg_marks(source / svg)
+        left, top, right, bottom = bounds or (0, 0, sheet_width, sheet_height)
+        width, height = right - left, bottom - top
+        turn = [-1, 0, 0, -1, right, bottom]
         artwork, fragile = affine_transform(artwork, turn), affine_transform(fragile, turn)
         # Diagonal marker cells touch at a point, which would pinch the solid. Part them.
         artwork = artwork.buffer(-OPEN, join_style="mitre").buffer(OPEN, join_style="round")
@@ -189,6 +194,8 @@ def mat_meshes(source):
             return [("Body", body), ("Mark", mark)]
 
         yield name, make(outline, artwork)
+        if folder is None:
+            continue
         # Cut lines run across the mat as it looks when played; the model is turned end for end.
         cut_x = width - cut_x_play
         cut_y = None if cut_y_play is None else height - cut_y_play
@@ -260,18 +267,25 @@ def write_3mf(path, parts):
         ET.SubElement(components, "component", objectid=number)
     ET.SubElement(ET.SubElement(model, "build"), "item", objectid="3")
 
+    # Fixed timestamps, so an unchanged mesh gives a byte-identical file.
+    entries = (
+        ("[Content_Types].xml",
+         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+         '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'
+         '</Types>'),
+        ("_rels/.rels",
+         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+         '<Relationship Target="/3D/3dmodel.model" '
+         'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" Id="rel0"/>'
+         '</Relationships>'),
+        ("3D/3dmodel.model", ET.tostring(model, encoding="utf-8", xml_declaration=True)),
+    )
     with ZipFile(path, "w", ZIP_DEFLATED) as package:
-        package.writestr("[Content_Types].xml",
-                         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-                         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-                         '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'
-                         '</Types>')
-        package.writestr("_rels/.rels",
-                         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                         '<Relationship Target="/3D/3dmodel.model" '
-                         'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" Id="rel0"/>'
-                         '</Relationships>')
-        package.writestr("3D/3dmodel.model", ET.tostring(model, encoding="utf-8", xml_declaration=True))
+        for name, content in entries:
+            info = ZipInfo(name, (2026, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            package.writestr(info, content)
 
 
 def write_pieces(output, scale=1.0):

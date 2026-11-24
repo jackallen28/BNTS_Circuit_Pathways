@@ -321,19 +321,25 @@ Hard is the default, and the program remembers the level until Dobot Studio clos
 
 [Download the print set](printables/tictactoe-300mm.zip) or
 [browse the 3D and paper mat files](printables/tictactoe/README.md).
-The 3D files include a flat, two-colour **300 × 300 mm** mat, an **A3-size
-420 × 297 mm** mat in two halves, and flush, two-colour **Ø25 mm** and **Ø40 mm**
-playing pieces. The 300 mm mat fits a Bambu H2D bed whole. Its four tiles suit
-256 mm beds. Print each mat face-down, as supplied, and turn it over to play.
-Keep the supplied print orientation so each mark begins on the first layer. Flip
-each piece mark side up for play.
 
-For a paper mat, use the [300 mm SVG](printables/tictactoe/mat-300x300.svg) or
-[full-size A3 PDF](printables/tictactoe/mat-a3.pdf). The A3 layout keeps all ink
-at least 8 mm from the paper edge and uses
-[Ø40 mm tokens](printables/tictactoe/a3-pieces). The 300 mm SVG uses Ø25 mm
-tokens. **Print at 100%, not Fit**, and check the A3 sheet's 100 mm line (see
-[Print the paper mat](printables/tictactoe/README.md#print-the-paper-mat)).
+**Recommended: the compact mat.** The paper version prints on **A4 landscape**, and the
+3D version is **254 × 200 mm**, so it prints whole on a 256 mm bed such as a Bambu H2D,
+P1 or X1. Both are the same layout, with the grid and both reserve banks centred. They use the
+existing flush, two-colour **Ø25 mm** pieces, so nothing needs reprinting, and **16 mm** camera
+markers, the same size as the marker cards. Print the 3D mat face-down, as supplied, and turn it
+over to play. Keep each piece's supplied orientation so its mark begins on the first layer, and
+flip each piece mark side up for play.
+
+The **300 × 300 mm** mat and the **A3** mat (with **Ø40 mm** pieces) are still in the print set
+and still work. Their markers and sizes are unchanged. The compact mat wastes much less
+space: its footprint is about 44% smaller than the 300 mm mat's.
+
+For the paper mat, print [mat-a4.pdf](printables/tictactoe/mat-a4.pdf) on **A4 landscape at
+100%, not Fit**, and check its 100 mm line (see
+[Print the paper mat](printables/tictactoe/README.md#print-the-paper-mat)). The larger sheets are the
+[300 mm SVG](printables/tictactoe/mat-300x300.svg) and the
+[A3 PDF](printables/tictactoe/mat-a3.pdf), which uses [Ø40 mm tokens](printables/tictactoe/a3-pieces).
+
 The play and reserve spots are solid black circles, with an X bank on the left and
 an O bank on the right. Use the small Park ring as a guide for the tool's clearance
 position. The four corner codes register the mat with the camera.
@@ -343,7 +349,7 @@ position from the corner codes, so the mat can sit any way round and the camera
 can be mounted behind it. During setup the program names and highlights each
 position instead (see step 3).
 
-![3D-printed mat layout showing the cells, an X bank on the left, an O bank on the right and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
+![Compact mat layout with solid black circles, an X bank on the left, an O bank on the right and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
 ### Set up the physical game
 
@@ -382,7 +388,7 @@ position instead (see step 3).
    **Release suction**. Watch the first lift and placement to check reach and suction.
 7. When the game ends, leave the mat still and clear. After 1.5 seconds the Dobot
    returns each piece from the cells to a free reserve slot, one at a time, and the
-   camera confirms every move before the next. On the paper and A3 mats it returns
+   camera confirms every move before the next. On the paper, A3 and compact mats it returns
    both marks to their own banks. On the single-bank 3D mat it returns only its own
    pieces, so take your pieces off the mat yourself. When the screen says **Board
    reset**, check the reserves and choose **New game**. Untick **Reset the board after
@@ -390,7 +396,7 @@ position instead (see step 3).
    example after a stopped game. **Stop** or Escape cancels it. If a move is not
    confirmed, or a reserve bank has no free slot, the reset stops and says why.
 
-![Overhead view of the full-size A3 mat during an automatic turn countdown](docs/images/tictactoe-camera.png)
+![Overhead view of the compact mat during an automatic turn countdown](docs/images/tictactoe-camera.png)
 
 The camera and suction examples use simulated hardware. Print scale, camera
 contrast, reach and suction sealing need checking with the physical setup.

@@ -9,7 +9,8 @@ import unittest
 
 from dobot_studio.robot import Pose
 from dobot_studio.tictactoe import (
-    A3_MAT, CELLS, EMPTY, MAT_LAYOUTS, O, PAPER_MAT, STANDARD_MAT, X, describe_slot, outcome, tidy_plan, with_move,
+    A3_MAT, CELLS, COMPACT_MAT, EMPTY, MAT_LAYOUTS, O, PAPER_MAT, STANDARD_MAT, X, describe_slot, outcome, tidy_plan,
+    with_move,
 )
 from dobot_studio.tictactoe_vision import Position
 
@@ -113,7 +114,7 @@ class DescribeSlotTests(unittest.TestCase):
                          "Reserve 1: the 1st reserve circle from the top, on the right.")
 
     def test_each_description_names_a_distinct_place(self):
-        for layout in (PAPER_MAT, A3_MAT):
+        for layout in (PAPER_MAT, A3_MAT, COMPACT_MAT):
             for far in (False, True):
                 texts = [describe_slot(layout, label, far).split(": ", 1)[1] for label in layout.positions]
                 self.assertEqual(len(set(texts)), len(texts), "two positions share a description")
@@ -183,6 +184,15 @@ class PhysicalResetTests(unittest.TestCase):
         self.assertEqual(len(self.world.moves), 5)
         self.assertIn("Board reset", program.status.get())
         self.assertEqual(program.board, EMPTY)
+
+    def test_a_finished_game_is_reset_onto_the_compact_mat(self):
+        program = self.program(COMPACT_MAT, FINISHED)
+        program.ready = True
+        program._announce()
+        self.assertTrue(self.pump(program, 15, lambda: not program.tidy_pending and not program.tidying and not program.busy))
+        self.assertEqual(self.world.board, EMPTY)
+        self.assertEqual(self.world.reserve[:3] + self.world.reserve[5:7], [X, X, X, O, O])
+        self.assertIn("Board reset", program.status.get())
 
     def test_single_bank_mat_leaves_the_players_pieces_for_the_player(self):
         program = self.program(STANDARD_MAT, FINISHED, human=X)
@@ -346,7 +356,7 @@ class MatGuideTests(unittest.TestCase):
         self.assertEqual(program.side_tabs.select(), str(program.match_tab))
 
     def test_every_position_can_be_chosen_on_every_mat(self):
-        for layout in (PAPER_MAT, A3_MAT, STANDARD_MAT):
+        for layout in (PAPER_MAT, A3_MAT, COMPACT_MAT, STANDARD_MAT):
             self.program.reference = SimpleNamespace(layout=layout)
             self.program.teaching.set("A1")
             self.settle()
