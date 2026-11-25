@@ -256,7 +256,10 @@ class Magician:
         else:
             raise RobotError("Select a supported attachment.")
 
-    def sort_chip(self, pick, drop, park, stop, attachment=SUCTION_TOOL, *, via_park=False):
+    def sort_chip(self, pick, drop, park, stop, attachment=SUCTION_TOOL, *, via_park=False, speed=SLOW, travel=None):
+        """Fetch a piece and set it down. ``speed`` is for going down to a piece and up from it, ``travel`` (the same
+        by default) for the legs at the clearance height between them. Both in mm per second."""
+        travel = speed if travel is None else travel
         self.check_alarms()
         if attachment not in ATTACHMENTS:
             raise RobotError("Select a supported attachment.")
@@ -291,7 +294,10 @@ class Magician:
             if attachment == GRIPPER_TOOL:
                 self.set_gripper(False)
             for target, grip in actions:
-                self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop, timeout=15)
+                level = target.z == park.z                      # a leg along the clearance height, not a pick or a place
+                self._run(MOVE, struct.pack("<B4f", LINEAR, *target.wire()), target, stop,
+                          timeout=15 * max(1.0, SLOW / max(min(speed, travel), 5.0)),       # slower moves take longer
+                          speed=travel if level else speed)
                 if stop.is_set():
                     self.stop()
                     raise MotionStopped("Sorting stopped.")

@@ -1069,6 +1069,203 @@ class WizardTests(unittest.TestCase):
         self.assertFalse(program.learned.colours_ready())
         self.assertTrue(all(not dialog.swatches[mark].find_all() or dialog.swatches[mark].itemcget(dialog.swatches[mark].find_all()[0], "fill") == "" for mark in (X, O)))
 
+    # ---- keeping the setup, going back into it, the pick depth and the speed
+    def finish_everything(self):
+        """Set up the whole mat and finish, as a person would, leaving the program ready for a game."""
+        program, wizard = self.program, self.wizard
+        self.walk_to_corners()
+        wizard.next()
+        wizard.checked = True
+        wizard.next()
+        self.assertTrue(self.pump(30, lambda: wizard.parked and not program.busy and wizard.reference_waiting is None))
+        self.current["frame"] = self.frames["banks"]
+        self.pump(1.6)
+        wizard.capture_pieces()
+        wizard.next()
+        self.assertTrue(program.setup_done)
+
+    def test_the_setup_is_saved_by_itself_and_comes_back_after_a_restart(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.assertTrue(program.autosave_enabled, "nothing saved yet, so saving starts at once")
+        self.finish_everything()
+        wizard.change_thickness(0.4)
+        wizard.change_pick(1.5)
+        program.speed.set(150)
+        wizard.nudge_rest("left")
+        self.assertTrue(self.pump(30, lambda: wizard.parked and not program.busy))
+        program.autosave(force=True)
+        self.assertTrue(program.store.has())
+        poses, height, reference = dict(program.poses), wizard.calibration.piece_height, program.reference.grey.copy()
+        rest_shift = wizard.rest_shift
+        saved_text = (program.store.folder / "latest" / "setup.json").read_text()
+        program.close()
+        self.assertFalse(program.window.winfo_exists())
+        # the program is opened again, as after a restart or a crash
+        self.open_program(connect=False)
+        program, wizard = self.program, self.wizard
+        self.assertFalse(program.autosave_enabled, "a saved setup is there, so it is not written over yet")
+        self.assertFalse(program.autosave(force=True))
+        self.assertEqual((program.store.folder / "latest" / "setup.json").read_text(), saved_text)
+        self.pump(0.5)
+        self.assertTrue(wizard.saved_banner.winfo_ismapped(), "the saved setup is offered")
+        self.assertIn("minute" if "minute" in wizard.saved_text.get() else "moment", wizard.saved_text.get())
+        wizard.use_saved()
+        self.pump(0.5)
+        self.assertTrue(program.setup_done)
+        self.assertEqual(wizard.step, 6)
+        self.assertEqual(program.poses, poses)
+        self.assertAlmostEqual(wizard.calibration.piece_height, height)
+        self.assertEqual(program.pick_press, 1.5)
+        self.assertEqual(program.speed_percent, 150.0)
+        self.assertEqual(wizard.rest_shift, rest_shift)
+        self.assertTrue(np.array_equal(program.reference.grey, reference), "the empty mat the camera reads against is back")
+        self.assertTrue(program.autosave_enabled)
+        self.assertFalse(wizard.saved_banner.winfo_ismapped())
+        self.assertEqual(wizard.status_label.cget("fg") != "", True)
+        self.assertIn("must not have been moved", program.status.get())
+
+    def test_a_new_setup_puts_the_saved_one_aside_instead_of_writing_over_it(self):
+        self.open_program()
+        self.finish_everything()
+        self.program.autosave(force=True)
+        store = self.program.store
+        self.program.close()
+        self.open_program(connect=False)
+        program, wizard = self.program, self.wizard
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.capture()                                   # beginning again, without using the saved setup
+        self.assertTrue(program.autosave_enabled)
+        self.assertTrue(store.has("backup"), "the saved setup was kept")
+        program.autosave(force=True)
+        self.assertTrue(store.has("latest") and store.has("backup"))
+        self.assertEqual(store.load("backup")[0]["setup_done"], True)
+        self.assertFalse(store.load("latest")[0]["setup_done"])
+        wizard.use_saved("backup")                          # and it can be brought back
+        self.assertTrue(program.setup_done)
+
+    def test_reset_keeps_the_saved_setup_aside_or_throws_it_away(self):
+        for answer, kept in ((True, True), (False, False)):
+            with self.subTest(answer=answer):
+                self.current["frame"] = self.frames["empty"]
+                self.open_program(connect=self.studio.robot is None)
+                self.finish_everything()
+                self.program.autosave(force=True)
+                store = self.program.store
+                store.discard("backup")
+                with mock.patch.object(messagebox, "askyesnocancel", return_value=answer):
+                    self.wizard.reset_setup()
+                self.pump(1.0)
+                self.assertFalse(store.has("latest"))
+                self.assertEqual(store.has("backup"), kept)
+                self.pump(1.5, lambda: self.studio.workcell is not None and self.studio.workcell is not self.program)
+                new = self.studio.workcell
+                self.assertIsNotNone(new, "the program is opened again, fresh")
+                self.assertFalse(new.setup_done)
+                self.assertTrue(new.autosave_enabled)
+                new.close()
+                self.pump(0.5)
+        with mock.patch.object(messagebox, "askyesnocancel", return_value=None):          # cancel
+            self.open_program(connect=self.studio.robot is None)
+            self.program.autosave(force=True) if self.program.wizard.touched else None
+            self.wizard.reset_setup()
+            self.assertTrue(self.program.window.winfo_exists())
+
+    def test_any_step_reached_can_be_gone_back_to_and_the_game_returned_to_without_setting_up_again(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.finish_everything()
+        self.assertEqual(wizard.step, 6)
+        wizard.jump(4)                                       # back to look at the points
+        self.assertEqual(wizard.step, 4)
+        self.assertTrue(program.setup_done, "going back changes nothing")
+        wizard.selected = "B2"
+        wizard.change_thickness(0.2)
+        wizard.nudge_step.set("1 mm")
+        wizard.change_pick(1.0)
+        self.assertTrue(self.pump(30, lambda: not program.busy))
+        self.assertTrue(program.setup_done, "thickness, nudges and pick depth do not need the setup done again")
+        wizard.jump(5)
+        self.assertEqual(wizard.step, 5)
+        wizard.return_to_game()
+        self.assertEqual(wizard.step, 6)
+        self.assertEqual(self.program.side_tabs.select(), str(program.match_tab))
+        # a step that was never reached cannot be jumped to, and a touch that matters does need the setup finished again
+        self.pump(0.3)
+        wizard.jump(3)
+        self.assertEqual(wizard.step, 3)
+        wizard.picked(outer_points(LAYOUT)[0])
+        self.touch(LAYOUT.positions[outer_points(LAYOUT)[0]])
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: not program.busy))
+        self.assertFalse(program.setup_done, "a corner was touched again")
+        wizard.return_to_game()
+        self.assertNotEqual(wizard.step, 6, "not until it is finished again")
+
+    def test_a_step_that_was_never_reached_is_not_jumped_to(self):
+        self.open_program()
+        wizard = self.wizard
+        wizard.jump(4)
+        self.assertEqual(wizard.step, 0)
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.jump(0)
+        self.assertEqual(wizard.step, 0)
+        wizard.jump(1)
+        self.assertEqual(wizard.step, 1)
+        wizard.jump(5)
+        self.assertEqual(wizard.step, 1)
+
+    def test_the_pick_depth_is_changed_by_hand_kept_in_range_and_used_to_pick(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.finish_everything()
+        for _ in range(40):
+            wizard.change_pick(0.5)
+        self.assertEqual(program.pick_press, 12.0)
+        for _ in range(60):
+            wizard.change_pick(-0.5)
+        self.assertEqual(program.pick_press, -5.0)
+        wizard.change_pick(5.0)
+        wizard.change_pick(1.5)
+        self.assertEqual(program.pick_press, 1.5)
+        wizard.jump(4)
+        self.pump(0.4)
+        self.assertIn("+1.5 mm", wizard.pick_text.get())
+        # the test pick goes down by that much more, holds the piece with suction, and puts it back
+        slot = LAYOUT.bank(program.dobot)[0]
+        pick = wizard.calibration.pick(slot)
+        self.dobot.log.clear()
+        wizard.test_pick()
+        self.assertTrue(self.pump(60, lambda: not program.busy and self.dobot.log))
+        self.assertTrue(self.pump(60, lambda: not program.busy))
+        suction = [params[1] for command, _, params in self.dobot.log if command == R.SUCTION]
+        self.assertEqual(suction, [1, 0], "suction went on and then off")
+        lowest = min(unpack("<B4f", params)[3] for command, _, params in self.dobot.log if command == R.MOVE)
+        self.assertAlmostEqual(lowest, pick.z - 1.5, delta=0.3)
+        rest = wizard.calibration.rest()
+        self.assertAlmostEqual(self.dobot.pose[0], rest.x, delta=0.6)
+        self.assertIn("Test pick done", program.status.get())
+
+    def test_the_arm_speed_is_set_on_a_slider_and_the_moves_follow_it(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.assertEqual(program.speeds(), (25.0, 60.0))
+        program.speed.set(200)
+        self.assertEqual(program.speeds(), (50.0, 120.0))
+        program.speed.set(5)
+        self.assertEqual(program.speeds(), (7.5, 18.0), "never slower than 30%")
+        program.speed.set(200)
+        self.assertEqual(program.speed_text.get(), "Arm speed 200%")
+        self.walk_to_corners()
+        wizard.next()
+        self.dobot.log.clear()
+        wizard.run_check()
+        self.assertTrue(self.pump(90, lambda: wizard.checked and not program.busy))
+        asked = {unpack("<4f", params)[0] for command, _, params in self.dobot.log if command == R.COORDINATE_SPEED}
+        self.assertEqual(asked, {120.0}, "the tour moves at the quick speed for 200%")
+
     def test_the_arm_in_front_of_the_markers_does_not_disturb_the_setup(self):
         self.open_program()
         program, wizard = self.program, self.wizard

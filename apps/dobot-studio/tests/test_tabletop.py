@@ -66,7 +66,7 @@ class TabletopTests(unittest.TestCase):
         arm = Magician.__new__(Magician)
         arm.check_alarms = lambda: None
         arm.pose = lambda: park
-        arm._run = lambda command, params, target, stop, timeout: actions.append(target)
+        arm._run = lambda command, params, target, stop, timeout, speed=None: actions.append(target)
         arm.set_suction = lambda enabled: actions.append(enabled)
         self.assertEqual(arm.sort_chip(pick, drop, park, Event()), park)
         self.assertEqual(actions, [

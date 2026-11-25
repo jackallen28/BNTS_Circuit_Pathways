@@ -9,7 +9,7 @@ tuned to show the X and O marks clearly:
   That changes what the camera sends, so it changes the live view too. It is how automatic exposure
   and focus hunting is stopped.
 
-Neither is saved. They are set up again each time the mat is calibrated.
+The software adjustments are saved with the rest of the setup. The camera's own controls stay as the camera keeps them.
 """
 from dataclasses import dataclass, replace
 import re

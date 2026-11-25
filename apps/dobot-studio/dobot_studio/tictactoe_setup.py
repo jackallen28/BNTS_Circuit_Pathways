@@ -13,12 +13,12 @@ from dataclasses import replace
 from math import hypot
 from time import monotonic
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 import numpy as np
 
 from .matcalib import MatCalibration, PARK, REST, outer_points
-from .robot import HEIGHT_MM, Magician, Pose, QUICK, RobotError, SLOW, StopUnconfirmed
+from .robot import ATTACHMENTS, HEIGHT_MM, Magician, Pose, RobotError, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import CELLS, O, SMALL_MAT, SMALL_SUGGESTED_DISTANCE, UNKNOWN, X, describe_slot
 from .tictactoe_vision import explain, lock_view, pixels_per_mm
@@ -34,6 +34,7 @@ PAD = {"forward": ("▲  Forward", (1, 0, 0)), "back": ("▼  Back", (-1, 0, 0))
        "right": ("Right  ▶", (0, -1, 0)), "up": ("⬆  Up", (0, 0, 1)), "down": ("⬇  Down", (0, 0, -1))}
 FRESH = 0.55
 MOVE_STEPS = ("1 mm", "2 mm", "5 mm", "10 mm", "20 mm")
+PICK_STEP, PICK_RANGE = 0.5, (-5.0, 12.0)   # mm the cup goes past the top of a piece to pick it up, to be changed by hand
 PRINT_LINE_MM = 100.0   # the line printed at the foot of a paper mat
 PRINT_RANGE = (90.0, 110.0)    # a measurement outside this is a mistake, not a scaled print
 NEAR_CLEARANCE = 12     # mm above the mat while the arm is moved with the buttons
@@ -56,6 +57,7 @@ class SetupWizard:
         self.calibration = None
         self.notice = ""               # why the arm last refused or failed to move
         self.rest_shift = (0.0, 0.0)   # how far the person has nudged the arm's resting place from where it was worked out
+        self.furthest = 0              # the last step reached, so any step up to it can be gone back to
         self.accepted = False          # the person chose to go on although a point looks far out
         self.pending = None            # the point a touch is being saved for
         self.selected = None           # the point being checked and nudged
@@ -81,6 +83,18 @@ class SetupWizard:
     # ---- the layout of the panel
     def _build(self, parent):
         ui = self.studio
+        # Any step already reached can be gone back to, a finished setup can go straight back to the game, and the whole
+        # setup can be reset.
+        self.shortcuts = tk.Frame(parent, bg=PANEL)
+        self.shortcuts.pack(fill="x")
+        self.jump_choice = tk.StringVar()
+        self.jump_box = ttk.Combobox(self.shortcuts, textvariable=self.jump_choice, state="readonly", width=20,
+                                     values=[f"{number + 1}. {name}" for number, name in enumerate(STEPS)])
+        self.jump_box.pack(side="left")
+        self.jump_box.bind("<<ComboboxSelected>>", lambda _event: self.jump(self.jump_box.current()))
+        self.return_button = ui._button(self.shortcuts, "Back to the game", self.return_to_game, "Purple")
+        self.reset_setup_button = ui._button(self.shortcuts, "Reset…", self.reset_setup)
+        self.reset_setup_button.pack(side="right")
         self.heading = ui._label(parent, textvariable=self.title, size=11, weight="bold", fg=PURPLE, wraplength=320,
                                  justify="left")
         self.heading.pack(fill="x", pady=(2, 2))
@@ -111,9 +125,21 @@ class SetupWizard:
 
     def _build_camera(self, frame):
         ui = self.studio
-        ui._label(frame, "Camera", size=9, fg=MUTED).pack(side="left")
-        ttk.Entry(frame, textvariable=self.p.device, width=5).pack(side="left", padx=5)
-        self.camera_button = ui._button(frame, "Start camera", self.p.toggle_camera)
+        self.saved_banner = tk.Frame(frame, bg="#fff6dd", highlightbackground="#e0c068", highlightthickness=1, padx=6, pady=4)
+        self.saved_text = tk.StringVar()
+        ui._label(self.saved_banner, textvariable=self.saved_text, size=9, bg="#fff6dd", wraplength=290, justify="left").pack(fill="x")
+        row = tk.Frame(self.saved_banner, bg="#fff6dd")
+        row.pack(fill="x", pady=(3, 0))
+        self.use_saved_button = ui._button(row, "Use the saved setup", lambda: self.use_saved("latest"), "Purple")
+        self.use_saved_button.pack(side="left")
+        self.start_fresh_button = ui._button(row, "Start fresh", self.start_fresh)
+        self.start_fresh_button.pack(side="left", padx=4)
+        self.use_backup_button = ui._button(row, "Before the last reset", lambda: self.use_saved("backup"))
+        self.camera_row = tk.Frame(frame, bg=PANEL)
+        self.camera_row.pack(fill="x")
+        ui._label(self.camera_row, "Camera", size=9, fg=MUTED).pack(side="left")
+        ttk.Entry(self.camera_row, textvariable=self.p.device, width=5).pack(side="left", padx=5)
+        self.camera_button = ui._button(self.camera_row, "Start camera", self.p.toggle_camera)
         self.camera_button.pack(side="right")
 
     def _build_capture(self, frame):
@@ -199,6 +225,16 @@ class SetupWizard:
         self.reset_button.pack(side="right")
         ui._label(frame, textvariable=self.adjust_text, size=9, fg=MUTED, wraplength=320, justify="left").pack(
             fill="x", pady=(3, 0))
+        pick = tk.Frame(frame, bg=PANEL)
+        pick.pack(fill="x", pady=(3, 0))
+        self.pick_text = tk.StringVar()
+        ui._label(pick, textvariable=self.pick_text, size=9, fg=DARK, wraplength=190, justify="left").pack(side="left")
+        self.test_pick_button = ui._button(pick, "Test pick", self.test_pick)
+        self.test_pick_button.pack(side="right")
+        self.shallower_button = ui._button(pick, "−", lambda: self.change_pick(-PICK_STEP))
+        self.shallower_button.pack(side="right", padx=(0, 4))
+        self.deeper_button = ui._button(pick, "+", lambda: self.change_pick(PICK_STEP))
+        self.deeper_button.pack(side="right", padx=(0, 4))
         thickness = tk.Frame(frame, bg=PANEL)
         thickness.pack(fill="x", pady=(3, 0))
         ui._label(thickness, textvariable=self.thickness_text, size=9, fg=DARK, wraplength=250,
@@ -352,6 +388,7 @@ class SetupWizard:
             self.accepted = True
 
     def _entered(self):
+        self.furthest = max(self.furthest, self.step)
         if self.step == 4:
             self.p.poses = self.calibration.poses()
             self.selected = None
@@ -421,12 +458,13 @@ class SetupWizard:
         if not (name and self._can_move_by_buttons()):
             return
         goal, robot, floor = self.near_pose(name), self.studio.robot, self.floor()
+        slow, quick = self.p.speeds()
         self.notice = ""
 
         def run():
             here = robot.pose()
             lifted = Pose(here.x, here.y, max(here.z, goal.z), goal.r)
-            return robot.travel([lifted, goal], self.p.abort, speed=QUICK, floor=floor)
+            return robot.travel([lifted, goal], self.p.abort, speed=quick, floor=floor)
 
         self.p._job("move", run)
 
@@ -434,11 +472,12 @@ class SetupWizard:
         if not self._can_move_by_buttons():
             return
         robot, floor, height = self.studio.robot, self.floor(), self.height()
+        slow, quick = self.p.speeds()
         self.notice = ""
 
         def run():
             here = robot.pose()
-            return robot.travel([Pose(here.x, here.y, height, here.r)], self.p.abort, speed=SLOW, floor=floor)
+            return robot.travel([Pose(here.x, here.y, height, here.r)], self.p.abort, speed=slow, floor=floor)
 
         self.p._job("move", run)
 
@@ -499,7 +538,7 @@ class SetupWizard:
         events, robot = self.p.events, self.studio.robot
 
         def tour():
-            return robot.travel(path, self.p.abort, speed=QUICK, floor=self.floor(),
+            return robot.travel(path, self.p.abort, speed=self.p.speeds()[1], floor=self.floor(),
                                 arrived=lambda index, _pose: events.put(("arrived", labels[index], None)))
 
         self.low = False
@@ -516,7 +555,7 @@ class SetupWizard:
         path.append(calibration.park() if name == PARK else (calibration.pick(name) if lower else calibration.hover(name)))
         self.pending = (name, lower)
         robot, floor = self.studio.robot, self.floor()
-        self.p._job("visit", lambda: robot.travel(path, self.p.abort, speed=SLOW if lower else QUICK,
+        self.p._job("visit", lambda: robot.travel(path, self.p.abort, speed=self.p.speeds()[0 if lower else 1],
                                                            floor=floor))
 
     def nudge(self, delta):
@@ -536,10 +575,42 @@ class SetupWizard:
         except ValueError as error:
             self.p.status.set(str(error))
             return
-        self.p.poses = self.calibration.poses()
-        self.p.setup_done = False
-        self.pieces_ok = False
+        self.p.poses = self.calibration.poses()          # only the arm's heights change: the game can carry on from here
         self.visit(self.low) if self.selected else None
+
+    # ---- how far down the cup goes to pick a piece up
+    def change_pick(self, delta):
+        """The cup did not take hold of a piece (or pressed too hard): go a little deeper or higher to pick one up."""
+        value = min(max(self.p.pick_press + delta, PICK_RANGE[0]), PICK_RANGE[1])
+        self.p.pick_press = round(value, 2)
+
+    def test_pick(self):
+        """Pick up the first piece of the Dobot's bank, hold it a moment, and put it back. Then it is plain to see if it took hold."""
+        if not (self.calibration and self.robot_ready and self.idle):
+            return
+        slot = self.p.layout.bank(self.p.dobot)[0]
+        calibration, robot, floor, abort = self.calibration, self.studio.robot, self.floor(), self.p.abort
+        slow, quick = self.p.speeds()
+        rest, hover = calibration.rest(), calibration.hover(slot)
+        down = replace(calibration.pick(slot), z=calibration.pick(slot).z - self.p.pick_press)
+        self.notice = ""
+
+        def run():
+            robot.to_rest(rest, abort, speed=quick, floor=floor)
+            robot.travel([hover], abort, speed=quick, floor=floor)
+            robot.travel([down], abort, speed=slow, floor=floor)
+            robot.set_attachment(ATTACHMENTS[0], True)
+            abort.wait(0.6)
+            robot.travel([hover], abort, speed=slow, floor=floor)          # lifted: is the piece up on the cup?
+            abort.wait(1.2)
+            robot.travel([down], abort, speed=slow, floor=floor)
+            robot.set_attachment(ATTACHMENTS[0], False)
+            abort.wait(0.3)
+            robot.travel([hover], abort, speed=slow, floor=floor)
+            return robot.to_rest(rest, abort, speed=quick, floor=floor)
+
+        self.p.status.set(f"Picking up the piece on {slot}, holding it, and putting it back. Watch the cup. Put a piece there first.")
+        self.p._job("pick_test", run)
 
     def paper_tokens(self):
         """Tokens cut from paper or thin card, rather than the 3D pieces: about 0.4 mm thick."""
@@ -558,7 +629,8 @@ class SetupWizard:
         if not (self.calibration and self.robot_ready and self.idle):
             return
         robot, rest, floor = self.studio.robot, self.calibration.rest(), self.floor()
-        self.p._job("park", lambda: robot.to_rest(rest, self.p.abort, floor=floor))
+        quick = self.p.speeds()[1]
+        self.p._job("park", lambda: robot.to_rest(rest, self.p.abort, speed=quick, floor=floor))
 
     def nudge_rest(self, key):
         """Move the resting place a step across the mat's picture, as the arrows on the map show, and go there."""
@@ -621,7 +693,78 @@ class SetupWizard:
     def finish(self):
         if self.pieces_ok and self.idle and self.calibration:
             self.p.finish_setup()
+            self.step = self.furthest = READY
+            self._show_step()
+
+    # ---- going back into the setup, and back to the game
+    def jump(self, step):
+        """Go to a step that has been reached before, to change a small thing, then return to the game."""
+        if not self.idle or step == self.step or step > self.furthest:
+            return
+        if (step >= 2 and self.p.reference is None) or (step >= 4 and self.calibration is None):
+            return
+        self.step = step
+        self._entered()
+
+    def return_to_game(self):
+        """The setup is finished and nothing that matters was moved: back to the Match tab."""
+        if self.p.setup_done and self.idle:
             self.step = READY
+            self._show_step()
+            self.p.side_tabs.select(self.p.match_tab)
+
+    def reset_setup(self):
+        """Begin the whole setup again, keeping the saved copy for a way back or throwing it away."""
+        if not self.idle:
+            return
+        answer = messagebox.askyesnocancel(
+            "Reset the setup", "Begin the setup again?\n\nYes: reset, and keep the saved setup so it can be used again.\n"
+            "No: reset, and do not keep the saved setup.\nCancel: carry on as you are.", parent=self.p.window)
+        if answer is not None:
+            self.p.reset_setup(keep=bool(answer))
+
+    def use_saved(self, which="latest"):
+        if not self.idle:
+            return
+        try:
+            message = self.p.restore(which)
+        except (ValueError, KeyError, OSError, TypeError) as error:
+            self.p.status.set(f"The saved setup could not be used: {error}")
+            return
+        self.p.status.set(message)
+
+    def start_fresh(self):
+        self.p.begin_new_setup()
+        self.p.status.set("Starting a new setup. The saved one is kept aside.")
+
+    def load(self, data, layout):
+        """Take a saved setup back, as far as the pictures of it allow. The arm is not moved."""
+        from .matcalib import MatCalibration
+
+        self.calibration, self.touched = None, {}
+        self.mode.set(data.get("mode", FULL))
+        self.lock_height.set(bool(data.get("lock_height", True)))
+        self.print_mm.set(data.get("print_mm", ""))
+        self.rest_shift = tuple(float(v) for v in data.get("rest_shift", (0.0, 0.0)))
+        self.touched = {name: Pose(*values) for name, values in data["touched"].items()}
+        self.accepted = bool(data.get("accepted"))
+        self.corner = next((i for i, corner in enumerate(self.required()) if corner not in self.touched), len(self.required()))
+        if PARK in self.touched and all(name in self.touched for name in self.required()):
+            self.calibration = MatCalibration(
+                layout, self.touched, {name: tuple(shift) for name, shift in data.get("adjustments", {}).items()},
+                data.get("piece_height"), self.print_scale(), self.rest_shift)
+        done = bool(data.get("setup_done")) and self.calibration is not None
+        step = int(data.get("step", 0))
+        step = READY if done else (min(step, PIECES) if self.calibration else min(step, 3))
+        self.checked = done or int(data.get("furthest", 0)) >= 5
+        self.parked = self.pieces_ok = done
+        self.selected, self.at, self.low, self.redo = None, None, False, None
+        self.step, self.furthest = step, max(int(data.get("furthest", 0)), step)
+        self.p.poses = self.calibration.poses() if self.calibration else {}
+        if step == PIECES:
+            self._entered()                       # the arm goes to its resting place and the camera looks again
+        else:
+            self.p.teaching.set(self.target() or "")
             self._show_step()
 
     # ---- results of the jobs the arm ran
@@ -636,6 +779,8 @@ class SetupWizard:
         self.notice = ""
         if name == "move":
             pass
+        elif name == "pick_test":
+            self.p.status.set("Test pick done. If the piece did not lift with the cup, go a little deeper with + and try again.")
         elif name == "touch":
             if self.pending != PARK and PARK in self.touched and self.lock_height.get():
                 value = replace(value, z=self.touched[PARK].z)       # the mat is the height of the centre mark
@@ -682,6 +827,7 @@ class SetupWizard:
     def refresh(self):
         ui, p = self.studio, self.p
         self.tick()
+        self._refresh_extras()
         self.title.set(f"Step {self.step + 1} of {len(STEPS)} · {STEPS[self.step]}")
         text, status, ok = getattr(self, f"_words{self.step}")()
         self.text.set(text)
@@ -737,6 +883,32 @@ class SetupWizard:
                                  if shift else f"{self.selected}: as worked out. Nudge it if it is off.")
         else:
             self.adjust_text.set("Click a circle on the map to look at it, then nudge it if it is off centre.")
+
+    def _refresh_extras(self):
+        ui, p = self.studio, self.p
+        reached = p.reference is not None
+        self.jump_choice.set(f"{self.step + 1}. {STEPS[self.step]}")
+        self.jump_box.configure(state="readonly" if reached and self.idle else "disabled")
+        if p.setup_done and not self.return_button.winfo_ismapped():
+            self.return_button.pack(side="left", padx=6)
+        elif not p.setup_done:
+            self.return_button.pack_forget()
+        ui._set_button(self.return_button, self.idle)
+        ui._set_button(self.reset_setup_button, self.idle)
+        undecided = self.step == 0 and p.store.has() and not p.autosave_enabled
+        if undecided and not self.saved_banner.winfo_ismapped():
+            self.saved_text.set(f"A setup saved {p.store.when()} is here. Use it only if the mat, the camera and the arm's base "
+                                "have not been moved.")
+            self.saved_banner.pack(fill="x", pady=(0, 4), before=self.camera_row)
+            if p.store.has("backup"):
+                self.use_backup_button.pack(side="left")
+        elif not undecided:
+            self.saved_banner.pack_forget()
+        self.pick_text.set(f"Pick depth {p.pick_press:+.1f} mm past the top of a piece")
+        arm = self.robot_ready and self.idle
+        for button in (self.deeper_button, self.shallower_button):
+            ui._set_button(button, self.idle)
+        ui._set_button(self.test_pick_button, arm and self.calibration is not None)
 
     def _words0(self):
         p = self.p

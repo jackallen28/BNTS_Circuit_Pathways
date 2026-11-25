@@ -333,7 +333,7 @@ class TicTacToeTests(unittest.TestCase):
         drop = Pose(210,-85,40,0)
         arm.check_alarms = lambda: None
         arm.pose = lambda: park
-        arm._run = lambda command, params, pose, stop, timeout: actions.append(pose)
+        arm._run = lambda command, params, pose, stop, timeout, speed=None: actions.append(pose)
         arm.set_suction = lambda enabled: actions.append(enabled)
         with self.assertRaises(RobotError):
             arm.sort_chip(pick, drop, park, Event())
@@ -351,7 +351,7 @@ class TicTacToeTests(unittest.TestCase):
         drop = Pose(*A3_MAT.positions["C3"], 40, 0)
         arm.check_alarms = lambda: None
         arm.pose = lambda: park
-        arm._run = lambda command, params, pose, stop, timeout: moves.append(pose)
+        arm._run = lambda command, params, pose, stop, timeout, speed=None: moves.append(pose)
         arm.set_suction = lambda enabled: suction.append((enabled, moves[-1]))
         arm.sort_chip(pick, drop, park, Event(), via_park=True)
         self.assertEqual(moves[0], Pose((park.x+pick.x)/2, (park.y+pick.y)/2, park.z, park.r))

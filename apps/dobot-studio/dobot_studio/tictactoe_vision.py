@@ -58,6 +58,11 @@ def retuned(view, tune):
     return _view(_tuned(view.source, tune), view.matrix, view.corners, view.layout, view.source)
 
 
+def view_from(source, matrix, corners, layout, tune=None):
+    """A view of the mat made from a picture that was kept (the empty mat, as saved), through the same registration."""
+    return _view(_tuned(source, tune), matrix, corners, layout, source)
+
+
 def rectify(rgb, tune=None):
     """Find the mat from its four corner markers. This is only a rough reference.
 

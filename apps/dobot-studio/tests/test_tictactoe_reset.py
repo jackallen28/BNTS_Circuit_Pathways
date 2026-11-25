@@ -77,20 +77,23 @@ class World:
 
 class FakeRobot:
     def __init__(self, world, poses):
-        self.world, self.names = world, {pose: name for name, pose in poses.items()}
+        # a position is found by where it is on the mat, since the pick depth lowers a pick but not its place
+        self.world, self.names = world, {(pose.x, pose.y): name for name, pose in poses.items()}
         self.on_move = None
         self.calls = []
         self.rests = []              # every time the tool was sent to its resting place
         self.call_times = []
+        self.speeds = []             # the speeds each move was asked for
 
     def to_rest(self, rest, stop, speed=None, floor=None):
         self.rests.append((rest, monotonic()))
         return rest
 
-    def sort_chip(self, pick, drop, park, stop, attachment=None, *, via_park=False):
+    def sort_chip(self, pick, drop, park, stop, attachment=None, *, via_park=False, **speeds):
+        self.speeds.append(speeds)
         self.calls.append((pick, drop, park))
         self.call_times.append(monotonic())
-        source, target = self.names[pick], self.names[drop]
+        source, target = self.names[(pick.x, pick.y)], self.names[(drop.x, drop.y)]
         self.world.moves.append((source, target))
         if not self.world.refuse:
             cell = CELLS.index(source)
@@ -260,6 +263,65 @@ class PhysicalResetTests(unittest.TestCase):
         self.assertEqual(park, program.poses["Rest"], "the move starts and ends at the resting place, off the mat")
         self.assertEqual(program.board[0], X)
         self.assertIn("is thinking", "".join(texts[thinking:thinking + 1]))
+
+    def test_the_board_can_be_reset_in_the_middle_of_a_game(self):
+        from unittest import mock
+
+        program = self.program(A3_MAT, (X, O, X, "", O, "", "", "", ""))
+        self.world.reserve = [""] * 10
+        program.ready, program.turn = True, X
+        with mock.patch("dobot_studio.tictactoe_program.messagebox.askokcancel", return_value=False):
+            program.reset_board()
+            self.assertTrue(program.ready, "the answer was no, so the game goes on")
+        with mock.patch("dobot_studio.tictactoe_program.messagebox.askokcancel", return_value=True):
+            program.reset_board()
+        self.assertFalse(program.ready, "that game is over")
+        self.assertTrue(program.tidy_pending)
+        self.assertTrue(self.pump(program, 25, lambda: not program.tidy_pending and not program.tidying and not program.busy))
+        self.assertEqual(self.world.board, EMPTY)
+        self.assertEqual(program.board, EMPTY)
+        self.assertEqual(len(self.world.moves), 4)
+
+    def test_the_board_can_be_cleared_by_hand_without_the_arm_moving(self):
+        program = self.program(A3_MAT, (X, O, X, "", O, "", "", "", ""))
+        program.ready, program.turn = True, O
+        program.cleared_by_hand()
+        self.assertFalse(program.ready)
+        self.assertEqual((program.board, program.turn), (EMPTY, X))
+        self.assertIn("cleared", program.status.get())
+        self.pump(program, 0.6)
+        self.assertEqual(self.world.moves, [])
+        self.assertFalse(program.tidy_pending)
+
+    def test_the_pick_depth_and_the_speed_reach_the_arm(self):
+        program = self.program(A3_MAT, FINISHED)
+        program.pick_press, program.speed_percent = 2.5, 200.0
+        program.speed.set(200)
+        program.ready = True
+        program._announce()
+        self.assertTrue(self.pump(program, 15, lambda: bool(self.world.moves)))
+        pick, drop, rest = self.studio.robot.calls[0]
+        source = next(name for name, pose in program.poses.items() if (pose.x, pose.y) == (pick.x, pick.y))
+        self.assertAlmostEqual(pick.z, program.poses[source].z - 2.5, places=6, msg="the cup goes 2.5 mm deeper to pick")
+        self.assertEqual(self.studio.robot.speeds[0], {"speed": 50.0, "travel": 120.0})
+        self.pump(program, 1.0, lambda: not program.busy)
+
+    def test_the_new_buttons_and_the_speed_slider_fit_a_720p_screen(self):
+        program, window = self.program(A3_MAT, EMPTY), None
+        window = program.window
+        window.geometry("1050x666+0+0")
+        for _ in range(20):
+            self.root.update()
+        program.side_tabs.select(program.match_tab)
+        for _ in range(20):
+            self.root.update()
+
+        def inside(widget):
+            bottom = widget.winfo_rooty() + widget.winfo_height()
+            return widget.winfo_ismapped() and bottom <= window.winfo_rooty() + window.winfo_height()
+
+        for name in ("reset_button", "cleared_button", "release_button", "speed_scale", "stop_button"):
+            self.assertTrue(inside(getattr(program, name)), f"{name} is outside the window")
 
     def test_it_waits_for_a_clear_still_mat_before_moving(self):
         program = self.program(A3_MAT, FINISHED)

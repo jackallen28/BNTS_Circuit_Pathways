@@ -428,9 +428,21 @@ Setup names any circle that is out of reach, and warns if the resting place is t
 ![Tic-tac-toe setup, step 4 of 7: the mat map and the camera view show the next circle to touch, O1](docs/images/tictactoe-setup-guide.png)
 
 The **Setup** tab walks through seven steps. The map beside the steps and the camera view show which circle
-each step means. **The setup is never saved.** Do it every time you open Tic-tac-toe, because the mat, the camera and
-the arm may have moved since last time. If the camera is knocked during play, a warning appears and you only need
-to capture the empty mat again. The arm's setup is not affected.
+each step means. If the camera is knocked during play, a warning appears and you only need to capture the empty mat
+again. The arm's setup is not affected.
+
+**The setup is saved by itself** as you go (what the arm was touched on, the nudges, the piece thickness, the pick depth,
+the speed, the camera adjustments, what the camera was taught, and the picture of the empty mat it reads against), in
+`~/.local/share/dobot-studio/training/tictactoe-setup/latest`. If the program closes or crashes, open Tic-tac-toe again,
+home the arm, and press **Use the saved setup** on step 1: you land back at *Ready to play*. Use it **only if the mat,
+the camera and the arm's base have not been moved**. If you are not sure, press **Check all points** to watch the arm visit
+every circle. A saved setup is never written over before you choose: **Start fresh** (or capturing a new empty mat)
+puts it aside as **Before the last reset**, which can still be brought back. **Reset…**, at the top of the Setup tab, begins
+the whole setup again and asks whether to keep the saved copy or throw it away.
+
+**Changing a small thing later.** Any step already reached can be gone back to from the list at the top of the Setup tab, and
+**Back to the game** returns to the Match tab. Changing the piece thickness, the pick depth, the nudges and the arm's speed
+does not need the setup done again. Touching a corner again, or capturing a new empty mat, does.
 
 1. **Show the mat.** Secure the mat flat. Connect and home the Dobot on the first screen, with the suction
    cup fitted, then open **Tic-tac-toe**. Start the camera. Tic-tac-toe asks a USB camera for 1080p and reads a
@@ -552,7 +564,7 @@ and an O, then check these:
 ![The Camera and pieces window: what you see beside what the Pi reads, with sliders](docs/images/tictactoe-camera-pieces.png)
 
 **Camera & pieces…** is in the setup steps only. It is not on the Match tab, so players see the camera's own
-picture. What it sets is what the Pi reads. Nothing in it is saved.
+picture. What it sets is what the Pi reads, and it is saved with the setup.
 
 * **How the Pi reads the picture** (brightness, contrast, shadows and sharpening) changes only what the Pi sees,
   never the live picture. The two pictures at the top show *What you see* beside *What the Pi reads*. If a mark
@@ -570,6 +582,12 @@ picture. What it sets is what the Pi reads. Nothing in it is saved.
 
 ### Playing
 
+**If the Dobot does not pick a piece up.** In step 5 the **Pick depth** (+ and −, 0.5 mm at a time, from 5 mm higher to
+12 mm deeper) is how far past the top of a piece the cup goes before the suction comes on. Press **Test pick**: the arm
+picks up the first piece of its bank, lifts it, holds it for a moment, and puts it back, so you can see whether it took hold.
+Put a piece on that circle first. Go deeper with + until it does. A pick that presses too hard is better a little higher. The
+setting is used for every pick in the game and is saved with the setup.
+
 7. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least four of O1–O5 with noughts. On the
    single-bank mat, put the Dobot's mark in the reserve slots. Load five if it plays X or four if it plays O. Select
    **New game**.
@@ -578,7 +596,8 @@ picture. What it sets is what the Pi reads. Nothing in it is saved.
    seconds, the screen says the camera has read the mat, the Dobot **thinks** for a moment, and only then does it
    move. A change, obstruction or lost camera view restarts the countdown. If you play O, the Dobot opens after the
    same check.
-9. The Dobot fetches its piece, places it, and goes **back to its resting place**. The camera verifies the destination
+9. **Arm speed** (the slider on the Match tab, 30% to 200%) sets how fast the arm moves: 100% goes down to a piece and up
+   at 25 mm/s, and between them at 60 mm/s. The Dobot fetches its piece, places it, and goes **back to its resting place**. The camera verifies the destination
    and the cleared reserve slot after the transfer. Keep hands clear of the arm's path and keep the resting area
    clear. Use **Stop** or Escape to interrupt. Support any held piece before using **Release suction**. Watch the first
    lift and placement to check reach and suction.
@@ -587,7 +606,8 @@ picture. What it sets is what the Pi reads. Nothing in it is saved.
    compact mats it returns both marks to their own banks. On the single-bank 3D mat it returns only its own pieces, so
    take your pieces off the mat yourself. When the screen says **Board reset**, check the reserves and choose **New
    game**. Untick **Reset the board after each game** to tidy by hand, or click **Reset board** to run the reset
-   later, for example after a stopped game. **Stop** or Escape cancels it. If a move is not confirmed, or a reserve
+   whenever you like, even in the middle of a game (that game ends). If you took the pieces off yourself, click
+   **I cleared the board by hand**: the game is forgotten and the arm does not move. **Stop** or Escape cancels it. If a move is not confirmed, or a reserve
    bank has no free slot, the reset stops and says why.
 
 ![Overhead view of the compact mat during an automatic turn countdown](docs/images/tictactoe-camera.png)

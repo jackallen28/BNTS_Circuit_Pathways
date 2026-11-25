@@ -13,7 +13,7 @@ apart. It decides when a mark cannot be made out (a reflection, or a soft pictur
 read as a mark its colour says it is not.
 
 These shapes are only asked when the built-in reading is not sure, so teaching can only help a reading, never
-break one that already works. Nothing is saved: the pieces are taught each time the mat is set up.
+break one that already works. What was taught is saved with the rest of the setup.
 """
 import numpy as np
 
@@ -238,6 +238,32 @@ class Learned:
                     found.append("An X and an O that were taught look alike. Check that each set holds only its own mark.")
                     break
         return found
+
+    def to_data(self):
+        """What has been taught, as plain data (for the saved setup)."""
+        import base64
+
+        def pack(mask):
+            return {"shape": list(mask.shape), "bits": base64.b64encode(np.packbits(mask.ravel()).tobytes()).decode("ascii")}
+
+        return {"shapes": {mark: [{**pack(mask), "kind": kind} for mask, kind in self.shapes[mark]] for mark in (X, O)},
+                "pictures": {mark: dict(self.pictures[mark]) for mark in (X, O)},
+                "colours": {mark: [[float(v) for v in lab] for lab in self.colours[mark]] for mark in (X, O)}}
+
+    @classmethod
+    def from_data(cls, data):
+        import base64
+
+        learned = cls()
+        for mark in (X, O):
+            for item in data.get("shapes", {}).get(mark, []):
+                height, width = item["shape"]
+                bits = np.unpackbits(np.frombuffer(base64.b64decode(item["bits"]), np.uint8))[:height * width]
+                learned.shapes[mark].append((bits.reshape(height, width).astype(bool), item["kind"]))
+            for kind in KINDS:
+                learned.pictures[mark][kind] = int(data.get("pictures", {}).get(mark, {}).get(kind, 0))
+            learned.colours[mark] = [np.array(lab, np.float32) for lab in data.get("colours", {}).get(mark, [])]
+        return learned
 
     def summary(self):
         return {mark: dict(self.pictures[mark]) for mark in (X, O)}

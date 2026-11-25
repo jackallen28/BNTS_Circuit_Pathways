@@ -1,10 +1,12 @@
 """A camera-verified physical game and a screen-only demo."""
+from dataclasses import asdict, replace
 from queue import Empty, SimpleQueue
 from threading import Event, Thread
 from time import monotonic
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from .robot import QUICK, SLOW
 from .theme import DARK, MUTED, PANEL, PURPLE, WHITE
 from .tictactoe import (
     CELLS, EMPTY, HARD, LEVELS, O, STANDARD_MAT, UNKNOWN, X, describe_slot,
@@ -13,7 +15,10 @@ from .tictactoe import (
 from .tictactoe_setup import SetupWizard
 from .camera_tune import Tune, apply as apply_tune
 from .pieces import Learned, closeup_mark, mat_pieces
-from .tictactoe_vision import DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify, retuned, side_by_side
+from .setup_store import SetupStore
+from .tictactoe_vision import (
+    DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify, retuned, side_by_side, view_from,
+)
 from .vision import Camera, TABLETOP
 
 TURN_DELAY = 1.5
@@ -90,8 +95,19 @@ class TicTacToeProgram:
         self.seen = 0
         self.timestamp = self.analysed = self.deadline = 0
         # How the Pi reads the camera's picture, and what it has been taught about the pieces. The live view is the
-        # camera's own picture. Neither of these is saved: they are set again each time the mat is set up.
+        # camera's own picture. They are kept with the rest of the setup (see SetupStore).
         self.tune, self.learned, self.tune_dialog = Tune(), Learned(), None
+        # How far past the top of a piece the cup goes to pick it up (mm), and how fast the arm moves (percent).
+        self.pick_press = 0.0
+        self.speed = tk.DoubleVar(value=100.0)
+        self.speed_percent = 100.0         # a plain number, because the arm's jobs run on other threads and cannot ask Tk
+        self.speed.trace_add("write", self._speed_changed)
+        # The setup is saved by itself as it changes. A copy that is already there is not written over until the person
+        # has chosen to use it or to start again (see autosave_enabled).
+        self.store = SetupStore(studio.training_folder / "tictactoe-setup")
+        self.autosave_enabled = not self.store.has()
+        self.saved_key = self.saved_source = None
+        self.next_save = 0.0
         self.camera = self.busy = self.demo_timer = None
         self.camera_epoch = 0
         self.events = SimpleQueue()
@@ -173,12 +189,22 @@ class TicTacToeProgram:
         self.new_button.pack(fill="x")
         self.reset_button = ui._button(body, "Reset board", self.reset_board)
         self.reset_button.pack(fill="x", pady=(5, 0))
+        self.cleared_button = ui._button(body, "I cleared the board by hand", self.cleared_by_hand)
+        self.cleared_button.pack(fill="x", pady=(5, 0))
         tk.Checkbutton(body, text="Reset the board after each game", variable=self.auto_reset,
                        bg=PANEL, activebackground=PANEL, fg=DARK, font=ui.theme.font(9),
                        anchor="w", borderwidth=0, highlightthickness=0).pack(fill="x", pady=(6, 0))
         if not ui.demo:
             self.release_button = ui._button(body, "Release suction", self.release)
             self.release_button.pack(fill="x", pady=(5, 0))
+            speed = tk.Frame(body, bg=PANEL)
+            speed.pack(fill="x", pady=(6, 0))
+            self.speed_text = tk.StringVar()
+            ui._label(speed, textvariable=self.speed_text, size=9, fg=MUTED).pack(side="left")
+            self.speed_scale = ttk.Scale(speed, from_=30, to=200, variable=self.speed, length=110)
+            self.speed_scale.pack(side="right")
+            self.speed.trace_add("write", lambda *_: self.speed_text.set(f"Arm speed {self.speed.get():.0f}%"))
+            self.speed_text.set("Arm speed 100%")
 
         footer = tk.Frame(self.window, bg="#dce9f6", padx=8, pady=4)
         # Packed first, so the status and Stop button always keep their space on a small screen.
@@ -279,6 +305,8 @@ class TicTacToeProgram:
         if self.found is None or monotonic() - self.analysed > VIEW_TIMEOUT:
             self.status.set("Show all four mat markers again.")
             return
+        if not self.autosave_enabled:
+            self.begin_new_setup()              # a saved setup is put aside, not written over
         if self.reference is not None and self.reference.layout is not self.found.layout:
             self.poses.clear()                  # a different mat. The same mat keeps its arm setup.
         self.reference = self.found
@@ -288,6 +316,136 @@ class TicTacToeProgram:
         self.seen = 0
         self.status.set("Empty mat captured. Go on to the next step.")
         self._render()
+
+    # ---- the arm's speed, and how far it goes down to pick
+    def _speed_changed(self, *_):
+        try:
+            self.speed_percent = float(self.speed.get())
+        except (tk.TclError, ValueError):
+            pass
+
+    def speeds(self):
+        """(slow, quick) in mm per second: for going down to a piece and up, and for the legs between."""
+        factor = min(2.0, max(0.3, self.speed_percent / 100.0))
+        return SLOW * factor, QUICK * factor
+
+    # ---- the setup, kept on disk
+    def snapshot(self):
+        """Everything about the setup that is worth keeping, as plain data. None when there is nothing yet."""
+        wizard = self.wizard
+        if wizard is None or (self.reference is None and not wizard.touched):
+            return None
+        calibration = wizard.calibration
+        data = {
+            "layout": self.layout.label,
+            "touched": {name: list(pose.wire()) for name, pose in wizard.touched.items()},
+            "mode": wizard.mode.get(), "accepted": wizard.accepted, "lock_height": bool(wizard.lock_height.get()),
+            "print_mm": wizard.print_mm.get(), "rest_shift": list(wizard.rest_shift),
+            "adjustments": {name: list(shift) for name, shift in (calibration.adjustments if calibration else {}).items()},
+            "piece_height": calibration.piece_height if calibration else None,
+            "pick_press": self.pick_press, "speed": float(self.speed.get()),
+            "tune": asdict(self.tune), "learned": self.learned.to_data(),
+            "dobot_side": bool(self.dobot_side.get()), "level": self.level.get(), "human": self.player_choice.get(),
+            "auto_reset": bool(self.auto_reset.get()), "setup_done": self.setup_done,
+            "step": wizard.step, "furthest": wizard.furthest,
+        }
+        if getattr(self.reference, "source", None) is not None:
+            data["reference"] = {"matrix": [list(map(float, row)) for row in self.reference.matrix],
+                                 "corners": [list(map(float, point)) for point in self.reference.corners],
+                                 "layout": self.reference.layout.label}
+        return data
+
+    def autosave(self, force=False):
+        """Write the setup if it has changed, at most about once a second. Returns True if it wrote."""
+        import json
+
+        if not self.autosave_enabled or self.wizard is None or self.studio.demo:
+            return False
+        now = monotonic()
+        if not force and now < self.next_save:
+            return False
+        self.next_save = now + 1.0
+        try:
+            data = self.snapshot()
+            key = None if data is None else json.dumps(data, sort_keys=True)
+        except (AttributeError, TypeError, ValueError):
+            return False
+        if data is None:
+            return False
+        if key == self.saved_key:
+            return False
+        source = getattr(self.reference, "source", None)
+        image = None
+        if source is not None and source is not self.saved_source:
+            from PIL import Image
+
+            image = Image.fromarray(source)
+        try:
+            self.store.save({**data, "saved_at": __import__("time").time()}, image)
+        except (OSError, ValueError, TypeError) as error:       # saving must never stop the game
+            self.camera_status.set(f"The setup could not be saved: {error}")
+            return False
+        self.saved_key, self.saved_source = key, source
+        return True
+
+    def begin_new_setup(self):
+        """Start a new setup: a saved one that is there is put aside, not written over, and saving carries on."""
+        if self.store.has():
+            self.store.keep_backup()
+        self.autosave_enabled = True
+
+    def restore(self, which="latest"):
+        """Bring back a saved setup. Returns a sentence about it, or raises ValueError if it cannot be used."""
+        import numpy as np
+        from PIL import Image
+
+        from .tictactoe import MAT_LAYOUTS
+
+        loaded = self.store.load(which)
+        if loaded is None:
+            raise ValueError("There is no saved setup to use.")
+        data, image = loaded
+        layout = next((candidate for candidate in MAT_LAYOUTS if candidate.label == data.get("layout")), None)
+        if layout is None or "reference" not in data or image is None:
+            raise ValueError("The saved setup is not complete. Set it up again.")
+        wizard = self.wizard
+        self.tune = Tune(**data["tune"]).clamped()
+        source = np.asarray(Image.open(image).convert("RGB")).copy()
+        reference = data["reference"]
+        self.reference = view_from(source, np.array(reference["matrix"], float), np.array(reference["corners"], np.float32),
+                                   layout, self.tune)
+        self.camera_moved, self.drift_frames = False, 0
+        self.latest, self.seen, self.view_clear = None, 0, False
+        self.learned = Learned.from_data(data["learned"])
+        self.pick_press = float(data.get("pick_press", 0.0))
+        self.speed.set(float(data.get("speed", 100.0)))
+        self.dobot_side.set(bool(data.get("dobot_side", False)))
+        self.level.set(data.get("level", self.level.get()))
+        self.player_choice.set(data.get("human", X))
+        self.auto_reset.set(bool(data.get("auto_reset", True)))
+        wizard.load(data, layout)
+        self.poses = wizard.calibration.poses() if wizard.calibration else {}
+        self.setup_done = bool(data.get("setup_done")) and wizard.calibration is not None
+        self.autosave_enabled = True
+        self.saved_key, self.saved_source = None, None
+        self.autosave(force=True)
+        self._draw_camera()
+        self._render()
+        return f"The setup saved {self.store.when(which)} is back. The mat, camera and arm must not have been moved since."
+
+    def reset_setup(self, keep):
+        """Throw the setup away and begin again. ``keep`` leaves the saved copy aside so it can still be used."""
+        if self.busy or self.checking:
+            return
+        if keep:
+            self.store.keep_backup()
+        else:
+            self.store.discard("latest")
+        studio = self.studio
+        self.autosave_enabled = False
+        self.close()
+        if studio.workcell is None:
+            studio.root.after(300, lambda: studio.open_program("tictactoe"))
 
     # ---- how the Pi reads the picture, and what it has been taught
     def set_tune(self, tune):
@@ -473,8 +631,10 @@ class TicTacToeProgram:
     def _carry_out(self, pick, drop, rest):
         """Fetch a piece and place it, starting from and returning to the resting place off the mat."""
         robot = self.studio.robot
-        robot.to_rest(rest, self.abort, floor=self.wizard.floor())
-        return robot.sort_chip(pick, drop, rest, self.abort, via_park=True)
+        slow, quick = self.speeds()
+        robot.to_rest(rest, self.abort, speed=quick, floor=self.wizard.floor())
+        pick = replace(pick, z=pick.z - self.pick_press)          # a little deeper (or shallower) than the surface says
+        return robot.sort_chip(pick, drop, rest, self.abort, via_park=True, speed=slow, travel=quick)
 
     def _after_player(self, index):
         if outcome(self.board):
@@ -535,9 +695,29 @@ class TicTacToeProgram:
             self.side_tabs.select(self.match_tab)
 
     def reset_board(self):
-        if not self.ready and not self.busy and not self.checking:
-            self._show_match()
-            self._start_reset()
+        """Have the Dobot put every piece back in its bank. It works in the middle of a game too: that game ends."""
+        if self.busy or self.checking:
+            return
+        if self.ready:
+            if not self.studio.demo and not messagebox.askokcancel(
+                    "Reset the board", "End this game and have the Dobot put the pieces back in their banks?",
+                    parent=self.window):
+                return
+            self.ready, self.think_until = False, None
+            self.turn_delay.reset()
+        self._show_match()
+        self._start_reset()
+
+    def cleared_by_hand(self):
+        """The pieces were taken off by hand: forget the game, and do not move the arm."""
+        if self.busy or self.checking:
+            return
+        self._cancel_tidy()
+        self.ready, self.think_until, self.chosen = False, None, None
+        self.board, self.turn = EMPTY, X
+        self.turn_delay.reset()
+        self.status.set("The board is cleared. Check the banks, then choose New game.")
+        self._render()
 
     def _start_reset(self, prefix=""):
         """Have the Dobot return every piece it can to the reserve slots."""
@@ -642,7 +822,7 @@ class TicTacToeProgram:
         if self.busy == "demo":
             self.window.after_cancel(self.demo_timer)
             self.demo_timer = self.busy = None
-        elif self.busy in ("tour", "visit", "park", "touch", "move"):
+        elif self.busy in ("tour", "visit", "park", "touch", "move", "pick_test"):
             self.abort.set()
         elif self.busy == "place":
             self.abort.set()
@@ -713,7 +893,7 @@ class TicTacToeProgram:
                     self._draw_camera()
                 continue
             self.busy = None
-            if name in ("touch", "tour", "visit", "park", "move"):
+            if name in ("touch", "tour", "visit", "park", "move", "pick_test"):
                 self.wizard.finished(name, value, error)
                 continue
             if error:
@@ -769,6 +949,7 @@ class TicTacToeProgram:
             elif updated:
                 self._automatic_tidy()
         self._render()
+        self.autosave()
         self.window.after(65, self._tick)
 
     def _render(self):
@@ -791,7 +972,8 @@ class TicTacToeProgram:
             ui._set_button(self.release_button, idle and not self.ready and ui.robot is not None)
         ui._set_button(self.new_button, idle and (ui.demo or (not self.ready and self.setup_done)) and not resetting)
         can_reset = any(self.board) if ui.demo else ui.homed and self.setup_done
-        ui._set_button(self.reset_button, idle and not self.ready and not resetting and can_reset)
+        ui._set_button(self.reset_button, idle and not resetting and can_reset and (not self.ready or not ui.demo))
+        ui._set_button(self.cleared_button, idle and not ui.demo and not resetting)
         ui._set_button(self.stop_button, self.ready or not idle or self.tidy_pending)
         self._draw_game()
 
@@ -995,6 +1177,7 @@ class TicTacToeProgram:
         if self.busy or self.checking:
             self.stop()
             return
+        self.autosave(force=True)
         if self.camera:
             self.camera.close()
             self.studio.camera_closing = self.camera
