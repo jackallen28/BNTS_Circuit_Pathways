@@ -261,7 +261,7 @@ class CalibrationTests(unittest.TestCase):
         for name, pose in calibration.poses().items():
             self.assertAlmostEqual(pose.z - before[name].z, 1.8, places=1, msg=name)
             self.assertEqual((pose.x, pose.y), (before[name].x, before[name].y))
-        for bad in (0.5, 13):
+        for bad in (0.1, 13):
             with self.assertRaises(ValueError):
                 calibration.set_piece_height(bad)
         self.assertEqual(calibration.piece_height, 5.0)

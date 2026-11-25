@@ -39,6 +39,7 @@ solid. That is the first layer you colour in Bambu Studio. Models use millimetre
 | [mat-a3.pdf](mat-a3.pdf), [mat-a3.svg](mat-a3.svg) | The A3 landscape paper mat. |
 | [cross.obj](cross.obj), [nought.obj](nought.obj) | Ø25 mm tokens for the compact and 300 mm mats. [Cross 3MF](cross.3mf), [nought 3MF](nought.3mf), [OBJ parts](parts/). |
 | [A3 cross.obj](a3-pieces/cross.obj), [A3 nought.obj](a3-pieces/nought.obj) | Ø40 mm tokens for the A3 mat. [Cross 3MF](a3-pieces/cross.3mf), [nought 3MF](a3-pieces/nought.3mf), [OBJ parts](a3-pieces/parts/). |
+| [tokens-cutout.pdf](tokens-cutout.pdf), [tokens-cutout-colour.pdf](tokens-cutout-colour.pdf) | Paper tokens to cut out (see the end of this page). |
 | [mat-markers.pdf](mat-markers.pdf) | Marker cards 44–47, 16 mm, for an **older single-bank** 3D mat only. The current mats have the markers built in. |
 
 ## Colour the pieces in Bambu Studio
@@ -182,3 +183,15 @@ names any it cannot reach, and it warns if the resting place is too near the mat
 printed as with a ruler. It should be within 5 mm of 100. Type the length into **Printed line measures**
 on the Dobot Studio setup and the arm allows for it.
 
+## Paper tokens to cut out
+
+| File | Use |
+| --- | --- |
+| [tokens-cutout.pdf](tokens-cutout.pdf), [tokens-cutout.svg](tokens-cutout.svg) | **15 crosses and 15 noughts**, Ø25 mm, white with black marks, on one **A4 portrait** page. |
+| [tokens-cutout-colour.pdf](tokens-cutout-colour.pdf), [tokens-cutout-colour.svg](tokens-cutout-colour.svg) | The same, with **pink crosses and yellow noughts**, which the camera can tell apart by colour too. |
+
+Print at **100%** on matte paper or card and cut along the grey circles. The marks are the same size as the 3D pieces'
+(cross bars 18.5 × 3.3 mm, nought 17.2 mm outside and 10.4 mm inside), black, which is the strongest picture the camera
+can read. For a firmer token, glue the sheet to 3 mm foam board before cutting, so it is as thick as a 3D piece. For plain
+paper or card, press **Paper** beside the piece thickness in the setup. Make the X pieces and the O pieces clearly different
+colours if you can: the setup can learn the colours and use them to tell the marks apart.

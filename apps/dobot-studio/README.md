@@ -487,6 +487,66 @@ to capture the empty mat again. The arm's setup is not affected.
    exposure, a slightly soft picture and a picture that slips a few pixels. Then finish.
 7. **Ready to play.** Open the **Match** tab.
 
+#### Paper tokens to cut out
+
+Two sheets, each **A4 portrait** with **15 crosses and 15 noughts**, Ø25 mm, solid black marks, drawn from the same
+numbers as the 3D pieces and the camera's reading:
+
+* [tokens-cutout.pdf](printables/tictactoe/tokens-cutout.pdf): white tokens. Black on white is the strongest picture
+  the camera can have.
+* [tokens-cutout-colour.pdf](printables/tictactoe/tokens-cutout-colour.pdf): **pink crosses and yellow noughts**. The
+  camera can tell these apart by colour as well as by mark (see *Colours* below).
+
+![The colour token sheet: fifteen pink crosses and fifteen yellow noughts](docs/images/tictactoe-tokens-cutout.png)
+
+Print at **100%, not Fit**, on **matte** paper or card (check the 100 mm line), and cut along the grey circles. For a
+firmer token that the suction cup can lift, glue the sheet to **3 mm foam board** before cutting: that is the
+thickness the setup expects. For plain paper or card, press **Paper** beside the piece thickness in step 5 (0.4 mm).
+Every token on both sheets reads correctly in the tests, so if paper tokens read and your 3D pieces do not, the
+pieces are the problem (see below), not the software.
+
+#### Colours
+
+**Make the X pieces one colour and the O pieces another**, clearly different (pink and yellow, say), with black marks.
+Colour is a second, stronger way to tell them apart, and it keeps working when a reflection or a soft picture hides
+the mark. To use it, take the pictures **from a distance** in **Camera & pieces… > Teach the pieces**: with only X
+pieces on the mat press *From a distance of an X*, then with only O pieces press *From a distance of an O*. The camera
+learns each mark's shapes and the colour of its pieces. The colour is judged against the paper around the circle, so
+it holds when the camera dims or tints the whole picture.
+
+* When the colours are clearly different, a piece whose mark cannot be made out is read by its colour, and a piece
+  whose mark and colour **disagree** (an O mark on an X-coloured piece) is flagged instead of trusted.
+* If the X and O colours are too alike, the camera says so and carries on with the shapes only.
+* Each bank circle in the window shows a small swatch of the piece's colour, as the Pi judges it.
+
+![The Teach the pieces tab: colour swatches for the X and O pieces and each bank circle as the Pi sees it](docs/images/tictactoe-pieces-tab.png)
+
+#### If the camera cannot read the pieces
+
+Teaching helps the camera when it can already **see the mark** and the shape is simply not the ideal one. It cannot
+help when the mark does not show up in the picture at all. Look in **Camera & pieces… > Teach the pieces**, where each
+bank circle is shown as the Pi sees it, with the mark it found in red, the verdict, and how well it matched an X
+and an O, then check these:
+
+* **A piece off the middle of its circle.** A piece is never exactly on the middle: it is put down by hand, and a
+  piece 3 mm thick leans away from the middle of the picture. The camera finds the piece's own middle from the edge of its
+  body against the black circle, then looks for the mark there, and reads pieces up to about 5 mm off. Further than that it
+  says the piece is *partly on this circle*: centre it.
+* **Glossy pieces.** A first-layer face printed against a smooth plate is shiny, and a light overhead reflects off it
+  as a bright patch that wipes out the mark. Light from the side, or print the pieces on a textured plate, or use the
+  paper tokens. In the circle picture a reflection shows as a white patch with the red mark broken up or missing.
+* **A piece that is not much lighter than the black circle** (dark blue, dark red, dark green). Pieces must be
+  clearly lighter: white, yellow, light pink. The circle then says *changed* a small percentage, or *partly on this
+  circle*.
+* **A reflection or soft picture hiding the marks.** If the X and O pieces are different colours, teach the colours
+  from a distance (see *Colours*): the colour then reads them when the marks cannot be seen.
+* **A mark that is not dark.** A coloured mark on a coloured body can have the same brightness as the body, and
+  disappears when the camera drops colour. The circle says *mark* with a very small number of pixels. Use a black mark.
+* **A mat that is too small in the picture.** The setup says how many pixels each millimetre is. An X's arms are
+  3.3 mm wide, so below about 2 pixels per millimetre or with any softness they smear. Move the camera closer so
+  the mat fills more of the picture, aim for 3 or more, and use **Sharpen** and **Lock exposure, focus and colour**.
+* **Focus or exposure that keeps changing.** Use **Lock exposure, focus and colour** after the picture looks right.
+
 #### Camera and pieces (setup only)
 
 ![The Camera and pieces window: what you see beside what the Pi reads, with sliders](docs/images/tictactoe-camera-pieces.png)

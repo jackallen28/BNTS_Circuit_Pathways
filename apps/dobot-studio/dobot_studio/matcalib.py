@@ -27,7 +27,7 @@ WARN_TILT, BLOCK_TILT = 3.0, 8.0   # degrees of slope the playing surface may ha
 REST_CLEARANCE = 25   # mm between the edge of the nearest circle and the tool, while the arm waits off the mat
 REST_MIN_RADIUS = 138  # mm from the arm's base: it cannot reach nearer than 130
 REST_TIGHT = 15       # mm. A resting place closer than this to a circle is not really off the mat
-THICKNESS_RANGE = (1.0, 12.0)   # mm a piece may be, when it is adjusted by hand
+THICKNESS_RANGE = (0.2, 12.0)   # mm a piece may be, when it is adjusted by hand
 
 
 def outer_points(layout):

@@ -12,9 +12,9 @@ from dobot_studio import camera_tune
 from dobot_studio.camera_tune import (
     CameraControls, Tune, apply, device_path, interesting, parse_controls,
 )
-from dobot_studio.pieces import CAP, Learned, closeup_mark, diverse, mat_marks
-from dobot_studio.tictactoe import NOUGHT_INNER, NOUGHT_OUTER, O, PIECE_RADIUS, SMALL_MAT, X
-from dobot_studio.tictactoe_vision import lock_view, read_position, rectify, retuned
+from dobot_studio.pieces import CAP, Learned, MIN_SEPARATION, closeup_mark, colour_distance, diverse, mat_marks, mat_pieces
+from dobot_studio.tictactoe import COMPACT_MAT, NOUGHT_INNER, NOUGHT_OUTER, O, PIECE_RADIUS, SMALL_MAT, X
+from dobot_studio.tictactoe_vision import _patch_colour, body_colour, lock_view, read_position, rectify, retuned
 from tests.test_tictactoe import camera_view
 
 LISTING = """
@@ -266,6 +266,167 @@ class TeachingTests(unittest.TestCase):
         sizes = sorted(int(mask.sum()) for mask in chosen)
         self.assertEqual(sizes[0], 9)
         self.assertEqual(sizes[-1], 169)
+
+
+PINK, YELLOW = (240, 100, 150), (250, 220, 60)           # the X and O tokens, as in a typical coloured set
+COLOURS = {X: PINK, O: YELLOW, "blank": PINK}
+
+
+class ColourTests(unittest.TestCase):
+    """Tokens of different colours: the camera learns the colours from a distance and tells X from O by them too."""
+
+    def setUp(self):
+        self.empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True, colours=COLOURS))
+
+    def mat(self, contents, **options):
+        return rectify(camera_view(contents, layout=SMALL_MAT, solid=True, colours=COLOURS, **options))
+
+    def taught(self):
+        learned = Learned()
+        learned.add(X, [], "distance", [lab for _, lab in mat_pieces(self.mat({f"X{i}": X for i in range(1, 6)}), self.empty, SMALL_MAT)])
+        learned.add(O, [], "distance", [lab for _, lab in mat_pieces(self.mat({f"O{i}": O for i in range(1, 6)}), self.empty, SMALL_MAT)])
+        return learned
+
+    def read(self, view, learned):
+        position = read_position(view.grey, self.empty.grey, SMALL_MAT, learned, view.colour)
+        return dict(zip(SMALL_MAT.positions, (*position.board, *position.reserve)))
+
+    def test_a_pieces_colour_is_the_same_whatever_the_camera_does_to_the_whole_picture(self):
+        view = self.mat({"X1": X})
+        centre = SMALL_MAT.positions["X1"]
+        plain, _ = body_colour(_patch_colour(view.colour, centre, 1.0))
+        for name, change in {"dimmed": lambda c: (c * 0.6).astype(np.uint8),
+                             "warm": lambda c: np.clip(c * np.array([1.1, 1.0, 0.8]), 0, 255).astype(np.uint8),
+                             "brighter": lambda c: np.clip(c * 1.1, 0, 255).astype(np.uint8)}.items():
+            with self.subTest(name):
+                other, _ = body_colour(_patch_colour(change(view.colour), centre, 1.0))
+                self.assertLess(colour_distance(plain, other), 8.0)
+        x, o = (body_colour(_patch_colour(self.mat({f"{m}1": m}).colour, SMALL_MAT.positions[f"{m}1"], 1.0))[0] for m in (X, O))
+        self.assertGreater(colour_distance(x, o), 40, "pink and yellow are a long way apart")
+
+    def test_teaching_from_a_distance_learns_the_colour_of_each_mark(self):
+        learned = self.taught()
+        self.assertTrue(learned.colours_ready())
+        self.assertGreater(learned.separation(), MIN_SEPARATION)
+        self.assertEqual(len(learned.colours[X]), 5)
+        self.assertEqual(learned.warnings(), [])
+        pink = body_colour(_patch_colour(self.mat({"A1": X}).colour, SMALL_MAT.positions["A1"], 1.0))[0]
+        yellow = body_colour(_patch_colour(self.mat({"A1": O}).colour, SMALL_MAT.positions["A1"], 1.0))[0]
+        self.assertEqual((learned.colour_vote(pink), learned.colour_vote(yellow)), (X, O))
+        grey = np.array((70.0, 0.0, 0.0), np.float32)
+        self.assertIsNone(learned.colour_vote(grey), "a colour that is neither is not guessed")
+
+    def test_colour_reads_a_piece_whose_mark_cannot_be_made_out(self):
+        """A reflection wipes the marks out. Without colours they are a question mark. With them the colour decides."""
+        contents = {"A1": "blank", "B2": "blank", "X1": "blank", "O1": "blank"}
+        view = self.mat(contents)
+        without = self.read(view, Learned())
+        self.assertEqual({without[name] for name in contents}, {"?"})
+        learned = self.taught()
+        view = rectify(camera_view({"A1": "blank", "B2": "blank", "X1": "blank", "O1": "blank"}, layout=SMALL_MAT, solid=True,
+                                   colours={**COLOURS, "blank": PINK}))
+        got = self.read(view, learned)
+        self.assertEqual({got[name] for name in contents}, {X}, "every blank pink piece reads as an X by its colour")
+        yellow_view = rectify(camera_view({"A1": "blank", "X1": "blank"}, layout=SMALL_MAT, solid=True,
+                                          colours={**COLOURS, "blank": YELLOW}))
+        got = self.read(yellow_view, learned)
+        self.assertEqual({got["A1"], got["X1"]}, {O})
+
+    def test_a_mark_that_disagrees_with_the_colour_is_flagged_not_trusted(self):
+        learned = self.taught()
+        wrong = rectify(camera_view({"A1": O}, layout=SMALL_MAT, solid=True, colours={**COLOURS, O: PINK}))
+        got = self.read(wrong, learned)
+        self.assertEqual(got["A1"], "?", "a nought mark on a pink (cross) piece")
+        from dobot_studio.tictactoe_vision import look
+        _, why, report = look(wrong.grey, self.empty.grey, SMALL_MAT, "A1", learned, wrong.colour)
+        self.assertIn("looks like an O but the piece's colour is that of an X", why)
+        self.assertEqual(report["colour_vote"], X)
+
+    def test_colour_does_not_change_what_already_reads_and_is_not_used_when_colours_are_alike(self):
+        learned = self.taught()
+        game = {"A1": X, "B2": O, "C3": X, "X1": X, "O1": O}
+        view = self.mat(game)
+        self.assertEqual(self.read(view, learned), self.read(view, Learned()))
+        alike = Learned()
+        for mark, colour in ((X, PINK), (O, (236, 104, 150))):
+            moved = rectify(camera_view({f"{mark}1": mark}, layout=SMALL_MAT, solid=True, colours={mark: colour}))
+            alike.add(mark, [], "distance", [lab for _, lab in mat_pieces(moved, self.empty, SMALL_MAT)])
+        self.assertFalse(alike.colours_ready())
+        self.assertTrue(any("too alike in colour" in warning for warning in alike.warnings()))
+        self.assertIsNone(alike.colour_vote(np.array((60.0, 50.0, 0.0), np.float32)))
+
+    def test_pieces_of_a_mark_that_are_not_all_one_colour_are_flagged(self):
+        learned = Learned()
+        learned.add(X, [], "distance", [np.array((60.0, 60.0, 0.0), np.float32), np.array((60.0, -60.0, 0.0), np.float32)])
+        learned.add(O, [], "distance", [np.array((90.0, -5.0, 70.0), np.float32)])
+        self.assertTrue(any("not all one colour" in warning for warning in learned.warnings()))
+
+    def test_forgetting_forgets_the_colours_too(self):
+        learned = self.taught()
+        learned.clear()
+        self.assertFalse(learned.colours_ready())
+        self.assertEqual(learned.colours, {X: [], O: []})
+
+    def test_pieces_are_found_with_their_colour_even_when_the_mark_does_not_show(self):
+        pieces = mat_pieces(self.mat({"A1": "blank", "B2": X}), self.empty, SMALL_MAT)
+        self.assertEqual(len(pieces), 2)
+        self.assertEqual(sum(mask is None for mask, _ in pieces), 1)
+
+
+class OffCentreTests(unittest.TestCase):
+    """A piece is never exactly on the middle of its circle. Pieces 3 mm off made every X "?" until the reading learned to look."""
+
+    CONTENTS = {**{f"X{i}": X for i in range(1, 6)}, **{f"O{i}": O for i in range(1, 6)}, "A1": X, "B2": O, "C3": X, "B1": O, "A3": X}
+
+    def offsets(self, millimetres, seed):
+        rng = np.random.default_rng(seed)
+        return {name: (millimetres * np.cos(angle), millimetres * np.sin(angle))
+                for name, angle in ((name, rng.uniform(0, 2 * np.pi)) for name in self.CONTENTS)}
+
+    def wrong(self, millimetres, seed=0, change=lambda grey: grey, layout=SMALL_MAT):
+        empty = rectify(camera_view({}, layout=layout, solid=True))
+        view = rectify(camera_view(self.CONTENTS, layout=layout, solid=True, offsets=self.offsets(millimetres, seed)))
+        position = read_position(change(view.grey), empty.grey, layout)
+        names = (*layout.positions,)
+        return {name: mark for name, mark in zip(names, (*position.board, *position.reserve)) if mark != self.CONTENTS.get(name, "")}
+
+    def test_pieces_up_to_5_mm_off_the_middle_of_their_circle_read(self):
+        for layout in (SMALL_MAT, COMPACT_MAT):
+            for millimetres in (0, 1.5, 3, 4, 5):
+                for seed in range(3):
+                    with self.subTest(layout=layout.label, millimetres=millimetres, seed=seed):
+                        self.assertEqual(self.wrong(millimetres, seed, layout=layout), {})
+
+    def test_off_the_middle_and_soft_and_dim_at_once(self):
+        def change(grey):
+            return cv2.GaussianBlur(np.clip(grey * 0.7, 0, 255).astype(np.uint8), (0, 0), 1.5)
+
+        for millimetres in (3, 4):
+            with self.subTest(millimetres=millimetres):
+                self.assertEqual(self.wrong(millimetres, 1, change), {})
+
+    def test_an_empty_circle_is_still_empty_when_the_picture_has_slipped(self):
+        empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True))
+        view = rectify(camera_view({"A1": X}, layout=SMALL_MAT, solid=True))
+        position = read_position(np.roll(view.grey, 4, axis=1), empty.grey, SMALL_MAT)
+        got = dict(zip(SMALL_MAT.positions, (*position.board, *position.reserve)))
+        self.assertEqual({name: mark for name, mark in got.items() if mark}, {"A1": X})
+
+    def test_the_mark_taught_from_an_off_centre_piece_is_centred(self):
+        empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True))
+        view = rectify(camera_view({"X3": X}, layout=SMALL_MAT, solid=True, offsets={"X3": (3.0, -2.0)}))
+        (mask, _), = mat_pieces(view, empty, SMALL_MAT)
+        ys, xs = np.nonzero(mask)
+        middle = mask.shape[0] // 2
+        self.assertLess(abs(xs.mean() - middle), 3.0, "the taught mark sits on the middle of its patch, not where the piece was")
+        self.assertLess(abs(ys.mean() - middle), 3.0)
+
+    def test_a_piece_that_is_really_partly_on_its_circle_is_not_read_as_a_mark(self):
+        empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True))
+        for millimetres in (9, 12):
+            view = rectify(camera_view({"A1": X}, layout=SMALL_MAT, solid=True, offsets={"A1": (millimetres, 0)}))
+            position = read_position(view.grey, empty.grey, SMALL_MAT)
+            self.assertNotEqual(position.board[0], X, f"{millimetres} mm off the circle is not on it")
 
 
 if __name__ == "__main__":

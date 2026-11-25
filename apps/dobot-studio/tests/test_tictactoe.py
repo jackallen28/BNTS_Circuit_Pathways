@@ -16,10 +16,13 @@ from dobot_studio.tictactoe_program import TurnDelay
 from dobot_studio.tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
 
 
-def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False):
+def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False, colours=None, offsets=None):
     """An angled, 640 px camera view of the mat and the supplied glyphs.
 
     ``solid`` draws the circles as solid black discs, as on the current printed mats, instead of rings.
+    ``colours`` maps X and O to the colour (RGB) of that mark's pieces, instead of the usual light grey. A piece whose
+    content is "blank" has a body but no mark, as when a reflection wipes the mark out. ``offsets`` maps a position
+    to how far (dx, dy, in mm) its piece sits from the middle of the circle.
     """
     density = 3
     piece_density = layout.piece_scale * density
@@ -46,21 +49,24 @@ def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False):
         glyph = contents.get(label)
         if not glyph:
             continue
-        cv2.circle(rgb, (cx, cy), round(PIECE_RADIUS*piece_density), (230, 233, 225), -1, cv2.LINE_AA)
+        dx, dy = (offsets or {}).get(label, (0, 0))      # a piece is never exactly on its circle
+        px, py = cx + round(dx*density), cy + round(dy*density)
+        body = tuple((colours or {}).get(glyph, (230, 233, 225)))
+        cv2.circle(rgb, (px, py), round(PIECE_RADIUS*piece_density), body, -1, cv2.LINE_AA)
         if glyph == O:
-            cv2.circle(rgb, (cx, cy), round(NOUGHT_OUTER*piece_density), (23, 29, 34), -1, cv2.LINE_AA)
-            cv2.circle(rgb, (cx, cy), round(NOUGHT_INNER*piece_density), (230, 233, 225), -1, cv2.LINE_AA)
+            cv2.circle(rgb, (px, py), round(NOUGHT_OUTER*piece_density), (23, 29, 34), -1, cv2.LINE_AA)
+            cv2.circle(rgb, (px, py), round(NOUGHT_INNER*piece_density), body, -1, cv2.LINE_AA)
         elif glyph == X:
             for sign in (-1, 1):
                 theta = np.radians(24 + sign*45)
                 vx, vy = np.cos(theta), np.sin(theta)
                 wx, wy = -vy, vx
-                vertices = [(round(cx + (vx*u*CROSS_HALF_LENGTH + wx*v*CROSS_HALF_WIDTH)*piece_density),
-                             round(cy + (vy*u*CROSS_HALF_LENGTH + wy*v*CROSS_HALF_WIDTH)*piece_density))
+                vertices = [(round(px + (vx*u*CROSS_HALF_LENGTH + wx*v*CROSS_HALF_WIDTH)*piece_density),
+                             round(py + (vy*u*CROSS_HALF_LENGTH + wy*v*CROSS_HALF_WIDTH)*piece_density))
                             for u,v in ((-1,-1), (1,-1), (1,1), (-1,1))]
                 cv2.fillConvexPoly(rgb, np.asarray(vertices), (23,29,34), cv2.LINE_AA)
         elif glyph == UNKNOWN:
-            cv2.rectangle(rgb, (cx-16,cy-16), (cx+16,cy+16), (23,29,34), -1)
+            cv2.rectangle(rgb, (px-16,py-16), (px+16,py+16), (23,29,34), -1)
     h, w = rgb.shape[:2]
     src = np.float32([(0, 0), (w-1, 0), (w-1, h-1), (0, h-1)])
     if layout.width > layout.height:      # a wide sheet: A3 or the compact A4 mat

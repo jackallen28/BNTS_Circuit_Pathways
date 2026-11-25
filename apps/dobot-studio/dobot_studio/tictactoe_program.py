@@ -12,7 +12,7 @@ from .tictactoe import (
 )
 from .tictactoe_setup import SetupWizard
 from .camera_tune import Tune, apply as apply_tune
-from .pieces import Learned, closeup_mark, mat_marks
+from .pieces import Learned, closeup_mark, mat_pieces
 from .tictactoe_vision import DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify, retuned, side_by_side
 from .vision import Camera, TABLETOP
 
@@ -317,13 +317,16 @@ class TicTacToeProgram:
                 raise ValueError("Capture the empty mat first, with the camera in its place.")
             if self.camera_moved:
                 raise ValueError("The camera has moved. Capture the empty mat again.")
-            masks = mat_marks(view, self.reference, view.layout)
-            if not masks:
+            pieces = mat_pieces(view, self.reference, view.layout)
+            if not pieces:
                 raise ValueError(f"I cannot see any pieces on the mat. Put only {mark} pieces on it, centred on their circles.")
-            self.learned.add(mark, masks, "distance")
-            found = len(masks)
+            self.learned.add(mark, [mask for mask, _ in pieces if mask is not None], "distance", [lab for _, lab in pieces])
+            found = len(pieces)
         self.latest, self.seen, self.view_clear = None, 0, False
-        return f"Learned from {found} {mark} piece{'s' if found != 1 else ''}."
+        colour = " It learned their colour too." if kind == "distance" else ""
+        if kind == "distance" and self.learned.colours_ready():
+            colour = " Their colour tells X from O."
+        return f"Learned from {found} {mark} piece{'s' if found != 1 else ''}.{colour}"
 
     def open_tune(self):
         from .tune_dialog import TuneDialog
@@ -677,7 +680,7 @@ class TicTacToeProgram:
                 self.camera_status.set(str(error))
             else:
                 self.rectified = view
-                position = read_position(view.grey, self.reference.grey, view.layout, self.learned)
+                position = read_position(view.grey, self.reference.grey, view.layout, self.learned, view.colour)
                 clear = self.busy != "place" and mat_clear(view, self.reference, position)
                 self.seen = self.seen+1 if position == self.latest and clear and self.view_clear else 1
                 self.view_clear = clear

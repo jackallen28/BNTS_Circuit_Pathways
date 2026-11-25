@@ -21,13 +21,14 @@ from .matcalib import MatCalibration, PARK, REST, outer_points
 from .robot import HEIGHT_MM, Magician, Pose, QUICK, RobotError, SLOW, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import CELLS, O, SMALL_MAT, SMALL_SUGGESTED_DISTANCE, UNKNOWN, X, describe_slot
-from .tictactoe_vision import explain, lock_view
+from .tictactoe_vision import explain, lock_view, pixels_per_mm
 
 STEPS = ("Show the mat", "Capture the empty mat", "Touch the centre mark", "Touch the corners",
          "Check every point", "Check the pieces", "Ready to play")
 PIECES, READY = 5, 6
 NUDGES = ("0.5 mm", "1 mm", "2 mm")
 THICKNESS_STEP = 0.2
+PAPER_THICKNESS = 0.4           # mm: a token cut from card
 # Directions as the arm sees them: x runs away from its base and y to its left.
 PAD = {"forward": ("▲  Forward", (1, 0, 0)), "back": ("▼  Back", (-1, 0, 0)), "left": ("◀  Left", (0, 1, 0)),
        "right": ("Right  ▶", (0, -1, 0)), "up": ("⬆  Up", (0, 0, 1)), "down": ("⬇  Down", (0, 0, -1))}
@@ -206,6 +207,8 @@ class SetupWizard:
         self.thicker_button.pack(side="right")
         self.thinner_button = ui._button(thickness, "−", lambda: self.change_thickness(-THICKNESS_STEP))
         self.thinner_button.pack(side="right", padx=(0, 4))
+        self.paper_button = ui._button(thickness, "Paper", self.paper_tokens)
+        self.paper_button.pack(side="right", padx=(0, 4))
 
     def _build_pieces(self, frame):
         ui = self.studio
@@ -538,6 +541,11 @@ class SetupWizard:
         self.pieces_ok = False
         self.visit(self.low) if self.selected else None
 
+    def paper_tokens(self):
+        """Tokens cut from paper or thin card, rather than the 3D pieces: about 0.4 mm thick."""
+        if self.calibration:
+            self.change_thickness(PAPER_THICKNESS - self.calibration.piece_height)
+
     def reset_adjustment(self):
         if self.calibration and self.selected and self.selected in self.calibration.adjustments:
             del self.calibration.adjustments[self.selected]
@@ -591,7 +599,7 @@ class SetupWizard:
                 elif seen == "":
                     self.bank_report[slot] = ("empty", mark, "")
                 elif seen == UNKNOWN:
-                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot, p.learned)
+                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot, p.learned, p.rectified.colour)
                     self.bank_report[slot] = ("unreadable", mark, why)
                 else:
                     self.bank_report[slot] = ("wrong", mark, seen)
@@ -713,7 +721,7 @@ class SetupWizard:
         for button in (self.go_button, self.lower_button, *self.pad_buttons.values(), self.reset_button):
             ui._set_button(button, arm and chosen)
         ui._set_button(self.tour_button, arm and self.calibration is not None)
-        for button in (self.thicker_button, self.thinner_button):
+        for button in (self.thicker_button, self.thinner_button, self.paper_button):
             ui._set_button(button, idle and self.calibration is not None)
         if self.calibration:
             self.thickness_text.set(f"Piece thickness {self.calibration.piece_height:.1f} mm. Picking and placing "
@@ -737,11 +745,16 @@ class SetupWizard:
                     "corner markers.", "Start the camera.", None)
         if self.view_fresh:
             where = ""
+            ppmm = pixels_per_mm(p.found)
+            size = f" The mat is {ppmm:.1f} pixels for every millimetre in the picture."
+            if ppmm < 2.5:
+                size += " That is small. Move the camera closer so the mat fills more of the picture: the X and O marks read much better at 3 or more."
             if p.found.layout is SMALL_MAT:
                 where = (f" Place the Dobot facing the middle of a long edge of the sheet, with the middle of the mat about "
                          f"{SMALL_SUGGESTED_DISTANCE} mm from the arm's base, so every circle is in reach.")
             return ("The corner markers are only used to find the mat once. After the next step the camera "
-                    "does not need them." + where, f"✔  Good to go. The {p.found.layout.label} mat is in view.", True)
+                    "does not need them." + size + where, f"✔  Good to go. The {p.found.layout.label} mat is in view.",
+                    "warn" if ppmm < 2.0 else True)
         return ("Move the mat and the camera until all four corner markers are in view.",
                 "Looking for the four markers…", False)
 

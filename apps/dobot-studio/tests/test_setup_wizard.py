@@ -58,6 +58,9 @@ class WizardTests(unittest.TestCase):
     def close_arm(self):
         self.pump(8, lambda: self.studio.busy is None)
         program = getattr(self, "program", None)
+        if program is not None and program.tune_dialog is not None:
+            program.tune_dialog.close()
+        self.dialog = None
         if program is not None and program.window.winfo_exists():
             self.pump(8, lambda: not program.busy)
             program.window.destroy()
@@ -65,6 +68,9 @@ class WizardTests(unittest.TestCase):
             self.studio.robot.close()
             self.studio.robot = None
         self.dobot.close()
+        import gc
+
+        gc.collect()                          # drop pictures and variables here, on the main thread, while Tk still runs
 
     def pump(self, seconds=1.0, until=None):
         end = monotonic() + seconds
@@ -962,6 +968,106 @@ class WizardTests(unittest.TestCase):
         self.dobot.log.clear()
         self.studio.robot.to_rest(rest, program.abort)             # already there: nothing to do
         self.assertEqual([c for c, _, _ in self.dobot.log if c == R.MOVE], [])
+
+    def test_the_size_of_the_mat_in_the_picture_is_reported_and_advice_is_given_when_it_is_small(self):
+        self.open_program()
+        wizard = self.wizard
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        self.pump(0.3)
+        self.assertRegex(wizard.text.get(), r"The mat is \d\.\d pixels for every millimetre")
+        self.assertIn("Move the camera closer", wizard.text.get())          # the test picture is 1.8 pixels per millimetre
+        self.assertEqual(wizard.status_label.cget("fg"), "#8a5a00", "amber, because it is small")
+
+    def test_the_dialog_shows_what_the_pi_sees_on_each_bank_circle_and_why_one_is_wrong(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        dialog = self.open_tune()
+        dialog.tabs.select(dialog.pieces_tab)
+        self.current["frame"] = camera_view({**BANKS, "X2": "?", "O3": None}, layout=LAYOUT, solid=True)
+        self.pump(1.4)
+        dialog.look_at_banks()
+        words = [dialog.seen.itemcget(item, "text") for item in dialog.seen.find_all() if dialog.seen.type(item) == "text"]
+        self.assertIn("X1: X", words)
+        self.assertIn("X2: ?", words)
+        self.assertIn("O3: empty", words)
+        self.assertIn("O5: O", words)
+        self.assertEqual(len(dialog.seen_photos), 10)
+        colours = [dialog.seen.itemcget(item, "outline") for item in dialog.seen.find_all() if dialog.seen.type(item) == "rectangle"]
+        from dobot_studio.theme import GREEN, RED
+
+        self.assertEqual((colours.count(GREEN), colours.count(RED)), (8, 2), "right ones green, the two wrong ones red")
+        dialog.watching.set(False)
+        dialog.look_at_banks()
+        self.assertEqual(dialog.seen.find_all(), ())
+
+    def test_the_camera_and_pieces_window_fits_a_720p_screen(self):
+        self.open_program()
+        self.to_pieces()
+        dialog = self.open_tune()
+        for tab in (dialog.camera_tab, dialog.pieces_tab):
+            dialog.tabs.select(tab)
+            dialog.window.update_idletasks()
+            self.pump(0.3)
+            self.assertLessEqual(dialog.window.winfo_reqheight(), 660, "the dialog is too tall for a 1280 x 720 screen")
+            self.assertTrue(dialog.close_button.winfo_ismapped())
+            bottom = dialog.close_button.winfo_rooty() + dialog.close_button.winfo_height()
+            self.assertLessEqual(bottom, dialog.window.winfo_rooty() + dialog.window.winfo_height())
+
+    def test_paper_tokens_are_a_fraction_of_a_millimetre_thick_and_the_arm_follows(self):
+        self.open_program()
+        wizard = self.wizard
+        self.walk_to_corners()
+        wizard.next()
+        before = wizard.calibration.pick("B2")
+        wizard.paper_tokens()
+        self.assertAlmostEqual(wizard.calibration.piece_height, 0.4, places=3)
+        self.assertAlmostEqual(self.program.poses["B2"].z, before.z - (3.2 - 0.4), delta=0.05)
+        for _ in range(10):
+            wizard.change_thickness(-0.2)
+        self.assertGreaterEqual(wizard.calibration.piece_height, 0.2)
+
+    def test_coloured_tokens_are_taught_from_a_distance_and_colour_reads_them_when_the_marks_are_wiped_out(self):
+        """A reflection wipes the marks out. Once the camera has learned the colours, each token still reads."""
+        from tests.test_tune import COLOURS, PINK, YELLOW
+
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        dialog = self.open_tune()
+        dialog.tabs.select(dialog.pieces_tab)
+        # glare: every token's mark is gone, so nothing can be read from the marks
+        glare = {**{f"X{i}": "blank" for i in range(1, 6)}, **{f"O{i}": "blank" for i in range(1, 6)}}
+        self.current["frame"] = camera_view(glare, layout=LAYOUT, solid=True, colours={"blank": PINK})
+        self.pump(1.6)
+        wizard.capture_pieces()
+        self.assertFalse(wizard.pieces_ok)
+        self.assertEqual(len(wizard.unreadable), 10)
+        # teach the colours from a distance: only X tokens on the mat, then only O tokens
+        self.current["frame"] = camera_view({f"X{i}": X for i in range(1, 6)}, layout=LAYOUT, solid=True, colours=COLOURS)
+        self.pump(1.2)
+        dialog.teach(X, "distance")
+        self.assertIn("learned their colour", dialog.message.get().lower())
+        self.current["frame"] = camera_view({f"O{i}": O for i in range(1, 6)}, layout=LAYOUT, solid=True, colours=COLOURS)
+        self.pump(1.2)
+        dialog.teach(O, "distance")
+        self.assertIn("colour tells x from o", dialog.message.get().lower())
+        self.assertTrue(program.learned.colours_ready())
+        fills = {mark: dialog.swatches[mark].itemcget(dialog.swatches[mark].find_all()[0], "fill") for mark in (X, O)}
+        self.assertNotEqual(fills[X], fills[O])
+        self.assertTrue(all(fill.startswith("#") for fill in fills.values()))
+        # the marks are still wiped out, each token carrying its own colour: now they read
+        view_x = camera_view({f"X{i}": "blank" for i in range(1, 6)}, layout=LAYOUT, solid=True, colours={"blank": PINK})
+        both = np.maximum(view_x, camera_view({f"O{i}": "blank" for i in range(1, 6)}, layout=LAYOUT, solid=True, colours={"blank": YELLOW}))
+        self.current["frame"] = both
+        self.pump(1.6)
+        wizard.capture_pieces()
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.pump(0.4)
+        self.assertIn("All 5 X and 5 O pieces are in place", wizard.status.get())
+        dialog.forget()
+        self.assertFalse(program.learned.colours_ready())
+        self.assertTrue(all(not dialog.swatches[mark].find_all() or dialog.swatches[mark].itemcget(dialog.swatches[mark].find_all()[0], "fill") == "" for mark in (X, O)))
 
     def test_the_arm_in_front_of_the_markers_does_not_disturb_the_setup(self):
         self.open_program()

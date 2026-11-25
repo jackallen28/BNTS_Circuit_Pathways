@@ -1,0 +1,109 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297" role="img" aria-labelledby="title description" font-family="Arial, sans-serif">
+  <title id="title">Dobot Studio tic-tac-toe tokens to cut out</title>
+  <desc id="description">Fifteen crosses and fifteen noughts, each a 25 millimetre disc with a black mark.</desc>
+  <g id="heading" fill="#17283b">
+    <text x="15" y="18" font-size="6" font-weight="bold">Dobot Studio tic-tac-toe tokens</text>
+    <text x="15" y="26" font-size="3.4">Print at 100% (not Fit) on matte white paper or card. Each token is 25 mm across.</text>
+    <text x="15" y="32" font-size="3.4">Cut along the grey circles. For a firmer token, glue the sheet to 3 mm foam board first.</text>
+    <text x="15" y="38" font-size="3.4">Keep the black marks sharp: no gloss, no colour, no pencil.</text>
+  </g>
+  <g id="tokens">
+    <circle cx="39" cy="60" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(39 60) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(39 60) rotate(-45)" />
+    <circle cx="72" cy="60" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(72 60) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(72 60) rotate(-45)" />
+    <circle cx="105" cy="60" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(105 60) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(105 60) rotate(-45)" />
+    <circle cx="138" cy="60" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(138 60) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(138 60) rotate(-45)" />
+    <circle cx="171" cy="60" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(171 60) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(171 60) rotate(-45)" />
+    <circle cx="39" cy="93" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(39 93) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(39 93) rotate(-45)" />
+    <circle cx="72" cy="93" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(72 93) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(72 93) rotate(-45)" />
+    <circle cx="105" cy="93" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(105 93) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(105 93) rotate(-45)" />
+    <circle cx="138" cy="93" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(138 93) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(138 93) rotate(-45)" />
+    <circle cx="171" cy="93" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(171 93) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(171 93) rotate(-45)" />
+    <circle cx="39" cy="126" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(39 126) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(39 126) rotate(-45)" />
+    <circle cx="72" cy="126" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(72 126) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(72 126) rotate(-45)" />
+    <circle cx="105" cy="126" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(105 126) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(105 126) rotate(-45)" />
+    <circle cx="138" cy="126" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(138 126) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(138 126) rotate(-45)" />
+    <circle cx="171" cy="126" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(171 126) rotate(45)" />
+    <rect x="-9.25" y="-1.65" width="18.5" height="3.3" fill="#000000" transform="translate(171 126) rotate(-45)" />
+    <circle cx="39" cy="159" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="39" cy="159" r="8.6" fill="#000000" />
+    <circle cx="39" cy="159" r="5.2" fill="#ffffff" />
+    <circle cx="72" cy="159" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="72" cy="159" r="8.6" fill="#000000" />
+    <circle cx="72" cy="159" r="5.2" fill="#ffffff" />
+    <circle cx="105" cy="159" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="105" cy="159" r="8.6" fill="#000000" />
+    <circle cx="105" cy="159" r="5.2" fill="#ffffff" />
+    <circle cx="138" cy="159" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="138" cy="159" r="8.6" fill="#000000" />
+    <circle cx="138" cy="159" r="5.2" fill="#ffffff" />
+    <circle cx="171" cy="159" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="171" cy="159" r="8.6" fill="#000000" />
+    <circle cx="171" cy="159" r="5.2" fill="#ffffff" />
+    <circle cx="39" cy="192" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="39" cy="192" r="8.6" fill="#000000" />
+    <circle cx="39" cy="192" r="5.2" fill="#ffffff" />
+    <circle cx="72" cy="192" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="72" cy="192" r="8.6" fill="#000000" />
+    <circle cx="72" cy="192" r="5.2" fill="#ffffff" />
+    <circle cx="105" cy="192" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="105" cy="192" r="8.6" fill="#000000" />
+    <circle cx="105" cy="192" r="5.2" fill="#ffffff" />
+    <circle cx="138" cy="192" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="138" cy="192" r="8.6" fill="#000000" />
+    <circle cx="138" cy="192" r="5.2" fill="#ffffff" />
+    <circle cx="171" cy="192" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="171" cy="192" r="8.6" fill="#000000" />
+    <circle cx="171" cy="192" r="5.2" fill="#ffffff" />
+    <circle cx="39" cy="225" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="39" cy="225" r="8.6" fill="#000000" />
+    <circle cx="39" cy="225" r="5.2" fill="#ffffff" />
+    <circle cx="72" cy="225" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="72" cy="225" r="8.6" fill="#000000" />
+    <circle cx="72" cy="225" r="5.2" fill="#ffffff" />
+    <circle cx="105" cy="225" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="105" cy="225" r="8.6" fill="#000000" />
+    <circle cx="105" cy="225" r="5.2" fill="#ffffff" />
+    <circle cx="138" cy="225" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="138" cy="225" r="8.6" fill="#000000" />
+    <circle cx="138" cy="225" r="5.2" fill="#ffffff" />
+    <circle cx="171" cy="225" r="12.5" fill="#ffffff" stroke="#9a9a9a" stroke-width="0.25" />
+    <circle cx="171" cy="225" r="8.6" fill="#000000" />
+    <circle cx="171" cy="225" r="5.2" fill="#ffffff" />
+  </g>
+  <g id="print-scale" fill="none" stroke="#17283b" stroke-width="0.42">
+    <line x1="55" y1="249.5" x2="155" y2="249.5" />
+    <line x1="55" y1="247.5" x2="55" y2="251.5" />
+    <line x1="155" y1="247.5" x2="155" y2="251.5" />
+  </g>
+  <text x="159" y="250.8" font-size="3.4" font-weight="bold" fill="#17283b">100 mm</text>
+</svg>

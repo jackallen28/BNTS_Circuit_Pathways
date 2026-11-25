@@ -10,11 +10,14 @@ from .camera_tune import (
     AUTO_EXPOSURE_NAMES, AUTOMATIC, CameraControls, EXPOSURE_NAMES, FOCUS_AUTO_NAMES, MANUAL, WHITE_AUTO_NAMES, Tune,
     apply, interesting,
 )
-from .pieces import KINDS, WANTED
+from .pieces import KINDS, WANTED, lab_to_rgb
+from .tictactoe_vision import _patch_colour, body_colour, look, pixels_per_mm
 from .theme import BORDER, DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import O, X
 
-PREVIEW = (300, 169)
+PREVIEW = (180, 101)
+TILE = 48                      # a circle as the Pi sees it, in the pieces tab
+HARDWARE_HEIGHT = 118          # the camera controls scroll inside this much room
 SLIDERS = (("brightness", "Brightness", -100, 100), ("contrast", "Contrast", 0.5, 3.0),
            ("gamma", "Shadows (gamma)", 0.4, 2.5), ("sharpen", "Sharpen", 0.0, 3.0))
 
@@ -28,7 +31,7 @@ class TuneDialog:
         self.hardware = {}               # control name -> its variable
         self.photos = []
         self.message = tk.StringVar()
-        window = self.window = tk.Toplevel(program.window, bg=PANEL, padx=14, pady=10)
+        window = self.window = tk.Toplevel(program.window, bg=PANEL, padx=14, pady=6)
         window.title("Camera and pieces")
         window.transient(program.window)
         window.protocol("WM_DELETE_WINDOW", self.close)
@@ -46,13 +49,13 @@ class TuneDialog:
     # ---- the layout
     def _build(self):
         ui = self.studio
-        header = tk.Frame(self.window, bg="#dcebf7", padx=12, pady=7)
+        header = tk.Frame(self.window, bg="#dcebf7", padx=12, pady=3)
         header.pack(fill="x")
-        ui._label(header, "Camera and pieces", size=14, weight="bold", fg=PURPLE, bg="#dcebf7").pack(anchor="w")
-        ui._label(header, "Only here, while setting up. Playing uses what you set, and shows the camera's own picture.",
-                  size=9, fg=MUTED, bg="#dcebf7", wraplength=620, justify="left").pack(anchor="w")
+        ui._label(header, "Camera and pieces", size=13, weight="bold", fg=PURPLE, bg="#dcebf7").pack(anchor="w")
+        ui._label(header, "Only here, while setting up. Playing uses what you set and shows the camera's own picture.",
+                  size=9, fg=MUTED, bg="#dcebf7").pack(anchor="w")
         previews = tk.Frame(self.window, bg=PANEL)
-        previews.pack(fill="x", pady=(8, 4))
+        previews.pack(fill="x", pady=(6, 2))
         self.canvases = []
         for title in ("What you see", "What the Pi reads"):
             box = tk.Frame(previews, bg=PANEL)
@@ -62,6 +65,9 @@ class TuneDialog:
                                highlightbackground=BORDER)
             canvas.pack()
             self.canvases.append(canvas)
+        self.size_text = tk.StringVar()
+        self.size_label = ui._label(self.window, textvariable=self.size_text, size=8, fg=MUTED, wraplength=640, justify="left")
+        self.size_label.pack(fill="x")
         self.tabs = ttk.Notebook(self.window)
         self.tabs.pack(fill="both", expand=True, pady=(4, 0))
         self.camera_tab, self.pieces_tab = tk.Frame(self.tabs, bg=PANEL, padx=8, pady=6), tk.Frame(self.tabs, bg=PANEL, padx=8, pady=6)
@@ -96,8 +102,21 @@ class TuneDialog:
         self.reset_button = ui._button(tab, "Reset the Pi's reading", self.reset_tune)
         self.reset_button.pack(anchor="w", pady=(4, 8))
         ui._label(tab, "The camera itself  (this also changes the live view)", size=9, weight="bold", fg=DARK).pack(anchor="w")
-        self.hardware_frame = tk.Frame(tab, bg=PANEL)
-        self.hardware_frame.pack(fill="x")
+        scroller = tk.Frame(tab, bg=PANEL)
+        scroller.pack(fill="x")
+        canvas = tk.Canvas(scroller, height=HARDWARE_HEIGHT, bg=PANEL, highlightthickness=0)
+        bar = ttk.Scrollbar(scroller, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="x", expand=True)
+        self.hardware_frame = tk.Frame(canvas, bg=PANEL)
+        window = canvas.create_window(0, 0, window=self.hardware_frame, anchor="nw")
+        self.hardware_frame.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        for widget in (canvas, self.hardware_frame):          # the wheel scrolls the list under the mouse
+            widget.bind("<MouseWheel>", lambda e: canvas.yview_scroll(-1 if e.delta > 0 else 1, "units"))
+            widget.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+            widget.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
         row = tk.Frame(tab, bg=PANEL)
         row.pack(fill="x", pady=(4, 0))
         self.lock_button = ui._button(row, "Lock exposure, focus and colour", self.lock_camera)
@@ -105,14 +124,14 @@ class TuneDialog:
         self.look_button = ui._button(row, "Look again", self.look_again)
         self.look_button.pack(side="left", padx=(6, 0))
         ui._label(tab, "Locking stops the camera changing its own exposure and focus when pieces move in front of it.",
-                  size=9, fg=MUTED, wraplength=560, justify="left").pack(anchor="w", pady=(3, 0))
+                  size=8, fg=MUTED, wraplength=560, justify="left").pack(anchor="w", pady=(2, 0))
 
     def _build_pieces(self):
         ui, tab = self.studio, self.pieces_tab
-        ui._label(tab, "Show the camera your own X and O pieces so it can tell them apart more reliably. It is optional. "
-                       f"Take about {WANTED} pictures of each kind for each mark.", size=9, fg=DARK, wraplength=580,
+        ui._label(tab, "Optional: show the camera your own X and O pieces so it can tell them apart more reliably. "
+                       f"Take about {WANTED} pictures of each kind for each mark.", size=9, fg=DARK, wraplength=600,
                   justify="left").pack(anchor="w")
-        self.teach_buttons = {}
+        self.teach_buttons, self.swatches = {}, {}
         grid = tk.Frame(tab, bg=PANEL)
         grid.pack(fill="x", pady=(6, 0))
         kinds = {"close": ("Close-up", "Hold one piece under the camera, on a dark surface, filling most of the picture."),
@@ -121,15 +140,30 @@ class TuneDialog:
             box = tk.Frame(grid, bg=PANEL, padx=6)
             box.grid(row=0, column=column, sticky="nsew")
             grid.columnconfigure(column, weight=1)
-            ui._label(box, f"{mark} pieces", size=10, weight="bold", fg=PURPLE).pack(anchor="w")
+            title_row = tk.Frame(box, bg=PANEL)
+            title_row.pack(fill="x")
+            ui._label(title_row, f"{mark} pieces", size=10, weight="bold", fg=PURPLE).pack(side="left")
+            swatch = tk.Canvas(title_row, width=18, height=18, bg=PANEL, highlightthickness=0)
+            swatch.pack(side="left", padx=(8, 0))
+            self.swatches[mark] = swatch
             for kind in KINDS:
                 title, how = kinds[kind]
                 button = ui._button(box, "", lambda mark=mark, kind=kind: self.teach(mark, kind))
                 button.pack(fill="x", pady=(3, 0))
                 self.teach_buttons[(mark, kind)] = (button, title)
-                ui._label(box, how, size=8, fg=MUTED, wraplength=270, justify="left").pack(anchor="w")
-        self.forget_button = ui._button(tab, "Forget what was taught", self.forget)
-        self.forget_button.pack(anchor="w", pady=(8, 0))
+        ui._label(tab, "Close-up: one piece under the camera, on a dark surface.  From a distance: the camera in its place and "
+                       "only this mark's pieces on the mat. That also learns their colour, to tell X from O.",
+                  size=8, fg=MUTED, wraplength=600, justify="left").pack(anchor="w", pady=(3, 0))
+        row = tk.Frame(tab, bg=PANEL)
+        row.pack(fill="x", pady=(4, 0))
+        self.forget_button = ui._button(row, "Forget what was taught", self.forget)
+        self.forget_button.pack(side="left")
+        self.watching = tk.BooleanVar(value=True)
+        tk.Checkbutton(row, text="Show what the Pi sees on the banks", variable=self.watching, bg=PANEL, activebackground=PANEL,
+                       highlightthickness=0, font=ui.theme.font(9), command=self.look_at_banks).pack(side="left", padx=10)
+        self.seen = tk.Canvas(tab, width=5 * (TILE + 40), height=2 * (TILE + 26), bg=PANEL, highlightthickness=0)
+        self.seen.pack(anchor="w", pady=(2, 0))
+        self.seen_photos = []
         self._refresh_pieces()
 
     # ---- the Pi's reading
@@ -228,6 +262,56 @@ class TuneDialog:
         self._say(text + (" " + warnings[0] if warnings else ""), RED if warnings else GREEN)
         self._refresh_pieces()
 
+    def look_at_banks(self):
+        """Draw each bank circle as the Pi sees it: the picture, the mark it found in red, and what it made of it."""
+        from PIL import Image, ImageTk
+        import numpy as np
+
+        canvas, p = self.seen, self.p
+        canvas.delete("all")
+        self.seen_photos = []
+        view, reference = p.rectified, p.reference
+        if not self.watching.get():
+            return
+        if view is None or reference is None or view.layout is not reference.layout:
+            canvas.create_text(8, 8, anchor="nw", fill=MUTED, font=self.studio.theme.font(9),
+                               text="Capture the empty mat first, then put pieces in the banks.")
+            return
+        slots = [(slot, mark) for mark in p.layout.reserve_marks(p.dobot) for slot in p.layout.bank(mark)]
+        for index, (slot, expected) in enumerate(slots):
+            mark, why, report = look(view.grey, reference.grey, view.layout, slot, p.learned, view.colour)
+            tile = report.get("tile")
+            column, row = index % 5, index // 5
+            x, y = column * (TILE + 40) + 6, row * (TILE + 26) + 2
+            if tile is None:
+                continue
+            picture = np.dstack([tile] * 3).copy()
+            ink = report.get("ink")
+            if ink is not None:
+                picture[ink] = (0.45 * picture[ink] + 0.55 * np.array((255, 40, 40))).astype(np.uint8)
+            photo = ImageTk.PhotoImage(Image.fromarray(picture).resize((TILE, TILE), Image.Resampling.BILINEAR), master=self.window)
+            self.seen_photos.append(photo)
+            good = mark == expected
+            canvas.create_image(x, y, image=photo, anchor="nw")
+            canvas.create_rectangle(x - 1, y - 1, x + TILE, y + TILE, outline=GREEN if good else RED, width=2)
+            if report.get("changed", 0) >= 0.55:          # the colour of the piece, as the Pi judges it
+                _, rgb = body_colour(_patch_colour(view.colour, view.layout.positions[slot], view.layout.piece_scale))
+                canvas.create_rectangle(x + TILE - 14, y + 2, x + TILE - 2, y + 14, fill="#%02x%02x%02x" % rgb, outline="#ffffff")
+            scores = report.get("scores") or {}
+            verdict = "empty" if mark == "" else ("?" if mark == "?" else mark)
+            canvas.create_text(x, y + TILE + 1, anchor="nw", fill=GREEN if good else RED, font=self.studio.theme.font(8, "bold"),
+                               text=f"{slot}: {verdict}")
+            if report.get("colour_vote") and not scores:
+                detail = f"colour says {report['colour_vote']}"
+            elif scores:
+                detail = f"X {scores.get(X, 0):.0%} O {scores.get(O, 0):.0%}" + (
+                    f" ·{report['colour_vote']}" if report.get("colour_vote") else "")
+            elif report.get("changed", 0) >= 0.55:
+                detail = f"mark {report.get('size', 0)} px"        # a piece is there, but its mark barely shows
+            else:
+                detail = f"changed {report.get('changed', 0):.0%}"
+            canvas.create_text(x, y + TILE + 12, anchor="nw", fill=MUTED, font=self.studio.theme.font(7), text=detail)
+
     def forget(self):
         self.p.learned.clear()
         self.p.latest, self.p.seen = None, 0
@@ -235,6 +319,13 @@ class TuneDialog:
         self._refresh_pieces()
 
     def _refresh_pieces(self):
+        for mark, swatch in self.swatches.items():
+            swatch.delete("all")
+            if self.p.learned.colours[mark]:
+                colour = "#%02x%02x%02x" % lab_to_rgb(self.p.learned.colour_of(mark)[0])
+                swatch.create_rectangle(1, 1, 17, 17, fill=colour, outline=DARK)
+            else:
+                swatch.create_rectangle(1, 1, 17, 17, outline=BORDER, dash=(2, 2))
         for (mark, kind), (button, title) in self.teach_buttons.items():
             button.configure(text=f"{title} of an {mark}  ({self.p.learned.count(mark, kind)} of {WANTED})")
         self.studio._set_button(self.forget_button, self.p.learned.ready())
@@ -262,12 +353,25 @@ class TuneDialog:
             for canvas in self.canvases:
                 canvas.delete("all")
                 canvas.create_text(PREVIEW[0] / 2, PREVIEW[1] / 2, text="Start the camera", fill="#ffffff")
+        found = self.p.found or self.p.rectified
+        if found is not None:
+            ppmm = pixels_per_mm(found)
+            advice = ("  Move the camera closer so the mat fills more of the picture. The marks read better at 3 or more."
+                      if ppmm < 2.5 else "")
+            self.size_text.set(f"The mat is {ppmm:.1f} pixels for every millimetre in the picture.{advice}")
+            self.size_label.configure(fg=RED if ppmm < 2.0 else MUTED)
+        self._ticks = getattr(self, "_ticks", 0) + 1
+        if self._ticks % 4 == 0 and self.tabs.index(self.tabs.select()) == 1:
+            self.look_at_banks()
         self.window.after(150, self._preview)
 
     def close(self):
         program = self.p
         program.tune_dialog = None
-        self.window.grab_release()
-        self.window.destroy()
+        if self.window.winfo_exists():
+            self.window.grab_release()
+            self.window.destroy()
+        # Let the pictures and variables go now, on this thread, while Tk is still running.
+        self.photos, self.seen_photos, self.variables, self.hardware = [], [], {}, {}
         if program.window.winfo_exists():
             program.window.grab_set()
