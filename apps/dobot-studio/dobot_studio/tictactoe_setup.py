@@ -17,7 +17,7 @@ from tkinter import ttk
 
 import numpy as np
 
-from .matcalib import MatCalibration, PARK, outer_points
+from .matcalib import MatCalibration, PARK, REST, outer_points
 from .robot import HEIGHT_MM, Magician, Pose, QUICK, RobotError, SLOW, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import CELLS, O, SMALL_MAT, SMALL_SUGGESTED_DISTANCE, UNKNOWN, X, describe_slot
@@ -54,6 +54,7 @@ class SetupWizard:
         self.touched = {}
         self.calibration = None
         self.notice = ""               # why the arm last refused or failed to move
+        self.rest_shift = (0.0, 0.0)   # how far the person has nudged the arm's resting place from where it was worked out
         self.accepted = False          # the person chose to go on although a point looks far out
         self.pending = None            # the point a touch is being saved for
         self.selected = None           # the point being checked and nudged
@@ -90,6 +91,9 @@ class SetupWizard:
         self.navigation.pack(side="bottom", fill="x", pady=(5, 0))
         self.back_button = ui._button(self.navigation, "◀  Back", self.back)
         self.back_button.pack(side="left")
+        # The camera and piece adjustments are only here, while setting up. Play uses what they set.
+        self.tune_button = ui._button(self.navigation, "Camera & pieces…", self.p.open_tune)
+        self.tune_button.pack(side="left", padx=6)
         self.next_button = ui._button(self.navigation, "Next  ▶", self.next, "Purple")
         self.next_button.pack(side="right", ipadx=8)
         self.controls = tk.Frame(parent, bg=PANEL)
@@ -204,8 +208,17 @@ class SetupWizard:
         self.thinner_button.pack(side="right", padx=(0, 4))
 
     def _build_pieces(self, frame):
-        self.pieces_button = self.studio._button(frame, "Capture pieces", self.capture_pieces, "Purple")
+        ui = self.studio
+        self.pieces_button = ui._button(frame, "Capture pieces", self.capture_pieces, "Purple")
         self.pieces_button.pack(fill="x")
+        row = tk.Frame(frame, bg=PANEL)
+        row.pack(fill="x", pady=(4, 0))
+        ui._label(row, "Resting place", size=9, fg=MUTED).pack(side="left", padx=(0, 6))
+        self.rest_buttons = {}
+        for key, label in (("left", "◀"), ("up", "▲"), ("down", "▼"), ("right", "▶")):
+            button = ui._button(row, label, lambda key=key: self.nudge_rest(key))
+            button.pack(side="left", padx=(0, 3), ipadx=4)
+            self.rest_buttons[key] = button
 
     # ---- the state the panel is in
     @property
@@ -321,11 +334,12 @@ class SetupWizard:
         if self.calibration is None:
             return []
         found = []
-        for name in (*self.p.layout.positions, PARK):
+        for name in (*self.p.layout.positions, PARK, REST):
             try:
                 floor = self.floor()
-                Magician.check_reach(self.calibration.hover(name) if name != PARK else self.calibration.park(), floor)
-                Magician.check_reach(self.calibration.pick(name) if name != PARK else self.calibration.park(), floor)
+                special = {PARK: self.calibration.park, REST: self.calibration.rest}
+                Magician.check_reach(special[name]() if name in special else self.calibration.hover(name), floor)
+                Magician.check_reach(special[name]() if name in special else self.calibration.pick(name), floor)
             except RobotError as error:
                 found.append((name, str(error)))
         return found
@@ -461,7 +475,8 @@ class SetupWizard:
         old = self.calibration.adjustments if self.calibration else {}
         thickness = self.calibration.piece_height if self.calibration else None
         if PARK in self.touched and all(name in self.touched for name in self.required()):
-            self.calibration = MatCalibration(self.p.layout, self.touched, old, thickness, self.print_scale())
+            self.calibration = MatCalibration(self.p.layout, self.touched, old, thickness, self.print_scale(),
+                                              self.rest_shift)
             self.p.poses = self.calibration.poses()
         else:
             self.calibration = None
@@ -475,9 +490,9 @@ class SetupWizard:
         path = []
         if self.low and self.at:
             path.append(self.calibration.hover(self.at))
-        path += [self.calibration.hover(name) for name in self.order] + [self.calibration.park()]
+        path += [self.calibration.hover(name) for name in self.order] + [self.calibration.rest()]
         offset = len(path) - len(self.order) - 1
-        labels = [None] * offset + self.order + [PARK]
+        labels = [None] * offset + self.order + [REST]
         events, robot = self.p.events, self.studio.robot
 
         def tour():
@@ -531,10 +546,25 @@ class SetupWizard:
 
     # ---- step 6: resting position and the pieces
     def _go_to_park(self):
+        """Take the arm to its resting place, off the mat, where it waits during a game."""
         if not (self.calibration and self.robot_ready and self.idle):
             return
-        robot, park, floor = self.studio.robot, self.calibration.park(), self.floor()
-        self.p._job("park", lambda: robot.travel([park], self.p.abort, speed=QUICK, floor=floor))
+        robot, rest, floor = self.studio.robot, self.calibration.rest(), self.floor()
+        self.p._job("park", lambda: robot.to_rest(rest, self.p.abort, floor=floor))
+
+    def nudge_rest(self, key):
+        """Move the resting place a step across the mat's picture, as the arrows on the map show, and go there."""
+        if not (self.calibration and self.robot_ready and self.idle and self.step == PIECES):
+            return
+        linear, _ = self._map()
+        across = np.asarray(SCREEN[key], float) * (-1 if self.p.dobot_side.get() else 1)
+        moved = linear @ across
+        moved = moved / (hypot(*moved) or 1.0) * float(self.move_step.get().split()[0])
+        self.rest_shift = (self.rest_shift[0] + float(moved[0]), self.rest_shift[1] + float(moved[1]))
+        self.calibration.rest_shift = self.rest_shift
+        self.p.poses = self.calibration.poses()
+        self.parked = False                  # the camera looks again, with the arm in its new place
+        self._go_to_park()
 
     def capture_pieces(self):
         """Check the two banks: a piece in every circle, and each piece the mark its bank holds.
@@ -561,7 +591,7 @@ class SetupWizard:
                 elif seen == "":
                     self.bank_report[slot] = ("empty", mark, "")
                 elif seen == UNKNOWN:
-                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot)
+                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot, p.learned)
                     self.bank_report[slot] = ("unreadable", mark, why)
                 else:
                     self.bank_report[slot] = ("wrong", mark, seen)
@@ -612,21 +642,21 @@ class SetupWizard:
             if self.target():
                 self.p.teaching.set(self.target())
         elif name == "tour":
-            self.checked, self.at, self.low = True, PARK, False
+            self.checked, self.at, self.low = True, None, False
             self.p.status.set("Every point has been visited. Click a circle on the map to look at it more closely.")
         elif name == "visit":
             self.at, self.low = self.pending[0], self.pending[1]
         elif name == "park":
-            self.parked, self.at, self.low = True, PARK, False
+            self.parked, self.at, self.low = True, None, False
             self.reference_waiting = monotonic() + 0.8      # let the arm settle before the camera looks
         self.p._draw_camera()
 
     def arrived(self, name):
         if name:
             self.p.teaching.set(name)
-            self.selected = name if name != PARK else self.selected
-            self.at = name
-            self.p.status.set(f"Visiting {name}")
+            self.selected = name if name not in (PARK, REST) else self.selected
+            self.at = name if name != REST else None
+            self.p.status.set(f"Visiting {name}" if name != REST else "Back at the resting place.")
             self.p._draw_camera()
 
     def tick(self):
@@ -634,7 +664,7 @@ class SetupWizard:
         if self.reference_waiting and monotonic() >= self.reference_waiting and self.view_fresh_any():
             self.reference_waiting = None
             import numpy as np
-            self.p.reference = lock_view(np.asarray(self.p.feed), self.p.reference)
+            self.p.reference = lock_view(np.asarray(self.p.feed), self.p.reference, self.p.tune)
             self.p.latest, self.p.seen, self.p.view_clear = None, 0, False
 
     def view_fresh_any(self):
@@ -651,6 +681,11 @@ class SetupWizard:
         self.status_label.configure(fg=AMBER if ok == "warn" else GREEN if ok else RED if ok is False else MUTED)
         idle = self.idle
         ui._set_button(self.back_button, idle and self.step > 0)
+        ui._set_button(self.tune_button, idle and p.feed is not None and not self.p.studio.demo)
+        if self.step == READY:
+            self.tune_button.pack_forget()
+        elif not self.tune_button.winfo_ismapped():
+            self.tune_button.pack(side="left", padx=6, after=self.back_button)
         self.next_button.configure(text={PIECES: "Finish setup  ▶", READY: "Go to Match  ▶"}.get(self.step, "Next  ▶"))
         ui._set_button(self.next_button, {PIECES: self.pieces_ok and idle, READY: True}.get(self.step, self._ready_to_leave()))
         ui._set_button(self.camera_button, idle)
@@ -686,6 +721,8 @@ class SetupWizard:
         self.reset_button.configure(state="normal" if arm and chosen and self.selected in
                                     (self.calibration.adjustments if self.calibration else {}) else "disabled")
         ui._set_button(self.pieces_button, idle and self.parked and self.p.reference is not None)
+        for button in self.rest_buttons.values():
+            ui._set_button(button, arm and self.calibration is not None)
         if self.calibration and self.selected:
             shift = self.calibration.adjustments.get(self.selected)
             self.adjust_text.set(f"{self.selected}: moved by {shift[0]:+.1f}, {shift[1]:+.1f}, {shift[2]:+.1f} mm."
@@ -731,7 +768,6 @@ class SetupWizard:
     def _words3(self):
         required = self.required()
         saved = [name for name in required if name in self.touched]
-        quick = self.mode.get() == QUICK_MODE
         if not self.robot_ready:
             return ("The arm must be connected and homed first.", "✖  The Dobot is not connected and homed.", False)
         if self.notice:
@@ -778,16 +814,16 @@ class SetupWizard:
 
     def _words5(self):
         if not self.parked:
-            return ("The arm is moving to its resting place (Park). The camera then notes where it is, so it is "
-                    "not mistaken for something in the way.", "Moving the arm to Park…", None)
+            return ("The arm is moving to its resting place, off the mat. It waits there during a game, so keep that "
+                    "area clear. The camera then notes where it is.", "Moving the arm to its resting place…", None)
         if self.reference_waiting:
-            return ("The arm is at Park. The camera is noting it.", "Looking…", None)
+            return ("The arm is at its resting place. The camera is noting it.", "Looking…", None)
         marks = [f"{len(self.p.layout.bank(mark))} {mark}" for mark in self.p.layout.reserve_marks(self.p.dobot)]
         wanted = " and ".join(marks)
         if self.pieces_ok:
             note = " " + self.grid_note if self.grid_note else ""
             return ("Is that what is in the banks? The camera's reading is written next to each circle. If it is right, "
-                    "finish. Otherwise fix the pieces and capture again." + note,
+                    "finish. Otherwise fix the pieces and capture again." + note + self._rest_words(),
                     f"✔  All {wanted} pieces are in place.", True)
         if self.problem:
             return ("Fix that, then capture again.", "✖  " + self.problem, False)
@@ -805,8 +841,16 @@ class SetupWizard:
                                     + (f"The camera says {first[2]}." if first[2] else "")}[first[0]]
             return (advice + " The grid is not checked here. Then capture again.",
                     "✖  " + "; ".join(lines[:3]) + (f"; and {len(lines) - 3} more" if len(lines) > 3 else "") + ".", False)
-        return (f"Put {wanted} pieces in their banks, one on each circle, then capture. The grid is not checked here.",
-                "Fill both banks, then capture.", None)
+        return (f"Put {wanted} pieces in their banks, one on each circle, then capture. The grid is not checked here."
+                + self._rest_words(), "Fill both banks, then capture.", None)
+
+    def _rest_words(self):
+        """Where the arm waits, in words: it is the area to keep clear."""
+        if not self.calibration:
+            return ""
+        gap, near = self.calibration.rest_gap()
+        tight = " That is close to the mat. Move the arm's resting place with the arrows." if gap < 15 else ""
+        return (f" The arm waits {max(gap, 0):.0f} mm from {near}. Keep that area clear.{tight}")
 
     def _words6(self):
         return ("Everything is set up. Open the Match tab and choose New game. If the mat or the arm is ever "

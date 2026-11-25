@@ -231,6 +231,17 @@ class Magician:
                 arrived(index, goal)
         return self.pose()
 
+    def to_rest(self, rest, stop, speed=QUICK, floor=HEIGHT_MM[0]):
+        """Carry the tool to its resting place: straight up to the resting height if it is lower, then across.
+
+        Going up first means the tool never sweeps across the mat at a low height.
+        """
+        here = self.pose()
+        if here.near(rest, mm=4, degrees=5):
+            return here
+        lifted = Pose(here.x, here.y, max(here.z, rest.z), rest.r)
+        return self.travel([lifted, rest], stop, speed=speed, floor=floor)
+
     def set_suction(self, enabled):
         self._request(SUCTION, WRITE, bytes((1, int(enabled))))
 

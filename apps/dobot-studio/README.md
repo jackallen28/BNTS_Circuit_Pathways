@@ -53,7 +53,7 @@ To keep it up to date later, install it with git, which also lets the app update
 
 ```sh
 sudo apt update
-sudo apt install -y git python3-venv python3-tk curl libgl1 libegl1 libgles2 libportaudio2
+sudo apt install -y git python3-venv python3-tk curl libgl1 libegl1 libgles2 libportaudio2 v4l-utils
 git clone -b codex/dobot-studio https://github.com/jackallen28/BNTS_Circuit_Pathways.git
 cd BNTS_Circuit_Pathways/apps/dobot-studio
 sh setup-pi.sh
@@ -381,6 +381,12 @@ markers, the same size as the marker cards. Print the 3D mat face-down, as suppl
 over to play. Keep each piece's supplied orientation so its mark begins on the first layer, and
 flip each piece mark side up for play.
 
+**Small A4 mat, for the Dobot's reach.** The compact mat is wider than the arm can comfortably cover.
+[mat-a4-small.pdf](printables/tictactoe/mat-a4-small.pdf) has the same Ø25 mm pieces and 16 mm markers
+(IDs 24-27) packed into a ring about 90 mm out from the middle, so every circle is in reach and the arm has room
+to wait off the mat. See [where to put the mat and the arm](#where-to-put-the-mat-and-the-arm). Its 100 mm scale
+line has no number: measure it with a ruler and type the length into the setup.
+
 The **300 × 300 mm** mat and the **A3** mat (with **Ø40 mm** pieces) are still in the print set
 and still work. Their markers and sizes are unchanged. The compact mat wastes much less
 space: its footprint is about 44% smaller than the 300 mm mat's.
@@ -392,8 +398,7 @@ For the paper mat, print [mat-a4.pdf](printables/tictactoe/mat-a4.pdf) on **A4 l
 [A3 PDF](printables/tictactoe/mat-a3.pdf), which uses [Ø40 mm tokens](printables/tictactoe/a3-pieces).
 
 The play and reserve spots are solid black circles, with an X bank on the left and
-an O bank on the right. Use the small Park ring as a guide for the tool's clearance
-position. The four corner codes register the mat with the camera.
+an O bank on the right. The small ring in the middle is the centre mark you touch to set the mat's height. The four corner codes register the mat with the camera.
 
 The mats carry **no printed names** such as A1 or X3. The camera finds each
 position from the corner codes, so the mat can sit any way round and the camera
@@ -402,109 +407,128 @@ position instead (see step 3).
 
 ![Compact mat layout with solid black circles, an X bank on the left, an O bank on the right and first-layer colour pieces](docs/images/tictactoe-print-layout.png)
 
+### Where to put the mat and the arm
+
+![The small A4 mat: a 3 by 3 grid, an X bank on the left, an O bank on the right, four camera markers and an unmarked 100 mm line](docs/images/tictactoe-small-mat.png)
+
+The Dobot Magician reaches circles **130 to 310 mm** from its base, and during a game it waits **off the
+mat**, between its base and the mat, and the camera reads the mat while it is there. The compact mat's two
+banks are 200 mm apart, so it fits that only in a few placements. The **small A4 mat** is packed to fit:
+
+* Put the Dobot facing the middle of a **long edge** of the sheet (either one), with the middle of the mat
+  **207 to 234 mm** from the arm's base, about **220 mm** is a good aim. Turned up to 15 degrees either way,
+  keep it 207 to 222 mm out. Facing a short edge leaves the arm nowhere to wait, so do not.
+* Keep the area between the arm's base and the mat **clear at all times**. That is where the arm waits and
+  moves, and the setup shows how far its resting place is from the nearest circle.
+
+Setup names any circle that is out of reach, and warns if the resting place is too near the mat.
+
 ### Set up the physical game
 
 ![Tic-tac-toe setup, step 4 of 7: the mat map and the camera view show the next circle to touch, O1](docs/images/tictactoe-setup-guide.png)
 
-1. Secure the mat flat with both reserves and all nine cells in reach. Mount the webcam
-   overhead. Connect and home the Dobot on the first screen, with the suction cup fitted,
-   then open **Tic-tac-toe**. The **Setup** tab walks through seven steps, and the
-   map beside the steps and the camera view show which circle each step means.
-2. **Show the mat.** Start the camera (Tic-tac-toe asks a USB camera for 1080p, and uses
-   a 1280-wide picture so the close-ups are sharp; a camera that only does 640 × 480 still
-   works) and move the mat or camera until it says
-   **Good to go**. The four corner markers are only a rough guide to find the mat once.
-3. **Capture the empty mat.** Clear the mat and move the arm out of the camera's view.
-   This locks the camera's view. After that the markers are not used again, so the arm
-   passing in front of them, or a marker read a little out, changes nothing.
+The **Setup** tab walks through seven steps. The map beside the steps and the camera view show which circle
+each step means. **The setup is never saved.** Do it every time you open Tic-tac-toe, because the mat, the camera and
+the arm may have moved since last time. If the camera is knocked during play, a warning appears and you only need
+to capture the empty mat again. The arm's setup is not affected.
+
+1. **Show the mat.** Secure the mat flat. Connect and home the Dobot on the first screen, with the suction
+   cup fitted, then open **Tic-tac-toe**. Start the camera. Tic-tac-toe asks a USB camera for 1080p and reads a
+   1280-wide picture. A camera that only does 640 × 480 still works. Move the mat or camera until it says
+   **Good to go**. The four corner markers only find the mat once.
+2. **Capture the empty mat.** Clear the mat and move the arm out of the camera's view. This locks the camera's
+   view. After that the markers are not used again, so the arm passing in front of them, or a marker read a
+   little out, changes nothing.
+3. **Touch the centre mark.** Hand-guide the arm (hold its button) until the suction cup just touches the mat
+   on the small ring in the middle, without pressing, and save it. That is the height of the mat, which is height
+   zero for the arm. **Picking and placing add the thickness of a piece** to that height (3.2 mm for the Ø25 mm
+   pieces, 5.12 mm for the Ø40 mm ones). The cup meets the top of a piece, and a piece held by its top has its
+   underside on the mat at the same height. The arm's height limit follows the mat (the lowest touch less 5 mm),
+   so a mat on a low table is not refused.
    **Printed scale (optional).** A paper mat has a 100 mm line at its foot. Printers can scale a sheet a little, so
    measure the printed line with a ruler (it should be within 5 mm of 100) and type it into **Printed line
-   measures** on the centre-mark step. The arm then allows for it, and a Quick setup only has to find where the mat
-   is and how it is turned, which makes it noticeably more accurate. Leave it empty if you did not measure it.
-4. **Touch the centre mark, then the four corners.** Hand-guide the arm (hold its button)
-   until the suction cup just touches the mat on the small ring in the middle, without
-   pressing, and save it. That is the height of the mat, which is height zero for the arm. Then
-   do the same on the middle of each of the four outer circles, one at a time. That is
-   all the arm is taught. It works out the mat's position, rotation, true printed size and
-   slope from those five touches, and so where every other circle is, without the
-   camera. The circles are large, so a few millimetres either way is fine. A touch that is
-   4 mm or more from where the others put it shows an amber warning, and you can go on:
-   the next step visits every circle and you can nudge any that are off. Only a slip of
-   10 mm or more (usually the wrong circle) stops the setup. It is named, and you can click
-   it on the map and touch it again, or choose **Use these points anyway**. While you guide
-   the arm, the camera view shows a **close-up of the circle** from straight above, with a
-   red crosshair on its centre: when the cup covers the crosshair, it is on the point.
-   **Picking and placing add the thickness of a piece** to that
-   height (3.2 mm for the Ø25 mm pieces, 5.12 mm for the Ø40 mm ones). The cup meets the top of
-   a piece, and a piece held by its top has its underside on the mat at the same height.
-   **Two ways to teach it.** Step 4 offers **Accurate** (the centre and all four corners, five
-   touches: the arm measures the mat's position, rotation, size and slope, and averages out
-   small errors in your hand-guiding) and **Quick** (the centre and one corner: the camera is
-   looking straight down, so the arm already knows which way the mat is mirrored, and takes the
-   mat as flat, and the two touches fix where it is, how it is turned and its size). Quick is
-   faster but nothing checks the two touches, and a 1 mm slip at a touch becomes about 2 mm
-   typically and up to about 7 mm at the far circles. Touch more corners on the map after a
-   quick setup, and it becomes the full fit. The camera cannot replace the touches: it knows
-   where each circle is in the picture, but only the arm's own touches say how the picture
-   relates to the arm's coordinates. Either way, the next step visits every circle.
-   The arm's height limit follows the mat (the lowest touch less 5 mm), so a mat on a low table
-   is not refused.
-   **Moving by buttons instead of by hand.** Once the centre mark is saved, its height is the
-   mat's height, and corners are saved at that height whatever height the cup is at (untick
-   *Use the centre mark's height* to save the height you touched instead). **Go near** lifts the
-   cup and carries it to where the circle should be, a little above the mat. It is a rough guess
-   after one touch (it assumes the Dobot is at the top edge of the mat on the map) and
-   accurate to a few millimetres once two points are saved. The **arrows** then move the cup
-   a step across the mat as it looks on the map and the camera close-up (turned if you tick
-   *View from the Dobot's side*), and ⬆ ⬇ move it up and down. **Lower to the mat** puts it at
-   the mat's height for a last look at the close-up, and **Save this corner** keeps it.
-   If any circle would be beyond the arm's reach (130 to 310 mm from its base), step 4 says
-   which one, and the mat needs moving closer. If the arm refuses a move later, the reason is
-   shown and the arm stays connected and homed.
-5. **Check every point.** Press **Check all points**. The arm visits all 19 circles a little
-   above the mat. Click any circle on the map to look at it: **Go to selected**, **Lower**
-   the cup onto it (it stops at the top of a piece), and **nudge** it by 0.5, 1 or 2 mm if it is
-   off centre. If your printed pieces are not the size shown, change **Piece thickness** with the
-   − and + buttons, and every pick and place height follows. If you stand
-   behind the mat with the Dobot, tick **View from the Dobot’s side**. The map and its
+   measures**. The arm then allows for it, and a Quick setup only has to find where the mat is and how it is
+   turned, which makes it more accurate. Leave it empty if you did not measure it. The small mat's line has no
+   number on it.
+4. **Touch the corners.** Choose **Accurate** (the four outer circles, so five touches in all: the arm measures
+   the mat's position, rotation, size and slope, and averages out small errors in your guiding) or **Quick** (one
+   corner: the camera is looking straight down, so the arm already knows which way the mat is mirrored, and takes
+   the mat as flat). Quick is faster but nothing checks its two touches: a 1 mm slip becomes about 2 mm typically
+   and up to about 7 mm at the far circles. Touch more corners on the map afterwards and it becomes the full fit.
+   The camera cannot replace the touches: it knows where each circle is in the picture, but only the arm's own touches
+   say how the picture relates to the arm's coordinates. The circles are large, so a few millimetres either way is
+   fine. A touch 4 mm or more from where the others put it shows an amber warning and you can go on. A slip of
+   10 mm or more (usually the wrong circle) stops the setup. It is named, and you can click it on the map and touch
+   it again, or choose **Use these points anyway**.
+   *Helps:* the camera view shows a **close-up of the circle** from straight above, with a red crosshair on its
+   centre: when the cup covers it, the cup is on the point. Or **move by buttons**: once the centre mark is saved,
+   corners are saved at its height whatever height the cup is at (untick *Use the centre mark's height* to save
+   the height you touched). **Go near** lifts the cup and carries it to where the circle should be (a rough guess
+   after one touch, which assumes the Dobot is at the top edge of the mat on the map, and good to a few millimetres
+   after two). The **arrows** move the cup a step across the mat as it looks on the map and the close-up (turned
+   if you tick *View from the Dobot's side*), ⬆ ⬇ move it up and down, **Lower to the mat** puts it at the mat's
+   height for a last look, and **Save this corner** keeps it. If any circle would be beyond the arm's reach,
+   the step says which one. If the arm refuses a move, the reason is shown and the arm stays connected and homed.
+5. **Check every point.** Press **Check all points**. The arm visits all 19 circles a little above the mat, then
+   goes to its resting place. Click any circle on the map to look at it: **Go to selected**, **Lower** the cup onto it
+   (it stops at the top of a piece), and **nudge** it by 0.5, 1 or 2 mm if it is off centre. If your printed pieces
+   are not the size shown, change **Piece thickness** with the − and + buttons, and every pick and place height
+   follows. If you stand behind the mat with the Dobot, tick **View from the Dobot's side**. The map and its
    wording turn end for end to match what you see.
-6. **Check the pieces.** The arm moves to Park by itself, and the camera takes a second
-   look with the arm there, so the resting arm is not mistaken for something in the way.
-   Put **five X pieces in the X bank and five O pieces in the O bank**, one on each circle,
-   and press **Capture pieces**. Only the two banks are checked: every circle must hold a
-   piece, and every piece must be the mark its bank holds. Each circle that is not right is
-   named, with why (*has no piece*, *holds O, not X*, or *cannot be read* and the camera's
-   reason), and the camera view shows that circle now beside the same place when the mat was
-   empty. The banks are marked green or red on the camera view. The nine grid circles are not
-   checked here: they hold no pieces yet, and a note only mentions anything on them. The blue
-   and green rings and writing on the camera view are drawn on the screen afterwards. They are
-   never on the picture the camera reads. The reading copes with the camera's automatic
+6. **Check the pieces.** The arm moves to its **resting place**, off the mat, and the camera takes a second look with
+   the arm there. The step says how far the resting place is from the nearest circle. Move it with the arrows
+   if it is too close. Put **five X pieces in the X bank and five O pieces in the O bank**, one on each circle, and
+   press **Capture pieces**. Only the two banks are checked: every circle must hold a piece, and every piece must
+   be the mark its bank holds. Each circle that is not right is named, with why (*has no piece*, *holds O, not X*,
+   or *cannot be read* and the camera's reason), and the camera view shows that circle now beside the same place
+   when the mat was empty. The banks are marked green or red. The nine grid circles are not checked: they hold no
+   pieces yet, and a note only mentions anything on them. The rings and writing on the camera view are drawn on the
+   screen afterwards and are never on the picture the camera reads. The reading copes with the camera's automatic
    exposure, a slightly soft picture and a picture that slips a few pixels. Then finish.
+7. **Ready to play.** Open the **Match** tab.
 
-The setup is never saved. Run it every time you open Tic-tac-toe, because the mat, the camera
-and the arm may have moved since last time. If the camera is knocked during play, a warning
-appears and you only need to capture the empty mat again. The arm's setup is not affected.
-7. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least
-   four of O1–O5 with noughts. On the single-bank mat, put the Dobot’s mark in
-   the reserve slots. Load five if it plays X or four if it plays O. Select
+#### Camera and pieces (setup only)
+
+![The Camera and pieces window: what you see beside what the Pi reads, with sliders](docs/images/tictactoe-camera-pieces.png)
+
+**Camera & pieces…** is in the setup steps only. It is not on the Match tab, so players see the camera's own
+picture. What it sets is what the Pi reads. Nothing in it is saved.
+
+* **How the Pi reads the picture** (brightness, contrast, shadows and sharpening) changes only what the Pi sees,
+  never the live picture. The two pictures at the top show *What you see* beside *What the Pi reads*. If a mark
+  is faint, add contrast. Changing it after the empty mat was captured is fine: the empty mat is seen through the
+  same adjustment, and nothing needs capturing again.
+* **The camera itself** lists the camera's own controls (exposure, focus, white balance, gain and so on). These change
+  what the camera sends, so they change the live view too. **Lock exposure, focus and colour** stops the camera
+  changing its own settings when pieces move in front of it, which is the usual cause of readings that come and go.
+  They use `v4l2-ctl`, which `setup-pi.sh` checks for (`sudo apt install v4l-utils`).
+* **Teach the pieces** (optional) shows the camera your own X and O pieces. For each mark, take about three
+  **close-ups** (one piece under the camera, on a dark surface, filling most of the picture) and about three
+  pictures **from a distance** (the camera in its place, and only X pieces, or only O pieces, on the mat). The
+  camera keeps the shape of each mark. It only asks those shapes when its built-in reading is not sure, so teaching
+  can help a reading and never break one that already works. It warns if the X and O shapes look alike.
+
+### Playing
+
+7. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least four of O1–O5 with noughts. On the
+   single-bank mat, put the Dobot's mark in the reserve slots. Load five if it plays X or four if it plays O. Select
    **New game**.
-8. On your turn, centre one piece in an empty cell and take your hand away.
-   Once the camera sees one legal move and a clear, unchanged mat for 1.5
-   seconds, the Dobot makes its move. A change, obstruction or lost camera view
-   restarts the countdown. If you play O, the Dobot opens after the same check.
-   The camera verifies the destination and the cleared reserve slot after transfer.
-9. Keep hands clear until the tool returns to Park and the screen shows your
-   turn. Use **Stop** or Escape to interrupt. Support any held piece before using
-   **Release suction**. Watch the first lift and placement to check reach and suction.
-10. When the game ends, leave the mat still and clear. After 1.5 seconds the Dobot
-   returns each piece from the cells to a free reserve slot, one at a time, and the
-   camera confirms every move before the next. On the paper, A3 and compact mats it returns
-   both marks to their own banks. On the single-bank 3D mat it returns only its own
-   pieces, so take your pieces off the mat yourself. When the screen says **Board
-   reset**, check the reserves and choose **New game**. Untick **Reset the board after
-   each game** to tidy by hand, or click **Reset board** to run the reset later, for
-   example after a stopped game. **Stop** or Escape cancels it. If a move is not
-   confirmed, or a reserve bank has no free slot, the reset stops and says why.
+8. On your turn, centre one piece in an empty cell and take your hand away. The Dobot's arm is waiting **off the
+   mat**, so the camera sees all of it. Once the camera sees one legal move and a clear, unchanged mat for 1.5
+   seconds, the screen says the camera has read the mat, the Dobot **thinks** for a moment, and only then does it
+   move. A change, obstruction or lost camera view restarts the countdown. If you play O, the Dobot opens after the
+   same check.
+9. The Dobot fetches its piece, places it, and goes **back to its resting place**. The camera verifies the destination
+   and the cleared reserve slot after the transfer. Keep hands clear of the arm's path and keep the resting area
+   clear. Use **Stop** or Escape to interrupt. Support any held piece before using **Release suction**. Watch the first
+   lift and placement to check reach and suction.
+10. When the game ends, leave the mat still and clear. After 1.5 seconds the Dobot returns each piece from the cells
+   to a free reserve slot, one at a time, and the camera confirms every move before the next. On the paper, A3 and
+   compact mats it returns both marks to their own banks. On the single-bank 3D mat it returns only its own pieces, so
+   take your pieces off the mat yourself. When the screen says **Board reset**, check the reserves and choose **New
+   game**. Untick **Reset the board after each game** to tidy by hand, or click **Reset board** to run the reset
+   later, for example after a stopped game. **Stop** or Escape cancels it. If a move is not confirmed, or a reserve
+   bank has no free slot, the reset stops and says why.
 
 ![Overhead view of the compact mat during an automatic turn countdown](docs/images/tictactoe-camera.png)
 

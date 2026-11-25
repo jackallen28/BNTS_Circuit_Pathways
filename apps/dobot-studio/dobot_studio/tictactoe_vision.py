@@ -28,9 +28,10 @@ class MatView:
     shape: tuple
     matrix: object
     layout: MatLayout
+    source: object = None          # the picture as the camera gave it, before any adjustment, so a view can be redone
 
 
-def _view(rgb, matrix, corners, layout):
+def _view(rgb, matrix, corners, layout, source=None):
     import cv2
 
     grey = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
@@ -38,11 +39,26 @@ def _view(rgb, matrix, corners, layout):
     clear_matrix = matrix.copy()
     clear_matrix[:2] *= CLEAR_DENSITY / DENSITY
     colour = cv2.warpPerspective(rgb, clear_matrix, (layout.width*CLEAR_DENSITY, layout.height*CLEAR_DENSITY))
-    return MatView(warped, colour, corners, grey.shape, matrix, layout)
+    return MatView(warped, colour, corners, grey.shape, matrix, layout, rgb if source is None else source)
 
 
-def rectify(rgb):
+def _tuned(rgb, tune):
+    from .camera_tune import apply
+
+    return apply(rgb, tune)
+
+
+def retuned(view, tune):
+    """The same view, looked at again through different camera adjustments (from the picture it was made from)."""
+    if view is None or view.source is None:
+        return view
+    return _view(_tuned(view.source, tune), view.matrix, view.corners, view.layout, view.source)
+
+
+def rectify(rgb, tune=None):
     """Find the mat from its four corner markers. This is only a rough reference.
+
+    ``tune`` is the adjustment the Pi reads the picture through. The markers are found in the adjusted picture.
 
     It is used until the empty mat is captured. After that the registration is locked, so a
     marker hidden by the arm, or read a little out, cannot change where the mat is taken to be.
@@ -50,6 +66,7 @@ def rectify(rgb):
     import cv2
     import numpy as np
 
+    source, rgb = rgb, _tuned(rgb, tune)
     markers = detect(rgb)
     suitable = [layout for layout in MAT_LAYOUTS if all(marker in markers for marker in layout.anchors)]
     if len(suitable) != 1:
@@ -59,17 +76,17 @@ def rectify(rgb):
     if not cv2.isContourConvex(corners) or abs(cv2.contourArea(corners)) < 12000:
         raise ValueError("Move the camera closer and keep the full mat in view.")
     target = np.asarray(tuple(layout.anchors.values()), dtype=np.float32) * DENSITY
-    return _view(rgb, cv2.getPerspectiveTransform(corners, target), corners, layout)
+    return _view(rgb, cv2.getPerspectiveTransform(corners, target), corners, layout, source)
 
 
-def lock_view(rgb, reference):
+def lock_view(rgb, reference, tune=None):
     """Read a frame through the registration that was made when the empty mat was captured.
 
     No markers are looked for, so nothing in front of them matters.
     """
     if rgb.shape[:2] != reference.shape:
         raise ValueError("The camera picture changed size. Capture the empty mat again.")
-    return _view(rgb, reference.matrix, reference.corners, reference.layout)
+    return _view(_tuned(rgb, tune), reference.matrix, reference.corners, reference.layout, rgb)
 
 
 def loupe(rgb, matrix, centre, size=220, window=44, turned=False):
@@ -130,20 +147,51 @@ def _templates():
     return body, centre, {key: np.stack(value) for key, value in templates.items()}, outside
 
 
-def inspect(tile, baseline):
+def ink_of(tile):
+    """The mark on a piece: where the picture differs most from the piece's own body colour, in the middle of the circle."""
+    import numpy as np
+
+    body, centre, _, _ = _templates()
+    tint = float(np.median(tile[body]))
+    difference = np.abs(tile.astype(np.float32) - tint)
+    # Half way between the piece and its mark, so a soft or out-of-focus edge does not fatten or thin the mark.
+    return (difference > max(32.0, 0.5 * float(np.percentile(difference[centre], 98)))) & centre
+
+
+def _corrected(tile, baseline):
+    """The tile with the camera's overall gain taken off, so it can be compared with the empty mat."""
+    import numpy as np
+
+    outside = _templates()[3]
+    gain = float(np.median(tile[outside])) / max(float(np.median(baseline[outside])), 1.0)
+    if 0.4 <= gain <= 2.0 and abs(gain - 1) > 0.02:
+        return np.clip(tile.astype(np.float32) / gain, 0, 255).astype(np.uint8)
+    return tile
+
+
+def mark_of(tile, baseline):
+    """If a piece is on this circle, its mark as a mask, otherwise None. Used to teach the camera what a mark looks like."""
+    import numpy as np
+
+    body = _templates()[0]
+    tile = _corrected(tile, baseline)
+    if np.mean(np.abs(tile.astype(np.int16) - baseline.astype(np.int16))[body] >= 29) < 0.55:
+        return None
+    ink = ink_of(tile)
+    return ink if ink.sum() >= 95 else None
+
+
+def inspect(tile, baseline, learned=None):
     """What is on one circle, and if the answer is "?", why.
 
     Returns (mark, detail). ``mark`` is "" for an empty circle, X, O or UNKNOWN. ``detail`` is a short
-    plain-English reason that goes with an UNKNOWN, and is empty otherwise.
+    plain-English reason that goes with an UNKNOWN, and is empty otherwise. ``learned`` is what the
+    person has taught the camera about their own pieces. It is only asked when the built-in shapes are not sure.
     """
     import numpy as np
 
-    body, centre, templates, outside = _templates()
-    # A camera that brightens or darkens the whole picture (its automatic exposure) changes the plain paper around the
-    # circle as well. Take that gain off, so only what is on the circle is compared with the empty mat.
-    gain = float(np.median(tile[outside])) / max(float(np.median(baseline[outside])), 1.0)
-    if 0.4 <= gain <= 2.0 and abs(gain - 1) > 0.02:
-        tile = np.clip(tile.astype(np.float32) / gain, 0, 255).astype(np.uint8)
+    body, centre, templates, _ = _templates()
+    tile = _corrected(tile, baseline)
     delta = np.abs(tile.astype(np.int16) - baseline.astype(np.int16))
     changed = np.mean(delta[body] >= 29)
     if changed < 0.17:
@@ -154,34 +202,41 @@ def inspect(tile, baseline):
         if np.mean(delta[centre] >= 29) < 0.05:
             return "", ""
         return UNKNOWN, "something is partly on this circle, or in its way"
-    tint = float(np.median(tile[body]))
-    difference = np.abs(tile.astype(np.float32) - tint)
-    # Half way between the piece and its mark, so a soft or out-of-focus edge does not fatten or thin the mark.
-    ink = (difference > max(32.0, 0.5 * float(np.percentile(difference[centre], 98)))) & centre
+    ink = ink_of(tile)
     size = ink.sum()
     if size < 95:
         return UNKNOWN, "a piece is here but its X or O mark does not show up. Check the lighting"
-    scores = {}
-    for mark, shapes in templates.items():
+
+    def score(shapes):
         intersection = np.count_nonzero(shapes & ink, axis=(1, 2))
         union = np.count_nonzero(shapes, axis=(1, 2)) + size - intersection
-        scores[mark] = float((intersection / union).max())
-    best, alternate = sorted(scores, key=scores.__getitem__, reverse=True)
-    if scores[best] >= 0.60 and scores[best] - scores[alternate] >= 0.12:
-        return best, ""
+        return float((intersection / union).max())
+
+    def verdict(scores):
+        best, alternate = sorted(scores, key=scores.__getitem__, reverse=True)
+        return best if scores[best] >= 0.60 and scores[best] - scores[alternate] >= 0.12 else None
+
+    scores = {mark: score(shapes) for mark, shapes in templates.items()}
+    chosen = verdict(scores)
+    if chosen is None and learned is not None and learned.ready():
+        taught = {mark: max(scores[mark], score(learned.templates(mark)) if learned.has(mark) else 0.0) for mark in scores}
+        chosen = verdict(taught)
+        scores = taught
+    if chosen:
+        return chosen, ""
     return UNKNOWN, (f"the mark is not clearly an X or an O (it matches an X {scores[X]:.0%} and an O {scores[O]:.0%}). "
                      "Is the piece centred and the right way up?")
 
 
-def piece(tile, baseline):
-    return inspect(tile, baseline)[0]
+def piece(tile, baseline, learned=None):
+    return inspect(tile, baseline, learned)[0]
 
 
-def explain(grey, baseline, layout, name):
+def explain(grey, baseline, layout, name, learned=None):
     """Why one circle reads "?": the reason, in plain English."""
     centre = layout.positions[name]
     scale = layout.piece_scale
-    return inspect(_patch(grey, centre, scale), _patch(baseline, centre, scale))[1]
+    return inspect(_patch(grey, centre, scale), _patch(baseline, centre, scale), learned)[1]
 
 
 def side_by_side(view, reference, centre, size=150, window=44, turned=False):
@@ -200,9 +255,9 @@ def side_by_side(view, reference, centre, size=150, window=44, turned=False):
     return crop(view.colour), crop(reference.colour)
 
 
-def read_position(grey, baseline, layout=STANDARD_MAT):
+def read_position(grey, baseline, layout=STANDARD_MAT, learned=None):
     scale = layout.piece_scale
-    symbols = {name: piece(_patch(grey, centre, scale), _patch(baseline, centre, scale))
+    symbols = {name: piece(_patch(grey, centre, scale), _patch(baseline, centre, scale), learned)
                for name, centre in layout.positions.items()}
     return Position(tuple(symbols[name] for name in CELLS), tuple(symbols[name] for name in layout.reserve))
 

@@ -7,7 +7,7 @@ import numpy as np
 
 from dobot_studio.matcalib import CLEARANCE, HOVER, MatCalibration, PARK, fit_plane, fit_similarity, outer_points
 from dobot_studio.robot import Pose
-from dobot_studio.tictactoe import A3_MAT, COMPACT_MAT, PAPER_MAT, PIECE_HEIGHT, STANDARD_MAT
+from dobot_studio.tictactoe import A3_MAT, COMPACT_MAT, PAPER_MAT, PIECE_HEIGHT, SMALL_MAT, STANDARD_MAT
 
 
 class TruePlacement:
@@ -61,6 +61,11 @@ class FitTests(unittest.TestCase):
         self.assertTrue(np.allclose((a, b, c), (0.01, -0.02, 5)))
 
 
+def without_rest(problems):
+    """The warnings about the geometry of the mat, leaving out where the arm would wait."""
+    return [problem for problem in problems if "resting place" not in problem]
+
+
 class CalibrationTests(unittest.TestCase):
     def test_the_outer_points_are_the_four_corners_of_the_layout(self):
         self.assertEqual(outer_points(COMPACT_MAT), ["X1", "O1", "O5", "X5"])
@@ -73,7 +78,7 @@ class CalibrationTests(unittest.TestCase):
             with self.subTest(layout.label):
                 truth = TruePlacement(layout)
                 calibration = MatCalibration(layout, truth.touched(noise=0.3))
-                self.assertEqual(calibration.problems(), [])
+                self.assertEqual(without_rest(calibration.problems()), [])
                 worst = 0.0
                 for name, point in layout.positions.items():
                     expected = truth.surface_pose(point)
@@ -129,7 +134,7 @@ class CalibrationTests(unittest.TestCase):
         everything = truth.touched()
         full = MatCalibration(COMPACT_MAT, everything, print_scale=0.97)
         self.assertAlmostEqual(full.scale, 1.0, places=3)          # the mat was measured, so nothing is left over
-        self.assertEqual(full.problems(), [])
+        self.assertEqual(without_rest(full.problems()), [])
         quick = MatCalibration(COMPACT_MAT, {PARK: everything[PARK], "X1": everything["X1"]}, print_scale=0.97)
         self.assertAlmostEqual(quick.scale, 1.0)
         for name, point in COMPACT_MAT.positions.items():
@@ -149,6 +154,37 @@ class CalibrationTests(unittest.TestCase):
             return float(np.sqrt(np.mean(rms)))
 
         self.assertLess(worst_error(0.97), worst_error(None) * 0.8, "knowing the size should help a quick setup")
+
+    def test_the_arm_rests_off_the_mat_between_its_base_and_the_mat_at_the_height_of_park(self):
+        for layout in (SMALL_MAT, COMPACT_MAT, PAPER_MAT, A3_MAT):
+            for distance in (225, 235):
+                with self.subTest(layout.label, distance=distance):
+                    truth = TruePlacement(layout, angle=90, offset=(distance, 0), scale=1.0, tilt=(0.0, 0.0))
+                    calibration = MatCalibration(layout, truth.touched())
+                    rest, park = calibration.rest(), calibration.park()
+                    self.assertAlmostEqual(rest.z, park.z, places=6)
+                    self.assertAlmostEqual(rest.r, park.r, places=6)
+                    circles = np.array([calibration.xy(name) for name in layout.positions])
+                    middle = circles.mean(axis=0)
+                    self.assertAlmostEqual(rest.x * middle[1] - rest.y * middle[0], 0.0, delta=30,
+                                           msg="on the line from the base to the mat's middle")
+                    self.assertGreaterEqual(float(np.hypot(rest.x, rest.y)), 137.9, "no nearer the base than it can reach")
+                    nearest = min(np.hypot(*(calibration.xy(name) - (rest.x, rest.y))) for name in layout.positions)
+                    self.assertLess(float(np.hypot(rest.x, rest.y)), float(np.hypot(*calibration.xy(min(layout.positions, key=lambda n: np.hypot(*calibration.xy(n)))))))
+                    self.assertEqual(calibration.poses()["Rest"], rest)
+
+    def test_a_resting_place_too_close_to_the_mat_is_a_warning_and_a_nudge_moves_it(self):
+        truth = TruePlacement(SMALL_MAT, angle=90, offset=(225, 0), scale=1.0, tilt=(0.0, 0.0))
+        good = MatCalibration(SMALL_MAT, truth.touched())
+        self.assertEqual(good.warnings(), [])
+        self.assertGreater(good.rest_gap()[0], 30)
+        near = TruePlacement(SMALL_MAT, angle=90, offset=(185, 0), scale=1.0, tilt=(0.0, 0.0))
+        close = MatCalibration(SMALL_MAT, near.touched())
+        self.assertTrue(any("resting place" in warning for warning in close.warnings()))
+        self.assertEqual(close.errors(), [])
+        shifted = MatCalibration(SMALL_MAT, truth.touched(), rest_shift=(-0.0, 12.0))
+        self.assertAlmostEqual(shifted.rest().y, 12.0, delta=0.5)
+        self.assertAlmostEqual(shifted.rest().x, good.rest().x, delta=0.5)
 
     def test_the_mats_real_size_and_slope_are_measured(self):
         truth = TruePlacement(COMPACT_MAT, scale=0.985)
@@ -192,13 +228,13 @@ class CalibrationTests(unittest.TestCase):
         bad = touched["O1"]
         touched["O1"] = Pose(bad.x + 2, bad.y - 1.5, bad.z, bad.r)
         calibration = MatCalibration(COMPACT_MAT, touched)
-        self.assertEqual((calibration.errors(), calibration.warnings()), ([], []))
+        self.assertEqual((calibration.errors(), without_rest(calibration.warnings())), ([], []))
 
     def test_heights_follow_the_surface_and_park_is_in_range(self):
         truth = TruePlacement(COMPACT_MAT)
         calibration = MatCalibration(COMPACT_MAT, truth.touched())
         poses = calibration.poses()
-        self.assertEqual(set(poses), {*COMPACT_MAT.positions, PARK})
+        self.assertEqual(set(poses), {*COMPACT_MAT.positions, PARK, "Rest"})
         for name in COMPACT_MAT.positions:
             self.assertAlmostEqual(calibration.hover(name).z - calibration.pick(name).z, HOVER)
             # Park must sit 12 to 75 mm above every pick pose, which sort_chip insists on.

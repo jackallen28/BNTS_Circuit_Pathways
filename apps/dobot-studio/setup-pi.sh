@@ -34,5 +34,8 @@ download_model gesture_recognizer.task \
     https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task
 download_model pose_landmarker_lite.task \
     https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task
+if ! command -v v4l2-ctl >/dev/null 2>&1; then
+    printf '%s\n' "Optional: the camera's own controls (exposure, focus) need v4l-utils.  Run:  sudo apt install v4l-utils"
+fi
 sh install-desktop.sh || printf '%s\n' "The desktop icon could not be added. Run  sh install-desktop.sh  later."
 printf '%s\n' "Setup complete. Open Dobot Studio from its desktop icon, or run sh launch.sh on the Raspberry Pi desktop."

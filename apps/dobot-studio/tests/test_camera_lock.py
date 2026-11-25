@@ -91,8 +91,8 @@ class CameraLockTests(unittest.TestCase):
         real = tictactoe_program.rectify
         calls = {"n": 0}
 
-        def wobble(rgb):
-            view = real(rgb)
+        def wobble(rgb, tune=None):
+            view = real(rgb, tune)
             calls["n"] += 1
             if 3 <= calls["n"] <= 12:          # a partly hidden marker read a few pixels out, for a while
                 return replace(view, corners=view.corners + np.float32([[7, -5]] * 4))

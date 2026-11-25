@@ -117,11 +117,12 @@ SMALL_ANCHORS = {24: (COMPACT_CENTRE[0] - 100, COMPACT_CENTRE[1] - 78), 25: (COM
 SMALL_PARK = (COMPACT_CENTRE[0], COMPACT_CENTRE[1] + SMALL_PITCH / 2)       # the middle of the lower grid divider
 SMALL_MAT = MatLayout("Small", SMALL_ANCHORS, SMALL_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS,
                       width=COMPACT_WIDTH, height=COMPACT_HEIGHT, park=SMALL_PARK)
-# Where the mat may go, measured with 8 mm to spare at each end of the arm's 130 to 310 mm reach. The mat's middle must
-# be this far from the arm's base (mm) with the sheet square-on to the arm: "long" is the base facing the middle of a
-# long edge, "short" a short edge. Turned up to 15 degrees either way the ranges narrow to 205-222 and 214-218.
-SMALL_PLACEMENT = {"long": (181, 234), "short": (206, 227)}
-SMALL_SUGGESTED_DISTANCE = 215
+# Where the mat may go. Every circle must be within the arm's 130 to 310 mm reach (with 8 mm to spare), and the arm must
+# have somewhere to wait off the mat, which is between its base and the mat, no nearer the base than 138 mm. That needs
+# the base facing the middle of a long edge of the sheet, with the middle of the mat this far from the base (mm).
+# Turned up to 15 degrees either way the range narrows to 207-222. Facing a short edge leaves no room to wait.
+SMALL_PLACEMENT = {"long": (207, 234)}
+SMALL_SUGGESTED_DISTANCE = 220
 
 MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT, A3_MAT, COMPACT_MAT, SMALL_MAT)
 

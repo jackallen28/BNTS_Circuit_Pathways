@@ -170,15 +170,13 @@ pieces and 16 mm camera markers (**IDs 24-27**) into a ring about 90 mm out from
 pitch 36 mm, banks 68 mm either side of the middle with 30 mm between circles. Nothing about the pieces
 or markers changes size.
 
-**Where to put it.** With 8 mm to spare at each end of the reach, every circle is reachable when:
-
-* the Dobot faces the middle of a **long edge** of the sheet (the wider placement) and the middle of the
-  mat is **181 to 234 mm** from the arm's base, or
-* the Dobot faces the middle of a **short edge** and the middle is **206 to 227 mm** from the base.
-
-About **215 mm** from the base, facing a long edge, works. If the sheet is turned up to 15 degrees,
-keep the middle 205 to 222 mm out. Dobot Studio checks every circle against the reach when the
-corners are saved and names any it cannot reach.
+**Where to put it.** With 8 mm to spare at each end of the arm's 130 to 310 mm reach, and room for the arm to
+wait **off the mat** between its base and the mat during a game (no nearer the base than 138 mm), every circle is
+reachable when the Dobot faces the middle of a **long edge** of the sheet (either one) and the middle of the mat is
+**207 to 234 mm** from the arm's base. About **220 mm** works. If the sheet is turned up to 15 degrees, keep the
+middle 207 to 222 mm out. Facing a short edge leaves the arm nowhere to wait, so do not. Keep the area between the
+arm's base and the mat clear. Dobot Studio checks every circle against the reach when the corners are saved and
+names any it cannot reach, and it warns if the resting place is too near the mat.
 
 **The scale line.** The line at the foot of the sheet is **100 mm** and carries no number. Measure what it
 printed as with a ruler. It should be within 5 mm of 100. Type the length into **Printed line measures**

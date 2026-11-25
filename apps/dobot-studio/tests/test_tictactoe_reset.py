@@ -80,9 +80,16 @@ class FakeRobot:
         self.world, self.names = world, {pose: name for name, pose in poses.items()}
         self.on_move = None
         self.calls = []
+        self.rests = []              # every time the tool was sent to its resting place
+        self.call_times = []
+
+    def to_rest(self, rest, stop, speed=None, floor=None):
+        self.rests.append((rest, monotonic()))
+        return rest
 
     def sort_chip(self, pick, drop, park, stop, attachment=None, *, via_park=False):
         self.calls.append((pick, drop, park))
+        self.call_times.append(monotonic())
         source, target = self.names[pick], self.names[drop]
         self.world.moves.append((source, target))
         if not self.world.refuse:
@@ -224,6 +231,35 @@ class PhysicalResetTests(unittest.TestCase):
         self.assertEqual(self.world.board, (X, "", "", X, "", "", X, "", ""))
         self.assertEqual(self.world.reserve[:2], [O, O])
         self.assertIn("Take your 3 pieces", program.status.get())
+
+    def test_a_turn_is_read_then_thought_about_then_carried_out_from_and_back_to_the_resting_place(self):
+        from dobot_studio import tictactoe_program
+
+        program = self.program(COMPACT_MAT, (X,) + ("",) * 8)          # the player has just placed a cross at A1
+        program.board = EMPTY                                            # as the game knew it before that move
+        program.turn, program.ready = X, True
+        program.chosen = None
+        self.world.reserve = [""] * 5 + [O] * 5
+        seen = []
+        original = program.status.set
+        program.status.set = lambda text: (seen.append((monotonic(), text)), original(text))[1]
+        self.assertTrue(self.pump(program, 12, lambda: bool(self.world.moves)))
+        moved = monotonic()
+        texts = [text for _, text in seen]
+        confirming = next(i for i, text in enumerate(texts) if "Confirming the position" in text)
+        thinking = next(i for i, text in enumerate(texts) if "is thinking" in text)
+        self.assertLess(confirming, thinking, "the camera reads and confirms the mat before the Dobot thinks")
+        thought_at = seen[thinking][0]
+        self.assertGreaterEqual(self.studio.robot.call_times[0] - thought_at, tictactoe_program.THINK_SECONDS - 0.2,
+                                "and it thinks for a moment before it moves")
+        self.assertEqual(len(self.studio.robot.rests), 1, "the tool is taken to rest before the move")
+        rest, rested_at = self.studio.robot.rests[0]
+        self.assertEqual(rest, program.poses["Rest"])
+        self.assertLessEqual(rested_at, self.studio.robot.call_times[0])
+        pick, drop, park = self.studio.robot.calls[0]
+        self.assertEqual(park, program.poses["Rest"], "the move starts and ends at the resting place, off the mat")
+        self.assertEqual(program.board[0], X)
+        self.assertIn("is thinking", "".join(texts[thinking:thinking + 1]))
 
     def test_it_waits_for_a_clear_still_mat_before_moving(self):
         program = self.program(A3_MAT, FINISHED)

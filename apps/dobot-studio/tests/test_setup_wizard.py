@@ -19,15 +19,15 @@ from PIL import Image
 from dobot_studio import robot as R
 from dobot_studio import tictactoe_program
 from dobot_studio.matcalib import PARK, outer_points
-from dobot_studio.tictactoe import COMPACT_MAT, O, X
+from dobot_studio.tictactoe import O, SMALL_MAT, X
 from tests.fake_dobot import FakeDobot
 from tests.test_matcalib import TruePlacement
 from tests.test_tictactoe import camera_view
 
 needs_display = unittest.skipUnless(os.environ.get("DISPLAY") or sys.platform == "win32", "needs a display")
-LAYOUT = COMPACT_MAT
+LAYOUT = SMALL_MAT          # the mat that fits the arm: with the Dobot facing a long edge, 220 mm from its middle
 # Where the mat really is, as the arm would find out by touching it. The software is never told.
-TRUTH = TruePlacement(LAYOUT, angle=90, scale=0.99, offset=(200, 0), tilt=(0.0008, -0.0005), surface=-38.0)
+TRUTH = TruePlacement(LAYOUT, angle=90, scale=0.99, offset=(220, 0), tilt=(0.0008, -0.0005), surface=-38.0)
 BANKS = {**{f"X{i}": X for i in range(1, 6)}, **{f"O{i}": O for i in range(1, 6)}}
 
 
@@ -148,7 +148,7 @@ class WizardTests(unittest.TestCase):
         self.assertEqual(wizard.calibration.problems(), [])
         self.assertEqual(len(wizard.touched), 5, "only the centre and the four corners were touched")
         derived = wizard.calibration.poses()
-        self.assertEqual(set(derived), {*LAYOUT.positions, PARK})
+        self.assertEqual(set(derived), {*LAYOUT.positions, PARK, "Rest"})
         worst = max(np.hypot(derived[name].x - TRUTH.xy(point)[0], derived[name].y - TRUTH.xy(point)[1])
                     for name, point in LAYOUT.positions.items())
         self.assertLess(worst, 0.5, "a circle the arm was never touched on is more than 0.5 mm out")
@@ -391,7 +391,7 @@ class WizardTests(unittest.TestCase):
         """The mat can be lower than the arm's usual -60 mm floor: the touches say where the table is."""
         self.open_program()
         wizard = self.wizard
-        low = TruePlacement(LAYOUT, angle=90, scale=0.99, offset=(200, 0), tilt=(0, 0), surface=-68.0)
+        low = TruePlacement(LAYOUT, angle=90, scale=0.99, offset=(220, 0), tilt=(0, 0), surface=-68.0)
         self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
         wizard.next()
         wizard.capture()
@@ -609,9 +609,12 @@ class WizardTests(unittest.TestCase):
         wizard.next()
         self.assertEqual(wizard.step, 5)
         self.assertTrue(self.pump(30, lambda: wizard.parked and not program.busy))
-        park = wizard.calibration.park()
-        self.assertAlmostEqual(self.dobot.pose[0], park.x, delta=0.6)
-        self.assertAlmostEqual(self.dobot.pose[2], park.z, delta=0.6)
+        rest = wizard.calibration.rest()
+        self.assertAlmostEqual(self.dobot.pose[0], rest.x, delta=0.6)
+        self.assertAlmostEqual(self.dobot.pose[1], rest.y, delta=0.6)
+        self.assertAlmostEqual(self.dobot.pose[2], rest.z, delta=0.6)
+        self.assertGreater(wizard.calibration.rest_gap()[0], 15, "the resting place is off the mat")
+        self.assertGreaterEqual(float(np.hypot(rest.x, rest.y)), 137.9)
         self.assertTrue(self.pump(4, lambda: wizard.reference_waiting is None))
         self.current["frame"] = self.frames["game"]
         self.pump(1.6)
@@ -726,6 +729,239 @@ class WizardTests(unittest.TestCase):
         colours = {program.preview.itemcget(item, "outline") for item in program.preview.find_all()
                    if program.preview.type(item) == "oval"}
         self.assertIn("#8df0a8", colours, "the banks are marked green once they are right")
+
+    # ---- Camera and pieces: only during setup
+    def open_tune(self, listing=None):
+        from tests.test_tune import LISTING, Recorder
+
+        self.recorder = Recorder(LISTING if listing is None else listing)
+        from dobot_studio.camera_tune import CameraControls
+
+        with mock.patch("dobot_studio.tune_dialog.CameraControls", lambda device: CameraControls(device, self.recorder)):
+            self.program.open_tune()
+        self.dialog = self.program.tune_dialog
+        self.pump(0.3)
+        return self.dialog
+
+    def test_the_camera_and_pieces_button_is_only_in_the_setup_steps(self):
+        self.open_program()
+        wizard = self.wizard
+        self.pump(0.4)
+        self.assertTrue(wizard.tune_button.winfo_ismapped())
+        self.assertNotIn("disabled", wizard.tune_button.state())
+        wizard.step = 5
+        wizard._show_step()
+        self.pump(0.3)
+        self.assertTrue(wizard.tune_button.winfo_ismapped())
+        wizard.step = 6                                          # ready to play
+        wizard._show_step()
+        self.pump(0.3)
+        self.assertFalse(wizard.tune_button.winfo_ismapped())
+        self.program.camera = None
+        self.program.feed = None
+        wizard.step = 0
+        wizard._show_step()
+        self.pump(0.3)
+        self.assertIn("disabled", wizard.tune_button.state(), "no picture to adjust yet")
+
+    def test_the_pi_reads_an_adjusted_picture_while_the_live_view_stays_the_cameras_own(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.pump(1.0)
+        dialog = self.open_tune()
+        raw = np.asarray(program.feed).copy()
+        grey_before = program.found.grey.copy()
+        dialog.variables["brightness"].set(60)
+        dialog.variables["contrast"].set(2.0)
+        self.pump(0.5)
+        self.assertEqual((program.tune.brightness, program.tune.contrast), (60.0, 2.0))
+        self.assertTrue(np.array_equal(np.asarray(program.feed), raw), "the live picture is never adjusted")
+        self.assertFalse(np.array_equal(program.found.grey, grey_before), "what the Pi reads is")
+        self.assertEqual(len(dialog.photos), 2)
+        dialog.reset_tune()
+        self.pump(0.4)
+        self.assertTrue(program.tune.is_neutral())
+        self.assertTrue(np.array_equal(program.found.grey, grey_before))
+
+    def test_changing_the_adjustments_after_the_empty_mat_was_captured_keeps_the_setup(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.capture()
+        before = program.reference.grey.copy()
+        dialog = self.open_tune()
+        dialog.variables["gamma"].set(1.6)
+        self.pump(0.5)
+        self.assertIsNotNone(program.reference)
+        self.assertFalse(np.array_equal(program.reference.grey, before), "the empty mat is seen through the same adjustment")
+        self.assertFalse(program.camera_moved)
+        wizard.next()                                            # setup carries on
+        self.assertEqual(wizard.step, 2)
+
+    def test_the_cameras_own_controls_are_listed_and_changed_from_the_dialog(self):
+        self.open_program()
+        dialog = self.open_tune()
+        names = set(dialog.hardware)
+        self.assertTrue({"auto_exposure", "exposure_time_absolute", "brightness", "focus_automatic_continuous"} <= names)
+        self.assertTrue(dialog.hardware["auto_exposure"].get(), "automatic exposure is on to begin with")
+        dialog.hardware["auto_exposure"].set(False)
+        control = next(c for c in dialog.listed if c.name == "auto_exposure")
+        dialog._toggle(control, dialog.hardware["auto_exposure"])
+        self.assertEqual(self.recorder.calls[-1][-1], "auto_exposure=1")
+        exposure = next(c for c in dialog.listed if c.name == "exposure_time_absolute")
+        dialog.hardware["auto_exposure"].set(True)
+        dialog.hardware["exposure_time_absolute"].set(321)
+        label = tk.Label(dialog.window)
+        dialog._slide(exposure, dialog.hardware["exposure_time_absolute"], label)
+        sent = [call[-1] for call in self.recorder.calls if "--set-ctrl" in call][-2:]
+        self.assertEqual(sent, ["auto_exposure=1", "exposure_time_absolute=321"], "hand-set exposure turns automatic exposure off first")
+        self.assertFalse(dialog.hardware["auto_exposure"].get())
+
+    def test_lock_stops_automatic_exposure_focus_and_colour(self):
+        self.open_program()
+        dialog = self.open_tune()
+        self.recorder.calls.clear()
+        dialog.lock_camera()
+        sent = {call[-1] for call in self.recorder.calls if "--set-ctrl" in call}
+        self.assertEqual(sent, {"auto_exposure=1", "focus_automatic_continuous=0", "white_balance_automatic=0"})
+        self.assertIn("locked", dialog.message.get())
+
+    def test_a_camera_that_cannot_be_controlled_says_why_and_the_pi_reading_still_works(self):
+        from tests.test_tune import Recorder
+
+        self.open_program()
+        dialog = self.open_tune(listing="")
+        self.assertEqual(dialog.hardware, {})
+        dialog.variables["gamma"].set(1.4)                       # the software side does not need the camera's help
+        self.pump(0.3)
+        self.assertEqual(self.program.tune.gamma, 1.4)
+
+    def test_teaching_the_pieces_from_the_mat_and_from_close_up(self):
+        from tests.test_tune import disc_picture
+
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        dialog = self.open_tune()
+        # nothing on the mat to learn from
+        self.current["frame"] = self.frames["empty"]
+        self.pump(1.2)
+        dialog.teach(X, "distance")
+        self.assertIn("cannot see any pieces", dialog.message.get())
+        self.assertEqual(program.learned.count(X), 0)
+        # only X pieces on the mat
+        self.current["frame"] = camera_view({f"X{i}": X for i in range(1, 6)}, layout=LAYOUT, solid=True)
+        self.pump(1.2)
+        for _ in range(3):
+            dialog.teach(X, "distance")
+        self.assertEqual(program.learned.count(X, "distance"), 3)
+        self.assertIn("3 of 3", dialog.teach_buttons[(X, "distance")][0].cget("text"))
+        self.assertIn("Learned from 5 X pieces", dialog.message.get())
+        # a close-up needs a piece in the picture
+        self.current["frame"] = np.full((480, 640, 3), 20, np.uint8)
+        self.pump(0.6)
+        dialog.teach(O, "close")
+        self.assertIn("cannot find a piece", dialog.message.get())
+        self.current["frame"] = disc_picture(O)
+        self.pump(0.6)
+        dialog.teach(O, "close")
+        self.assertEqual(program.learned.count(O, "close"), 1)
+        self.assertNotIn("disabled", dialog.forget_button.state())
+        dialog.forget()
+        self.assertFalse(program.learned.ready())
+        self.assertIn("disabled", dialog.forget_button.state())
+
+    def test_pieces_taught_are_used_when_the_banks_are_checked(self):
+        """Thicker crosses than the ideal one cannot be read until the camera has been shown them."""
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        import tests.test_tictactoe as fixture
+
+        with mock.patch.object(fixture, "CROSS_HALF_WIDTH", 3.0):
+            fat = camera_view({**{f"X{i}": X for i in range(1, 6)}}, layout=LAYOUT, solid=True)
+            both = camera_view(BANKS, layout=LAYOUT, solid=True)
+        self.current["frame"] = both
+        self.pump(1.6)
+        wizard.capture_pieces()
+        self.assertFalse(wizard.pieces_ok)
+        self.assertTrue(set(wizard.unreadable) & {f"X{i}" for i in range(1, 6)})
+        self.current["frame"] = fat
+        self.pump(1.2)
+        program.teach_piece(X, "distance")
+        self.current["frame"] = camera_view({f"O{i}": O for i in range(1, 6)}, layout=LAYOUT, solid=True)
+        self.pump(1.2)
+        program.teach_piece(O, "distance")
+        self.current["frame"] = both
+        self.pump(1.6)
+        wizard.capture_pieces()
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+
+    def test_the_dialog_closes_cleanly_and_the_program_window_gets_back_control(self):
+        self.open_program()
+        program = self.program
+        dialog = self.open_tune()
+        self.assertTrue(dialog.window.winfo_exists())
+        dialog.close()
+        self.pump(0.2)
+        self.assertIsNone(program.tune_dialog)
+        self.assertFalse(dialog.window.winfo_exists())
+        self.assertTrue(program.window.winfo_exists())
+        self.assertEqual(self.root.grab_current(), program.window)
+
+    def test_the_arm_waits_off_the_mat_the_tour_ends_there_and_the_camera_looks_with_it_there(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.walk_to_corners()
+        wizard.next()
+        wizard.run_check()
+        self.assertTrue(self.pump(90, lambda: wizard.checked and not program.busy))
+        rest = wizard.calibration.rest()
+        self.assertAlmostEqual(self.dobot.pose[0], rest.x, delta=0.6)
+        self.assertAlmostEqual(self.dobot.pose[2], rest.z, delta=0.6)
+        self.assertIn("Rest", program.poses)
+        self.assertEqual(program.poses["Rest"], rest)
+        for name, pose in program.poses.items():
+            if name not in ("Park", "Rest"):
+                self.assertGreater(np.hypot(pose.x - rest.x, pose.y - rest.y), 25, f"the resting place is on {name}")
+
+    def test_the_resting_place_can_be_nudged_and_the_camera_looks_again_with_the_arm_there(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        before = wizard.calibration.rest()
+        wizard.move_step.set("10 mm")
+        wizard.nudge_rest("left")
+        self.assertTrue(self.pump(30, lambda: wizard.parked and not program.busy))
+        after = wizard.calibration.rest()
+        self.assertAlmostEqual(np.hypot(after.x - before.x, after.y - before.y), 10.0, delta=0.05)
+        self.assertAlmostEqual(self.dobot.pose[0], after.x, delta=0.6)
+        self.assertAlmostEqual(self.dobot.pose[1], after.y, delta=0.6)
+        self.assertEqual(program.poses["Rest"], after)
+        self.assertTrue(self.pump(4, lambda: wizard.reference_waiting is None))
+        self.pump(0.4)
+        self.assertIn("keep that area clear", wizard.text.get().lower())
+        self.assertEqual(wizard.rest_shift, wizard.calibration.rest_shift)
+
+    def test_the_arm_goes_up_before_it_goes_across_to_rest(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        rest = wizard.calibration.rest()
+        low = wizard.calibration.pick("B2")
+        self.dobot.pose = [low.x, low.y, low.z, low.r]            # the cup is down on a piece
+        self.dobot.log.clear()
+        self.studio.robot.to_rest(rest, program.abort)
+        moves = [unpack("<B4f", params)[1:4] for command, _, params in self.dobot.log if command == R.MOVE]
+        self.assertGreaterEqual(len(moves), 2)
+        self.assertAlmostEqual(moves[0][0], low.x, delta=0.5)      # the first move is straight up
+        self.assertAlmostEqual(moves[0][1], low.y, delta=0.5)
+        self.assertAlmostEqual(moves[0][2], rest.z, delta=0.5)
+        self.assertAlmostEqual(self.dobot.pose[0], rest.x, delta=0.6)
+        self.dobot.log.clear()
+        self.studio.robot.to_rest(rest, program.abort)             # already there: nothing to do
+        self.assertEqual([c for c, _, _ in self.dobot.log if c == R.MOVE], [])
 
     def test_the_arm_in_front_of_the_markers_does_not_disturb_the_setup(self):
         self.open_program()

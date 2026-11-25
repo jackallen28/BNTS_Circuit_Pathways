@@ -15,6 +15,7 @@ from .robot import Pose
 from .tictactoe import PIECE_HEIGHT
 
 PARK = "Park"
+REST = "Rest"
 HOVER = 30            # mm above the height where the cup meets the top of a piece, for visiting a point
 CLEARANCE = 40        # mm above that height, for Park and for travelling between points
 # Hand-guiding the cup onto a circle is good to a few millimetres, and the circles are large, so a small
@@ -23,6 +24,9 @@ WARN_RESIDUAL = 4.0   # mm a taught point may sit from where the other points sa
 BLOCK_RESIDUAL = 10.0   # mm from where the other points say, before the setup stops
 WARN_SCALE_ERROR, BLOCK_SCALE_ERROR = 0.05, 0.15
 WARN_TILT, BLOCK_TILT = 3.0, 8.0   # degrees of slope the playing surface may have
+REST_CLEARANCE = 25   # mm between the edge of the nearest circle and the tool, while the arm waits off the mat
+REST_MIN_RADIUS = 138  # mm from the arm's base: it cannot reach nearer than 130
+REST_TIGHT = 15       # mm. A resting place closer than this to a circle is not really off the mat
 THICKNESS_RANGE = (1.0, 12.0)   # mm a piece may be, when it is adjusted by hand
 
 
@@ -91,7 +95,7 @@ def fit_plane(points):
 class MatCalibration:
     """The arm's map of the mat, with a small hand adjustment for each point."""
 
-    def __init__(self, layout, touched, adjustments=None, piece_height=None, print_scale=None):
+    def __init__(self, layout, touched, adjustments=None, piece_height=None, print_scale=None, rest_shift=(0.0, 0.0)):
         """``touched`` maps a circle name, or "Park", to the pose where the cup touched the mat there.
 
         The arm is touched onto the surface of the mat, so the surface is height zero. Everything
@@ -103,6 +107,7 @@ class MatCalibration:
         # How big the printed mat really is, as a fraction of its design (the measured scale line over 100 mm), if it
         # was measured. The mat's points are then taken at their real size, and the fit only finds where and how turned.
         self.print_scale = None if print_scale is None else float(print_scale)
+        self.rest_shift = tuple(float(value) for value in rest_shift)       # a nudge of the resting place, in the arm's mm
         self.touched = dict(touched)
         self.adjustments = dict(adjustments or {})
         self.piece_height = PIECE_HEIGHT * layout.piece_scale if piece_height is None else float(piece_height)
@@ -170,6 +175,10 @@ class MatCalibration:
             found.append(f"The mat measures {self.scale * 100:.1f}% of its printed size.")
         if WARN_TILT < self.tilt <= BLOCK_TILT:
             found.append(f"The mat slopes by {self.tilt:.1f} degrees.")
+        gap, near = self.rest_gap()
+        if gap < REST_TIGHT:
+            found.append(f"The arm's resting place is only {max(gap, 0):.0f} mm from {near}, so it is not clear of the mat. "
+                         "Move the mat a little further from the arm.")
         return found
 
     def problems(self):
@@ -202,10 +211,35 @@ class MatCalibration:
     def park(self):
         return self._pose(PARK, CLEARANCE)
 
+    def rest_xy(self):
+        """Where the arm waits during a game: off the mat, between the arm's base and the mat.
+
+        Along the line from the base through the middle of the mat, as near the base as keeps the tool
+        clear of the nearest circle (and no nearer than the arm can reach), then nudged by ``rest_shift``.
+        """
+        circles = np.array([self.xy(name) for name in self.layout.positions])
+        centre = circles.mean(axis=0)
+        length = hypot(*centre) or 1.0
+        bearing = centre / length
+        radius = max(REST_MIN_RADIUS, float((circles @ bearing).min()) - 12.5 * self.layout.piece_scale - REST_CLEARANCE)
+        return bearing * radius + np.asarray(self.rest_shift)
+
+    def rest_gap(self):
+        """How far the resting place is from the edge of the nearest circle, and that circle's name."""
+        spot = self.rest_xy()
+        name = min(self.layout.positions, key=lambda circle: hypot(*(self.xy(circle) - spot)))
+        return hypot(*(self.xy(name) - spot)) - 12.5 * self.layout.piece_scale, name
+
+    def rest(self):
+        """The resting pose: the height of Park, at the resting place."""
+        x, y = self.rest_xy()
+        return Pose(round(float(x), 2), round(float(y), 2), self.park().z, round(self.rotation, 2))
+
     def poses(self):
         """The pick pose of every circle, and Park at a clear height."""
         result = {name: self.pick(name) for name in self.layout.positions}
         result[PARK] = self.park()
+        result[REST] = self.rest()
         return result
 
     def adjust(self, name, dx=0.0, dy=0.0, dz=0.0):

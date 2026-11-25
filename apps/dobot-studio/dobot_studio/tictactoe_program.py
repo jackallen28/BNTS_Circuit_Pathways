@@ -11,10 +11,13 @@ from .tictactoe import (
     human_change, outcome, robot_move, tidy_plan, winning_line, with_move,
 )
 from .tictactoe_setup import SetupWizard
-from .tictactoe_vision import DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify, side_by_side
+from .camera_tune import Tune, apply as apply_tune
+from .pieces import Learned, closeup_mark, mat_marks
+from .tictactoe_vision import DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify, retuned, side_by_side
 from .vision import Camera, TABLETOP
 
 TURN_DELAY = 1.5
+THINK_SECONDS = 1.4      # the Dobot is seen to think, after the camera has read the mat and before it moves
 VIEW_TIMEOUT = 0.55
 # The markers are only a rough reference. They can only raise a warning, and only when all four
 # are seen out of place for a good while, which means the camera itself was knocked.
@@ -83,8 +86,12 @@ class TicTacToeProgram:
         self.latest = self.chosen = self.checking = None
         self.view_clear = False
         self.turn_delay = TurnDelay()
+        self.think_until = None
         self.seen = 0
         self.timestamp = self.analysed = self.deadline = 0
+        # How the Pi reads the camera's picture, and what it has been taught about the pieces. The live view is the
+        # camera's own picture. Neither of these is saved: they are set again each time the mat is set up.
+        self.tune, self.learned, self.tune_dialog = Tune(), Learned(), None
         self.camera = self.busy = self.demo_timer = None
         self.camera_epoch = 0
         self.events = SimpleQueue()
@@ -282,6 +289,50 @@ class TicTacToeProgram:
         self.status.set("Empty mat captured. Go on to the next step.")
         self._render()
 
+    # ---- how the Pi reads the picture, and what it has been taught
+    def set_tune(self, tune):
+        """Change the adjustments the Pi reads the picture through. The picture people see is not touched."""
+        self.tune = tune.clamped()
+        self.found, self.reference, self.rectified = (retuned(view, self.tune) for view in
+                                                       (self.found, self.reference, self.rectified))
+        self.latest, self.seen, self.view_clear = None, 0, False
+        self._draw_camera()
+
+    def teach_piece(self, mark, kind):
+        """Show the camera one picture of an X or an O. Returns what it learned, in words."""
+        import numpy as np
+
+        if self.feed is None or self.studio.demo:
+            raise ValueError("Start the overhead camera first.")
+        if kind == "close":
+            mask = closeup_mark(apply_tune(np.asarray(self.feed), self.tune))
+            if mask is None:
+                raise ValueError("I cannot find a piece in the picture. Hold one piece under the camera, on a dark "
+                                 "surface such as one of the mat's black circles, so that it fills most of the picture.")
+            self.learned.add(mark, [mask], "close")
+            found = 1
+        else:
+            view = self.rectified
+            if self.reference is None or view is None or view.layout is not self.reference.layout:
+                raise ValueError("Capture the empty mat first, with the camera in its place.")
+            if self.camera_moved:
+                raise ValueError("The camera has moved. Capture the empty mat again.")
+            masks = mat_marks(view, self.reference, view.layout)
+            if not masks:
+                raise ValueError(f"I cannot see any pieces on the mat. Put only {mark} pieces on it, centred on their circles.")
+            self.learned.add(mark, masks, "distance")
+            found = len(masks)
+        self.latest, self.seen, self.view_clear = None, 0, False
+        return f"Learned from {found} {mark} piece{'s' if found != 1 else ''}."
+
+    def open_tune(self):
+        from .tune_dialog import TuneDialog
+
+        if self.tune_dialog and self.tune_dialog.window.winfo_exists():
+            self.tune_dialog.window.lift()
+            return
+        self.tune_dialog = TuneDialog(self)
+
     def _watch_camera(self):
         """Warn if the camera itself was knocked. It never touches the arm setup or the registration.
 
@@ -309,10 +360,10 @@ class TicTacToeProgram:
         errors = self.calibration.errors()
         if errors and not (self.wizard and self.wizard.accepted):
             raise ValueError(errors[0])
-        park = self.poses["Park"]
+        rest = self.poses["Rest"]
         for name in self.layout.positions:
-            if not 12 <= park.z - self.poses[name].z <= 75 or abs(park.r - self.poses[name].r) > 5:
-                raise ValueError("Park must be 12 to 75 mm above the pieces. Run the setup again.")
+            if not 12 <= rest.z - self.poses[name].z <= 75 or abs(rest.r - self.poses[name].r) > 5:
+                raise ValueError("The resting height must be 12 to 75 mm above the pieces. Run the setup again.")
 
     def finish_setup(self):
         """The arm knows the mat, the camera has read some pieces: play can start."""
@@ -377,18 +428,29 @@ class TicTacToeProgram:
                 player_cell = human_change(self.board, position.board, self.human)
             elif position.board != self.board:
                 raise ValueError("Keep the board still while the Dobot is taking its turn.")
-            remaining = self.turn_delay.remaining(position, self.analysed)
-            if remaining > 0:
-                self.status.set(f"Mat clear. Confirming the position in {remaining:.1f} s. Keep hands clear.")
+            if self.think_until is None:
+                # 1. The arm is waiting off the mat, so the camera sees the whole of it. Read it, and make sure of it.
+                remaining = self.turn_delay.remaining(position, self.analysed)
+                if remaining > 0:
+                    self.status.set(f"Mat clear. Confirming the position in {remaining:.1f} s. Keep hands clear.")
+                    return
+                self.turn_delay.reset()
+                if player_turn:
+                    self.board = position.board
+                    self._after_player(player_cell)
+                if self.ready:
+                    # 2. Then the Dobot thinks about its move, where everyone can see it is not moving yet.
+                    self.think_until = monotonic() + THINK_SECONDS
+                    self.status.set(f"The camera has read the mat. {self.dobot} is thinking about its move…")
                 return
-            self.turn_delay.reset()
-            if player_turn:
-                self.board = position.board
-                self._after_player(player_cell)
-            if self.ready:
-                self._place_piece(position)
+            if monotonic() < self.think_until:
+                return
+            # 3. Then it carries the move out, and goes back to rest.
+            self.think_until = None
+            self._place_piece(position)
         except ValueError as error:
             self.turn_delay.reset()
+            self.think_until = None
             self.status.set(str(error))
 
     def _place_piece(self, position):
@@ -401,10 +463,15 @@ class TicTacToeProgram:
         index = self.layout.reserve.index(source)
         expected = Position(with_move(position.board, target, self.dobot),
                             (*position.reserve[:index], "", *position.reserve[index + 1:]))
-        pick, drop, park = (self.poses[place] for place in (source, CELLS[target], "Park"))
+        pick, drop, rest = (self.poses[place] for place in (source, CELLS[target], "Rest"))
         self.status.set(f"Moving {self.dobot} to {CELLS[target]}… Keep hands clear.")
-        self._job("place", lambda: (expected, self.studio.robot.sort_chip(
-            pick, drop, park, self.abort, via_park=True)))
+        self._job("place", lambda: (expected, self._carry_out(pick, drop, rest)))
+
+    def _carry_out(self, pick, drop, rest):
+        """Fetch a piece and place it, starting from and returning to the resting place off the mat."""
+        robot = self.studio.robot
+        robot.to_rest(rest, self.abort, floor=self.wizard.floor())
+        return robot.sort_chip(pick, drop, rest, self.abort, via_park=True)
 
     def _after_player(self, index):
         if outcome(self.board):
@@ -552,10 +619,9 @@ class TicTacToeProgram:
         index = self.layout.reserve.index(slot)
         expected = Position(with_move(position.board, cell, ""),
                             (*position.reserve[:index], mark, *position.reserve[index + 1:]))
-        pick, drop, park = (self.poses[place] for place in (CELLS[cell], slot, "Park"))
+        pick, drop, rest = (self.poses[place] for place in (CELLS[cell], slot, "Rest"))
         self.status.set(f"Returning {mark} from {CELLS[cell]} to {slot}… Keep hands clear.")
-        self._job("place", lambda: (expected, self.studio.robot.sort_chip(
-            pick, drop, park, self.abort, via_park=True)))
+        self._job("place", lambda: (expected, self._carry_out(pick, drop, rest)))
 
     def release(self):
         if self.ready or self.busy or self.checking or not self.studio.robot:
@@ -566,6 +632,7 @@ class TicTacToeProgram:
 
     def stop(self):
         self.ready = False
+        self.think_until = None
         self.checking = None
         self._cancel_tidy()
         self.turn_delay.reset()
@@ -591,7 +658,7 @@ class TicTacToeProgram:
         self.analysed = sample.timestamp
         rgb = np.asarray(image)
         try:
-            self.found = rectify(rgb)
+            self.found = rectify(rgb, self.tune)
             problem = ""
         except (ImportError, ValueError) as error:
             self.found, problem = None, str(error)
@@ -604,13 +671,13 @@ class TicTacToeProgram:
             # The view was locked when the empty mat was captured. The markers are not needed any more.
             self._watch_camera()
             try:
-                view = lock_view(rgb, self.reference)
+                view = lock_view(rgb, self.reference, self.tune)
             except ValueError as error:
                 self.rectified, self.latest, self.seen, self.view_clear = None, None, 0, False
                 self.camera_status.set(str(error))
             else:
                 self.rectified = view
-                position = read_position(view.grey, self.reference.grey, view.layout)
+                position = read_position(view.grey, self.reference.grey, view.layout, self.learned)
                 clear = self.busy != "place" and mat_clear(view, self.reference, position)
                 self.seen = self.seen+1 if position == self.latest and clear and self.view_clear else 1
                 self.view_clear = clear

@@ -25,12 +25,18 @@ def placed(layout, distance, degrees):
     return {name: (distance + point[0], point[1]) for name, point in zip(layout.positions, offsets @ rotation.T)}
 
 
-def reachable(layout, distance, degrees, margin=8):
+REST_RADIUS = 138          # the resting place sits this far from the base, on the line to the mat's middle
+
+
+def reachable(layout, distance, degrees, margin=8, gap=20):
+    """Every circle is in reach, and the resting place (between the base and the mat) is clear of them all."""
     try:
-        for x, y in placed(layout, distance, degrees).values():
+        circles = placed(layout, distance, degrees)
+        for x, y in circles.values():
             Magician.check_reach(Pose(x, y, -40, 0))
-        radii = [np.hypot(x, y) for x, y in placed(layout, distance, degrees).values()]
-        return min(radii) >= 130 + margin and max(radii) <= 310 - margin
+        radii = [np.hypot(x, y) for x, y in circles.values()]
+        clear = min(np.hypot(x - REST_RADIUS, y) for x, y in circles.values()) - 12.5 * layout.piece_scale
+        return min(radii) >= 130 + margin and max(radii) <= 310 - margin and clear >= gap
     except RobotError:
         return False
 
@@ -57,21 +63,21 @@ class SmallMatTests(unittest.TestCase):
         for x, y in SMALL_MAT.anchors.values():
             self.assertTrue(printable[0] <= x - 11 and x + 11 <= printable[2] and printable[1] <= y - 11 and y + 11 <= printable[3])
 
-    def test_every_circle_is_within_the_arms_reach_in_the_recommended_placements(self):
+    def test_every_circle_is_within_the_arms_reach_and_the_arm_can_wait_clear_in_the_recommended_placements(self):
         for facing, (low, high) in SMALL_PLACEMENT.items():
-            degrees = 90 if facing == "long" else 0
-            for distance in range(low, high + 1):
-                with self.subTest(facing, distance=distance):
-                    self.assertTrue(reachable(SMALL_MAT, distance, degrees))
-            for distance in (low - 3, high + 3):
-                with self.subTest(facing, outside=distance):
-                    self.assertFalse(reachable(SMALL_MAT, distance, degrees))
-        for facing, degrees in (("long", 90), ("long", 270), ("short", 0), ("short", 180)):
-            self.assertTrue(reachable(SMALL_MAT, SMALL_SUGGESTED_DISTANCE, degrees), facing)
+            for degrees in (90, 270):                           # the base faces the middle of a long edge, either one
+                for distance in range(low, high + 1):
+                    with self.subTest(facing, degrees=degrees, distance=distance):
+                        self.assertTrue(reachable(SMALL_MAT, distance, degrees))
+                for distance in (low - 3, high + 3):
+                    with self.subTest(facing, degrees=degrees, outside=distance):
+                        self.assertFalse(reachable(SMALL_MAT, distance, degrees))
         for turn in (-15, 15):
             self.assertTrue(reachable(SMALL_MAT, SMALL_SUGGESTED_DISTANCE, 90 + turn), "turned 15 degrees")
+        self.assertTrue(reachable(SMALL_MAT, SMALL_SUGGESTED_DISTANCE, 90))
+        self.assertFalse(reachable(SMALL_MAT, SMALL_SUGGESTED_DISTANCE, 0), "facing a short edge, the arm has nowhere to wait")
 
-    def test_the_compact_mat_cannot_be_placed_so_that_it_fits_in_most_directions_the_small_one_can(self):
+    def test_the_compact_mat_fits_in_fewer_placements_than_the_small_one(self):
         def good(layout):
             return sum(any(reachable(layout, d, t) for d in range(150, 300)) for t in range(0, 360, 5))
         self.assertGreater(good(SMALL_MAT), good(COMPACT_MAT))
