@@ -359,6 +359,34 @@ class WizardTests(unittest.TestCase):
         self.assertEqual(wizard.notice, "")
         self.assertAlmostEqual(self.dobot.pose[2], wizard.height() + 12, delta=0.4)
 
+    def test_the_measured_print_line_is_allowed_for(self):
+        self.open_program()
+        wizard = self.wizard
+        self.assertIsNone(wizard.print_scale())
+        self.assertIn("Optional", wizard.print_note.get())
+        for bad in ("abc", "250", "12", "0"):
+            wizard.print_mm.set(bad)
+            self.assertIsNone(wizard.print_scale(), bad)
+            self.assertIn("not a length near 100", wizard.print_note.get())
+        wizard.print_mm.set("99,0 mm")
+        self.assertAlmostEqual(wizard.print_scale(), 0.99)
+        self.assertIn("99.0% of full size", wizard.print_note.get())
+        self.to_corners()
+        wizard.mode.set("quick")
+        wizard.set_mode()
+        corner = outer_points(LAYOUT)[0]
+        self.touch(LAYOUT.positions[corner])
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: corner in wizard.touched and not self.program.busy))
+        self.assertEqual(wizard.calibration.print_scale, 0.99)
+        self.assertAlmostEqual(wizard.calibration.scale, 1.0)
+        derived = wizard.calibration.poses()
+        worst = max(np.hypot(derived[name].x - TRUTH.xy(point)[0], derived[name].y - TRUTH.xy(point)[1])
+                    for name, point in LAYOUT.positions.items())
+        self.assertLess(worst, 0.4, "the real size of the print is 99%, as measured")
+        wizard.print_mm.set("")                                   # taking the measurement away refits without it
+        self.assertIsNone(wizard.calibration.print_scale)
+
     def test_a_mat_on_a_low_table_is_not_refused_for_being_below_the_usual_floor(self):
         """The mat can be lower than the arm's usual -60 mm floor: the touches say where the table is."""
         self.open_program()

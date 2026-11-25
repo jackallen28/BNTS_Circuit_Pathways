@@ -1,5 +1,7 @@
 # Dobot tic-tac-toe print set
 
+There is also a **small A4 mat** for the Dobot's limited reach. See the end of this page.
+
 There are three mats. Use the **compact mat** unless you have a reason not to. It is the
 same layout in 3D and on paper:
 
@@ -155,3 +157,30 @@ The generator refuses to write a mat if it has printed text, detail too fine to 
 a cut line through a circle or marker.
 
 For camera and robot setup, see [Tic-tac-toe in Dobot Studio](../../README.md#tic-tac-toe).
+
+## Small A4 mat (for the Dobot's reach)
+
+| File | Use |
+| --- | --- |
+| [mat-a4-small.pdf](mat-a4-small.pdf), [mat-a4-small.svg](mat-a4-small.svg) | The small mat on **A4 landscape** paper. Print at **100%**, with no Fit or Shrink. |
+
+The Dobot Magician can reach circles that are **130 to 310 mm** from its base. The compact mat is 200 mm
+between its banks, so most placements put some circle out of reach. The small mat packs the same Ø25 mm
+pieces and 16 mm camera markers (**IDs 24-27**) into a ring about 90 mm out from the middle: grid
+pitch 36 mm, banks 68 mm either side of the middle with 30 mm between circles. Nothing about the pieces
+or markers changes size.
+
+**Where to put it.** With 8 mm to spare at each end of the reach, every circle is reachable when:
+
+* the Dobot faces the middle of a **long edge** of the sheet (the wider placement) and the middle of the
+  mat is **181 to 234 mm** from the arm's base, or
+* the Dobot faces the middle of a **short edge** and the middle is **206 to 227 mm** from the base.
+
+About **215 mm** from the base, facing a long edge, works. If the sheet is turned up to 15 degrees,
+keep the middle 205 to 222 mm out. Dobot Studio checks every circle against the reach when the
+corners are saved and names any it cannot reach.
+
+**The scale line.** The line at the foot of the sheet is **100 mm** and carries no number. Measure what it
+printed as with a ruler. It should be within 5 mm of 100. Type the length into **Printed line measures**
+on the Dobot Studio setup and the arm allows for it.
+

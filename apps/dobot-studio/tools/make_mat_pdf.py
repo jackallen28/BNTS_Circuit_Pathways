@@ -17,6 +17,8 @@ SHEETS = {
            "A3 landscape mat with separate reserve banks and camera markers"),
     "a4": ("mat-a4", "Dobot Studio Tic-tac-toe | A4 paper mat",
            "A4 landscape compact mat with separate reserve banks and camera markers"),
+    "a4-small": ("mat-a4-small", "Dobot Studio Tic-tac-toe | A4 small paper mat",
+                 "A4 landscape small mat, packed to fit the Dobot's reach, with separate reserve banks and camera markers"),
 }
 
 

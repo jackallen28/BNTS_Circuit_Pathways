@@ -20,7 +20,7 @@ import numpy as np
 from .matcalib import MatCalibration, PARK, outer_points
 from .robot import HEIGHT_MM, Magician, Pose, QUICK, RobotError, SLOW, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
-from .tictactoe import O, UNKNOWN, X, describe_slot
+from .tictactoe import O, SMALL_MAT, SMALL_SUGGESTED_DISTANCE, UNKNOWN, X, describe_slot
 from .tictactoe_vision import lock_view
 
 STEPS = ("Show the mat", "Capture the empty mat", "Touch the centre mark", "Touch the corners",
@@ -33,6 +33,8 @@ PAD = {"forward": ("▲  Forward", (1, 0, 0)), "back": ("▼  Back", (-1, 0, 0))
        "right": ("Right  ▶", (0, -1, 0)), "up": ("⬆  Up", (0, 0, 1)), "down": ("⬇  Down", (0, 0, -1))}
 FRESH = 0.55
 MOVE_STEPS = ("1 mm", "2 mm", "5 mm", "10 mm", "20 mm")
+PRINT_LINE_MM = 100.0   # the line printed at the foot of a paper mat
+PRINT_RANGE = (90.0, 110.0)    # a measurement outside this is a mistake, not a scaled print
 NEAR_CLEARANCE = 12     # mm above the mat while the arm is moved with the buttons
 # Which way each arrow moves the cup on the map and the camera view, as a step across the mat's picture.
 SCREEN = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
@@ -63,6 +65,8 @@ class SetupWizard:
         self.reference_waiting = None
         self.title, self.text, self.status = tk.StringVar(), tk.StringVar(), tk.StringVar()
         self.mode = tk.StringVar(value=FULL)
+        self.print_mm = tk.StringVar()          # what the printed 100 mm line measures, if it was measured
+        self.print_note = tk.StringVar()
         self.lock_height = tk.BooleanVar(value=True)     # corners use the height of the centre mark
         self.move_step = tk.StringVar(value=MOVE_STEPS[2])
         self.nudge_step = tk.StringVar(value=NUDGES[1])
@@ -111,6 +115,17 @@ class SetupWizard:
 
     def _build_centre(self, frame):
         self.connection_button = self.studio._button(frame, "Dobot connection…", self.p.setup_usb)
+        ui = self.studio
+        line = tk.Frame(frame, bg=PANEL)
+        line.pack(fill="x", pady=(0, 4))
+        ui._label(line, "Printed line measures", size=9, fg=MUTED).pack(side="left")
+        entry = ttk.Entry(line, textvariable=self.print_mm, width=7)
+        entry.pack(side="left", padx=4)
+        ui._label(line, "mm", size=9, fg=MUTED).pack(side="left")
+        self.print_mm.trace_add("write", lambda *_: self.print_changed())
+        ui._label(frame, textvariable=self.print_note, size=9, fg=MUTED, wraplength=320, justify="left").pack(
+            fill="x", pady=(0, 4))
+        self.print_changed()
         self.centre_button = self.studio._button(frame, "Save the centre mark", self.save_centre, "Purple")
         self.centre_button.pack(fill="x")
 
@@ -259,6 +274,30 @@ class SetupWizard:
                 2: PARK in self.touched, 3: self.usable(),
                 4: self.checked}.get(self.step, False) and self.idle
 
+    def print_scale(self):
+        """How big the printed mat is as a fraction of its design, from the measured line, or None if not given."""
+        text = self.print_mm.get().strip().replace(",", ".").removesuffix("mm").strip()
+        try:
+            value = float(text)
+        except ValueError:
+            return None
+        return value / PRINT_LINE_MM if PRINT_RANGE[0] <= value <= PRINT_RANGE[1] else None
+
+    def print_changed(self):
+        text = self.print_mm.get().strip()
+        scale = self.print_scale()
+        if not text:
+            self.print_note.set("Optional. Measure the 100 mm line at the foot of the printed mat with a ruler and type "
+                                "what it measures. The arm then allows for a print that is not exactly full size.")
+        elif scale is None:
+            self.print_note.set(f"That is not a length near 100 mm. Type a number from {PRINT_RANGE[0]:g} to {PRINT_RANGE[1]:g}, "
+                                "or leave it empty.")
+        else:
+            self.print_note.set(f"The print is {scale * 100:.1f}% of full size, and the arm allows for it.")
+        if getattr(self, "frames", None) and self.touched and self.step <= 4 and self.calibration is not None:
+            self._calibrate()           # the points change with the print size
+            self.p._draw_camera()
+
     def usable(self):
         """Corners are saved and nothing is clearly wrong, or the person has chosen to go on anyway."""
         return self.calibration is not None and not self.unreachable() and (not self.calibration.errors() or self.accepted)
@@ -337,12 +376,12 @@ class SetupWizard:
         """
         layout = self.p.layout
         if len(self.touched) >= 2:
-            fit = MatCalibration(layout, self.touched)
-            return fit.linear, fit.offset
+            fit = MatCalibration(layout, self.touched, print_scale=self.print_scale())
+            return fit.linear * (fit.print_scale or 1.0), fit.offset
         centre = self.touched[PARK]
         length = hypot(centre.x, centre.y) or 1.0
         ux, uy = centre.x / length, centre.y / length
-        linear = np.array([[-uy, ux], [ux, uy]])
+        linear = np.array([[-uy, ux], [ux, uy]]) * (self.print_scale() or 1.0)
         return linear, np.array((centre.x, centre.y)) - linear @ np.asarray(layout.park, float)
 
     def near_pose(self, name):
@@ -417,7 +456,7 @@ class SetupWizard:
         old = self.calibration.adjustments if self.calibration else {}
         thickness = self.calibration.piece_height if self.calibration else None
         if PARK in self.touched and all(name in self.touched for name in self.required()):
-            self.calibration = MatCalibration(self.p.layout, self.touched, old, thickness)
+            self.calibration = MatCalibration(self.p.layout, self.touched, old, thickness, self.print_scale())
             self.p.poses = self.calibration.poses()
         else:
             self.calibration = None
@@ -635,8 +674,12 @@ class SetupWizard:
             return ("Put the mat where the arm can reach it and the camera can see the whole of it, with all four "
                     "corner markers.", "Start the camera.", None)
         if self.view_fresh:
+            where = ""
+            if p.found.layout is SMALL_MAT:
+                where = (f" Place the Dobot facing the middle of a long edge of the sheet, with the middle of the mat about "
+                         f"{SMALL_SUGGESTED_DISTANCE} mm from the arm's base, so every circle is in reach.")
             return ("The corner markers are only used to find the mat once. After the next step the camera "
-                    "does not need them.", f"✔  Good to go. The {p.found.layout.label} mat is in view.", True)
+                    "does not need them." + where, f"✔  Good to go. The {p.found.layout.label} mat is in view.", True)
         return ("Move the mat and the camera until all four corner markers are in view.",
                 "Looking for the four markers…", False)
 

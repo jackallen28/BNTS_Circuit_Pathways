@@ -124,6 +124,32 @@ class CalibrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MatCalibration(COMPACT_MAT, {PARK: everything[PARK]})
 
+    def test_a_measured_print_scale_is_allowed_for_and_makes_quick_setup_more_accurate(self):
+        truth = TruePlacement(COMPACT_MAT, scale=0.97, tilt=(0.0, 0.0))
+        everything = truth.touched()
+        full = MatCalibration(COMPACT_MAT, everything, print_scale=0.97)
+        self.assertAlmostEqual(full.scale, 1.0, places=3)          # the mat was measured, so nothing is left over
+        self.assertEqual(full.problems(), [])
+        quick = MatCalibration(COMPACT_MAT, {PARK: everything[PARK], "X1": everything["X1"]}, print_scale=0.97)
+        self.assertAlmostEqual(quick.scale, 1.0)
+        for name, point in COMPACT_MAT.positions.items():
+            expected = truth.surface_pose(point)
+            pick = quick.pick(name)
+            self.assertLess(np.hypot(pick.x - expected.x, pick.y - expected.y), 0.05)
+
+        def worst_error(print_scale):
+            rms = []
+            for seed in range(100):
+                touched = truth.touched(noise=1.0, seed=seed)
+                calibration = MatCalibration(COMPACT_MAT, {PARK: touched[PARK], "X1": touched["X1"]},
+                                             print_scale=print_scale)
+                for name, point in COMPACT_MAT.positions.items():
+                    expected, pick = truth.surface_pose(point), calibration.pick(name)
+                    rms.append(np.hypot(pick.x - expected.x, pick.y - expected.y) ** 2)
+            return float(np.sqrt(np.mean(rms)))
+
+        self.assertLess(worst_error(0.97), worst_error(None) * 0.8, "knowing the size should help a quick setup")
+
     def test_the_mats_real_size_and_slope_are_measured(self):
         truth = TruePlacement(COMPACT_MAT, scale=0.985)
         calibration = MatCalibration(COMPACT_MAT, truth.touched(noise=0.05))

@@ -101,7 +101,29 @@ COMPACT_MAT = MatLayout("Compact", COMPACT_ANCHORS, COMPACT_POSITIONS, PAPER_CRO
 # The cut for the 3D mat: left, top, right, bottom on the sheet.
 COMPACT_3D_BOUNDS = (21.5, 5, 275.5, 205)
 
-MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT, A3_MAT, COMPACT_MAT)
+# The small mat: the same Ø25 mm pieces and 16 mm camera markers on an A4 sheet, but packed so that every
+# circle fits in a ring about 90 mm from the middle. The Dobot Magician reaches 130 to 310 mm from its base,
+# and a mat the size of the compact one is too wide to fit that ring in most positions. See SMALL_PLACEMENT.
+SMALL_PITCH = 36                          # between the centres of neighbouring cells, across and down
+SMALL_BANK_X, SMALL_BANK_PITCH = 68, 30   # a bank's distance from the centre line, and between its circles
+SMALL_POSITIONS = dict(zip((*CELLS, *PAPER_CROSSES, *PAPER_NOUGHTS), (
+    *((COMPACT_CENTRE[0] + dx * SMALL_PITCH, COMPACT_CENTRE[1] + dy * SMALL_PITCH) for dy in (-1, 0, 1) for dx in (-1, 0, 1)),
+    *((COMPACT_CENTRE[0] - SMALL_BANK_X, COMPACT_CENTRE[1] + k * SMALL_BANK_PITCH) for k in (-2, -1, 0, 1, 2)),
+    *((COMPACT_CENTRE[0] + SMALL_BANK_X, COMPACT_CENTRE[1] + k * SMALL_BANK_PITCH) for k in (-2, -1, 0, 1, 2)),
+)))
+# Marker IDs 24 to 27 are free.
+SMALL_ANCHORS = {24: (COMPACT_CENTRE[0] - 100, COMPACT_CENTRE[1] - 78), 25: (COMPACT_CENTRE[0] + 100, COMPACT_CENTRE[1] - 78),
+                 26: (COMPACT_CENTRE[0] + 100, COMPACT_CENTRE[1] + 78), 27: (COMPACT_CENTRE[0] - 100, COMPACT_CENTRE[1] + 78)}
+SMALL_PARK = (COMPACT_CENTRE[0], COMPACT_CENTRE[1] + SMALL_PITCH / 2)       # the middle of the lower grid divider
+SMALL_MAT = MatLayout("Small", SMALL_ANCHORS, SMALL_POSITIONS, PAPER_CROSSES, PAPER_NOUGHTS,
+                      width=COMPACT_WIDTH, height=COMPACT_HEIGHT, park=SMALL_PARK)
+# Where the mat may go, measured with 8 mm to spare at each end of the arm's 130 to 310 mm reach. The mat's middle must
+# be this far from the arm's base (mm) with the sheet square-on to the arm: "long" is the base facing the middle of a
+# long edge, "short" a short edge. Turned up to 15 degrees either way the ranges narrow to 205-222 and 214-218.
+SMALL_PLACEMENT = {"long": (181, 234), "short": (206, 227)}
+SMALL_SUGGESTED_DISTANCE = 215
+
+MAT_LAYOUTS = (STANDARD_MAT, PAPER_MAT, A3_MAT, COMPACT_MAT, SMALL_MAT)
 
 
 def winning_line(board):

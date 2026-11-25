@@ -45,13 +45,14 @@ def in_a_line(points):
     return bool(np.linalg.matrix_rank(centred, tol=1e-6 * max((centred ** 2).sum(), 1)) < 2)
 
 
-def fit_similarity(mat, robot, mirror=None):
+def fit_similarity(mat, robot, mirror=None, fixed_scale=None):
     """Fit robot = scale * A @ mat + offset, where A is a rotation that may include a mirror.
 
     The mat is drawn with y running down and the arm's y runs the other way when seen from above,
     so a mirror is usual. Returns (scale, A, offset). With ``mirror`` left out, at least three points
     that are not in a line are needed and the mirror is found. A camera looking down at the mat always
-    sees that mirror, so ``mirror=True`` may be given, and then two points are enough.
+    sees that mirror, so ``mirror=True`` may be given, and then two points are enough. If the size is
+    already known, ``fixed_scale`` keeps it, and only the position and the turn are fitted.
     """
     mat, robot = np.asarray(mat, float), np.asarray(robot, float)
     if len(mat) < (2 if mirror is not None else 3):
@@ -70,6 +71,8 @@ def fit_similarity(mat, robot, mirror=None):
         sign = np.sign(np.linalg.det(u @ vt)) or 1.0
         rotation = u @ np.diag([1.0, sign]) @ vt
         scale = (s * [1.0, sign]).sum() * len(m) / spread
+        if fixed_scale:
+            scale = float(fixed_scale)
         linear = scale * rotation @ flip
         error = float(((r - m @ linear.T) ** 2).sum())
         if best is None or error < best[0]:
@@ -88,7 +91,7 @@ def fit_plane(points):
 class MatCalibration:
     """The arm's map of the mat, with a small hand adjustment for each point."""
 
-    def __init__(self, layout, touched, adjustments=None, piece_height=None):
+    def __init__(self, layout, touched, adjustments=None, piece_height=None, print_scale=None):
         """``touched`` maps a circle name, or "Park", to the pose where the cup touched the mat there.
 
         The arm is touched onto the surface of the mat, so the surface is height zero. Everything
@@ -97,6 +100,9 @@ class MatCalibration:
         when the cup is at the same height.
         """
         self.layout = layout
+        # How big the printed mat really is, as a fraction of its design (the measured scale line over 100 mm), if it
+        # was measured. The mat's points are then taken at their real size, and the fit only finds where and how turned.
+        self.print_scale = None if print_scale is None else float(print_scale)
         self.touched = dict(touched)
         self.adjustments = dict(adjustments or {})
         self.piece_height = PIECE_HEIGHT * layout.piece_scale if piece_height is None else float(piece_height)
@@ -109,7 +115,8 @@ class MatCalibration:
         # slope, so the camera's top-down view supplies the mirror and the mat is taken as flat.
         self.quick = in_a_line(mat_points)
         self.scale, self.linear, self.offset = fit_similarity(
-            mat_points, [(self.touched[name].x, self.touched[name].y) for name in names], mirror=True if self.quick else None)
+            mat_points, [(self.touched[name].x, self.touched[name].y) for name in names],
+            mirror=True if self.quick else None, fixed_scale=1.0 if self.quick and self.print_scale else None)
         heights = [self.touched[name].z for name in names]
         self.plane = (0.0, 0.0, float(np.mean(heights))) if self.quick else fit_plane([self.touched[name].xyz() for name in names])
         self.rotation = float(np.median([self.touched[name].r for name in names]))
@@ -118,7 +125,8 @@ class MatCalibration:
                           for name in names}
 
     def _mat(self, name):
-        return self.layout.park if name == PARK else self.layout.positions[name]
+        point = self.layout.park if name == PARK else self.layout.positions[name]
+        return point if self.print_scale is None else (point[0] * self.print_scale, point[1] * self.print_scale)
 
     def xy(self, name, adjusted=True):
         x, y = self.linear @ np.asarray(self._mat(name), float) + self.offset

@@ -417,6 +417,10 @@ position instead (see step 3).
 3. **Capture the empty mat.** Clear the mat and move the arm out of the camera's view.
    This locks the camera's view. After that the markers are not used again, so the arm
    passing in front of them, or a marker read a little out, changes nothing.
+   **Printed scale (optional).** A paper mat has a 100 mm line at its foot. Printers can scale a sheet a little, so
+   measure the printed line with a ruler (it should be within 5 mm of 100) and type it into **Printed line
+   measures** on the centre-mark step. The arm then allows for it, and a Quick setup only has to find where the mat
+   is and how it is turned, which makes it noticeably more accurate. Leave it empty if you did not measure it.
 4. **Touch the centre mark, then the four corners.** Hand-guide the arm (hold its button)
    until the suction cup just touches the mat on the small ring in the middle, without
    pressing, and save it. That is the height of the mat, which is height zero for the arm. Then
