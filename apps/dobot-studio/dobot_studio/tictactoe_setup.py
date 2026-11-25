@@ -20,8 +20,8 @@ import numpy as np
 from .matcalib import MatCalibration, PARK, outer_points
 from .robot import HEIGHT_MM, Magician, Pose, QUICK, RobotError, SLOW, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
-from .tictactoe import O, SMALL_MAT, SMALL_SUGGESTED_DISTANCE, UNKNOWN, X, describe_slot
-from .tictactoe_vision import lock_view
+from .tictactoe import CELLS, O, SMALL_MAT, SMALL_SUGGESTED_DISTANCE, UNKNOWN, X, describe_slot
+from .tictactoe_vision import explain, lock_view
 
 STEPS = ("Show the mat", "Capture the empty mat", "Touch the centre mark", "Touch the corners",
          "Check every point", "Check the pieces", "Ready to play")
@@ -62,6 +62,8 @@ class SetupWizard:
         self.redo = None               # a corner being touched again
         self.checked = self.parked = self.pieces_ok = False
         self.unreadable, self.summary, self.problem = [], (0, 0, 0, 0), ""
+        self.bank_report = {}          # each bank circle: (what was found, the mark it should hold, why if unreadable)
+        self.grid_note = ""
         self.reference_waiting = None
         self.title, self.text, self.status = tk.StringVar(), tk.StringVar(), tk.StringVar()
         self.mode = tk.StringVar(value=FULL)
@@ -252,6 +254,9 @@ class SetupWizard:
             return PARK
         if self.step == 3:
             return self.redo or self.next_corner()
+        if self.step == PIECES:
+            bad = self.bad_slots()
+            return bad[0] if bad else None
         return self.selected if self.step == 4 else None
 
     # ---- moving between steps
@@ -532,28 +537,48 @@ class SetupWizard:
         self.p._job("park", lambda: robot.travel([park], self.p.abort, speed=QUICK, floor=floor))
 
     def capture_pieces(self):
+        """Check the two banks: a piece in every circle, and each piece the mark its bank holds.
+
+        The nine grid circles are not part of this check. They hold no pieces yet, and the camera
+        reads them again when a game starts.
+        """
+        p = self.p
         self.pieces_ok = False
-        self.problem = ""
-        names = (*self.p.layout.positions,)
-        latest = self.p.latest
-        # A piece the camera cannot read counts as something in the way, so the view never settles.
-        # Name the circle straight from the reading instead of asking for a steady view.
-        if latest is not None and self.view_fresh_any() and not self.p.camera_moved \
-                and UNKNOWN in (*latest.board, *latest.reserve):
-            self.unreadable = [name for name, mark in zip(names, (*latest.board, *latest.reserve)) if mark == UNKNOWN]
-            self.p.teaching.set(self.unreadable[0])
-            self.p._draw_camera()
+        self.problem, self.bank_report, self.unreadable, self.grid_note = "", {}, [], ""
+        if p.camera_moved:
+            self.problem = "The camera has moved. Go back and capture the empty mat again."
             return
-        try:
-            position = self.p._steady(min_frames=2)
-        except ValueError as error:
-            self.unreadable, self.problem = [], str(error)
+        latest = p.latest
+        if latest is None or not self.view_fresh_any() or p.rectified is None or p.reference is None:
+            self.problem = "Wait for a steady view of the whole mat."
             return
-        self.unreadable = []
-        self.summary = (sum(m == X for m in position.board), sum(m == O for m in position.board),
-                        sum(m == X for m in position.reserve), sum(m == O for m in position.reserve))
-        self.pieces_ok = sum(self.summary) > 0
-        self.p._draw_camera()
+        reading = dict(zip(p.layout.reserve, latest.reserve))
+        for mark in p.layout.reserve_marks(p.dobot):
+            for slot in p.layout.bank(mark):
+                seen = reading[slot]
+                if seen == mark:
+                    self.bank_report[slot] = ("ok", mark, "")
+                elif seen == "":
+                    self.bank_report[slot] = ("empty", mark, "")
+                elif seen == UNKNOWN:
+                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot)
+                    self.bank_report[slot] = ("unreadable", mark, why)
+                else:
+                    self.bank_report[slot] = ("wrong", mark, seen)
+        self.unreadable = [slot for slot, (state, _, _) in self.bank_report.items() if state == "unreadable"]
+        self.pieces_ok = all(state == "ok" for state, _, _ in self.bank_report.values())
+        busy = [name for name, mark in zip(CELLS, latest.board) if mark != ""]
+        self.grid_note = f"The grid should be clear. {', '.join(busy)} look different from the empty mat." if busy else ""
+        self.summary = (sum(m == X for m in latest.board), sum(m == O for m in latest.board),
+                        sum(m == X for m in latest.reserve), sum(m == O for m in latest.reserve))
+        bad = self.bad_slots()
+        if bad:
+            p.teaching.set(bad[0])
+        p._draw_camera()
+
+    def bad_slots(self):
+        """The bank circles that are not right, in the order they were checked."""
+        return [slot for slot, (state, _, _) in self.bank_report.items() if state != "ok"]
 
     def finish(self):
         if self.pieces_ok and self.idle and self.calibration:
@@ -757,21 +782,31 @@ class SetupWizard:
                     "not mistaken for something in the way.", "Moving the arm to Park…", None)
         if self.reference_waiting:
             return ("The arm is at Park. The camera is noting it.", "Looking…", None)
+        marks = [f"{len(self.p.layout.bank(mark))} {mark}" for mark in self.p.layout.reserve_marks(self.p.dobot)]
+        wanted = " and ".join(marks)
         if self.pieces_ok:
-            x, o, rx, ro = self.summary
-            return ("Is that what is on the mat? The camera's reading is written next to each circle. If it is right, "
-                    "finish. Otherwise fix the pieces and capture again.",
-                    f"✔  I can see {x} X and {o} O on the board, and {rx} X and {ro} O in the banks.", True)
+            note = " " + self.grid_note if self.grid_note else ""
+            return ("Is that what is in the banks? The camera's reading is written next to each circle. If it is right, "
+                    "finish. Otherwise fix the pieces and capture again." + note,
+                    f"✔  All {wanted} pieces are in place.", True)
         if self.problem:
             return ("Fix that, then capture again.", "✖  " + self.problem, False)
-        if self.unreadable:
-            return ("Centre each piece on its circle and keep the lighting even, then capture again.",
-                    "✖  I cannot read " + ", ".join(self.unreadable[:6]) + ".", False)
-        if self.summary != (0, 0, 0, 0):
-            return ("There are no pieces on the mat. Put some X and O pieces in the cells and in both banks, then "
-                    "capture.", "✖  I cannot see any pieces.", False)
-        return ("Put some X and O pieces on the mat, in the cells and in both banks, then capture.",
-                "Place a few pieces, then capture.", None)
+        if self.bank_report:
+            lines = []
+            for slot in self.bad_slots():
+                state, mark, extra = self.bank_report[slot]
+                lines.append({"empty": f"{slot} has no piece in it",
+                              "wrong": f"{slot} holds {extra}, not {mark}",
+                              "unreadable": f"{slot} cannot be read"}[state])
+            first = self.bank_report[self.bad_slots()[0]]
+            advice = {"empty": "Put a piece on every circle of both banks.",
+                      "wrong": "Each bank holds only its own mark: X pieces in the X bank, O pieces in the O bank.",
+                      "unreadable": "Centre the piece on its circle and keep the lighting even. "
+                                    + (f"The camera says {first[2]}." if first[2] else "")}[first[0]]
+            return (advice + " The grid is not checked here. Then capture again.",
+                    "✖  " + "; ".join(lines[:3]) + (f"; and {len(lines) - 3} more" if len(lines) > 3 else "") + ".", False)
+        return (f"Put {wanted} pieces in their banks, one on each circle, then capture. The grid is not checked here.",
+                "Fill both banks, then capture.", None)
 
     def _words6(self):
         return ("Everything is set up. Open the Match tab and choose New game. If the mat or the arm is ever "

@@ -125,32 +125,79 @@ def _templates():
                 v = -np.sin(theta) * cx + np.cos(theta) * cy
                 templates[X].append(((abs(u) < CROSS_HALF_LENGTH) & (abs(v) < CROSS_HALF_WIDTH)) |
                                     ((abs(v) < CROSS_HALF_LENGTH) & (abs(u) < CROSS_HALF_WIDTH)))
-    return body, centre, {key: np.stack(value) for key, value in templates.items()}
+    # The paper around the circle, in the corners of the patch: it shows how much the camera's exposure moved.
+    outside = radius > 13.2
+    return body, centre, {key: np.stack(value) for key, value in templates.items()}, outside
 
 
-def piece(tile, baseline):
+def inspect(tile, baseline):
+    """What is on one circle, and if the answer is "?", why.
+
+    Returns (mark, detail). ``mark`` is "" for an empty circle, X, O or UNKNOWN. ``detail`` is a short
+    plain-English reason that goes with an UNKNOWN, and is empty otherwise.
+    """
     import numpy as np
 
-    body, centre, templates = _templates()
+    body, centre, templates, outside = _templates()
+    # A camera that brightens or darkens the whole picture (its automatic exposure) changes the plain paper around the
+    # circle as well. Take that gain off, so only what is on the circle is compared with the empty mat.
+    gain = float(np.median(tile[outside])) / max(float(np.median(baseline[outside])), 1.0)
+    if 0.4 <= gain <= 2.0 and abs(gain - 1) > 0.02:
+        tile = np.clip(tile.astype(np.float32) / gain, 0, 255).astype(np.uint8)
     delta = np.abs(tile.astype(np.int16) - baseline.astype(np.int16))
     changed = np.mean(delta[body] >= 29)
     if changed < 0.17:
-        return ""
+        return "", ""
     if changed < 0.55:
-        return UNKNOWN
+        # The rim of the circle differs, but is the middle as it was? A piece changes the middle a lot. A circle
+        # whose picture has shifted a little, or is shaded or lit differently at the edge, does not.
+        if np.mean(delta[centre] >= 29) < 0.05:
+            return "", ""
+        return UNKNOWN, "something is partly on this circle, or in its way"
     tint = float(np.median(tile[body]))
     difference = np.abs(tile.astype(np.float32) - tint)
-    ink = (difference > 32) & centre
+    # Half way between the piece and its mark, so a soft or out-of-focus edge does not fatten or thin the mark.
+    ink = (difference > max(32.0, 0.5 * float(np.percentile(difference[centre], 98)))) & centre
     size = ink.sum()
     if size < 95:
-        return UNKNOWN
+        return UNKNOWN, "a piece is here but its X or O mark does not show up. Check the lighting"
     scores = {}
     for mark, shapes in templates.items():
         intersection = np.count_nonzero(shapes & ink, axis=(1, 2))
         union = np.count_nonzero(shapes, axis=(1, 2)) + size - intersection
         scores[mark] = float((intersection / union).max())
     best, alternate = sorted(scores, key=scores.__getitem__, reverse=True)
-    return best if scores[best] >= 0.60 and scores[best] - scores[alternate] >= 0.12 else UNKNOWN
+    if scores[best] >= 0.60 and scores[best] - scores[alternate] >= 0.12:
+        return best, ""
+    return UNKNOWN, (f"the mark is not clearly an X or an O (it matches an X {scores[X]:.0%} and an O {scores[O]:.0%}). "
+                     "Is the piece centred and the right way up?")
+
+
+def piece(tile, baseline):
+    return inspect(tile, baseline)[0]
+
+
+def explain(grey, baseline, layout, name):
+    """Why one circle reads "?": the reason, in plain English."""
+    centre = layout.positions[name]
+    scale = layout.piece_scale
+    return inspect(_patch(grey, centre, scale), _patch(baseline, centre, scale))[1]
+
+
+def side_by_side(view, reference, centre, size=150, window=44, turned=False):
+    """The same patch of mat, now and when empty, as two pictures. Both are looked at through the same registration."""
+    import cv2
+
+    def crop(image):
+        density = CLEAR_DENSITY
+        x, y = round(centre[0] * density), round(centre[1] * density)
+        half = round(window / 2 * density)
+        padded = cv2.copyMakeBorder(image, half, half, half, half, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        patch = padded[y:y + 2 * half, x:x + 2 * half]
+        patch = cv2.resize(patch, (size, size), interpolation=cv2.INTER_CUBIC)
+        return cv2.rotate(patch, cv2.ROTATE_180) if turned else patch
+
+    return crop(view.colour), crop(reference.colour)
 
 
 def read_position(grey, baseline, layout=STANDARD_MAT):

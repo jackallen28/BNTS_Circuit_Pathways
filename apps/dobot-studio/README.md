@@ -470,8 +470,16 @@ position instead (see step 3).
    wording turn end for end to match what you see.
 6. **Check the pieces.** The arm moves to Park by itself, and the camera takes a second
    look with the arm there, so the resting arm is not mistaken for something in the way.
-   Put some X and O pieces on the mat and press **Capture pieces**. The camera's reading
-   appears beside each circle. If it cannot read one, that circle is named. Then finish.
+   Put **five X pieces in the X bank and five O pieces in the O bank**, one on each circle,
+   and press **Capture pieces**. Only the two banks are checked: every circle must hold a
+   piece, and every piece must be the mark its bank holds. Each circle that is not right is
+   named, with why (*has no piece*, *holds O, not X*, or *cannot be read* and the camera's
+   reason), and the camera view shows that circle now beside the same place when the mat was
+   empty. The banks are marked green or red on the camera view. The nine grid circles are not
+   checked here: they hold no pieces yet, and a note only mentions anything on them. The blue
+   and green rings and writing on the camera view are drawn on the screen afterwards. They are
+   never on the picture the camera reads. The reading copes with the camera's automatic
+   exposure, a slightly soft picture and a picture that slips a few pixels. Then finish.
 
 The setup is never saved. Run it every time you open Tic-tac-toe, because the mat, the camera
 and the arm may have moved since last time. If the camera is knocked during play, a warning

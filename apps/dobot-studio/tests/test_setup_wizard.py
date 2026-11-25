@@ -617,32 +617,115 @@ class WizardTests(unittest.TestCase):
         self.pump(1.6)
         wizard.capture_pieces()
         self.assertTrue(wizard.pieces_ok, wizard.status.get())
-        self.assertEqual(wizard.summary, (1, 1, 5, 5))
         self.pump(0.3)
-        self.assertIn("I can see", wizard.status.get())
+        self.assertIn("All 5 X and 5 O pieces are in place", wizard.status.get())
         wizard.next()
         self.assertTrue(program.setup_done)
         self.assertEqual(wizard.step, 6)
         self.assertEqual(program.poses, wizard.calibration.poses())
         self.assertEqual(program.status.get().startswith("Setup is finished"), True)
 
-    def test_a_piece_the_camera_cannot_read_is_named_and_setup_will_not_finish(self):
-        self.open_program()
+    def to_pieces(self):
         program, wizard = self.program, self.wizard
         self.walk_to_corners()
         wizard.next()
         wizard.checked = True
         wizard.next()
         self.assertTrue(self.pump(30, lambda: wizard.parked and not program.busy and wizard.reference_waiting is None))
-        smudged = camera_view({**BANKS, "C2": "?"}, layout=LAYOUT, solid=True)
-        self.current["frame"] = smudged
+
+    def capture(self, contents, **options):
+        self.current["frame"] = camera_view(contents, layout=LAYOUT, solid=True, **options)
         self.pump(1.6)
-        wizard.capture_pieces()
+        self.wizard.capture_pieces()
         self.pump(0.3)
+
+    def test_the_pieces_step_checks_only_the_two_banks_and_ignores_the_grid(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_pieces()
+        self.capture(BANKS)
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.assertEqual(wizard.grid_note, "")
+        self.assertEqual(set(wizard.bank_report), {*(f"X{i}" for i in range(1, 6)), *(f"O{i}" for i in range(1, 6))})
+        self.assertNotIn("disabled", wizard.next_button.state())
+        # A smudge or a piece in the grid does not stop setup. It is only mentioned.
+        self.capture({**BANKS, "C2": "?", "A1": X})
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.assertIn("A1", wizard.grid_note)
+        self.assertIn("grid should be clear", wizard.text.get())
+
+    def test_an_empty_bank_circle_is_named(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_pieces()
+        self.capture({name: mark for name, mark in BANKS.items() if name not in ("X2", "O5")})
         self.assertFalse(wizard.pieces_ok)
-        self.assertIn("C2", wizard.status.get())
+        self.assertEqual(wizard.bad_slots(), ["X2", "O5"])
+        self.assertIn("X2 has no piece", wizard.status.get())
+        self.assertIn("O5 has no piece", wizard.status.get())
+        self.assertIn("disabled", wizard.next_button.state())
+        self.assertEqual(wizard.target(), "X2")
+        self.capture(BANKS)                                   # fixed
+        self.assertTrue(wizard.pieces_ok)
+        self.assertNotIn("disabled", wizard.next_button.state())
+
+    def test_a_piece_of_the_wrong_mark_in_a_bank_is_named(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_pieces()
+        self.capture({**BANKS, "X3": O, "O1": X})
+        self.assertFalse(wizard.pieces_ok)
+        self.assertEqual(wizard.bad_slots(), ["X3", "O1"])
+        self.assertIn("X3 holds O, not X", wizard.status.get())
+        self.assertIn("O1 holds X, not O", wizard.status.get())
+        self.assertIn("X pieces in the X bank", wizard.text.get())
+
+    def test_a_piece_the_camera_cannot_read_is_named_with_a_reason_and_setup_will_not_finish(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        self.capture({**BANKS, "X4": "?"})
+        self.assertFalse(wizard.pieces_ok)
+        self.assertEqual(wizard.unreadable, ["X4"])
+        self.assertIn("X4 cannot be read", wizard.status.get())
+        self.assertIn("The camera says", wizard.text.get())
         self.assertIn("disabled", wizard.next_button.state())
         self.assertFalse(program.setup_done)
+        # While it is unclear, the camera view shows that circle now and as it was when the mat was empty.
+        self.pump(0.5)
+        words = [program.preview.itemcget(item, "text") for item in program.preview.find_all()
+                 if program.preview.type(item) == "text"]
+        self.assertIn("X4 now", words)
+        self.assertIn("X4 when empty", words)
+
+    def test_the_banks_still_read_when_the_camera_changes_its_exposure_or_the_picture_shifts_a_little(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_pieces()
+        dim = camera_view(BANKS, layout=LAYOUT, solid=True)
+        self.current["frame"] = np.clip(dim.astype(np.float32) * 0.7, 0, 255).astype(np.uint8)     # the camera dims itself
+        self.pump(1.6)
+        wizard.capture_pieces()
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.current["frame"] = np.roll(camera_view(BANKS, layout=LAYOUT, solid=True), 1, axis=1)
+        self.pump(1.6)
+        wizard.capture_pieces()
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+
+    def test_the_overlay_is_only_drawn_on_the_screen_never_on_the_picture_the_camera_reads(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        self.current["frame"] = camera_view(BANKS, layout=LAYOUT, solid=True)
+        self.pump(1.6)
+        before = np.asarray(program.feed).copy()
+        wizard.capture_pieces()
+        program._draw_camera()
+        self.assertTrue(np.array_equal(before, np.asarray(program.feed)))
+        self.assertTrue(np.array_equal(before, self.current["frame"]))
+        colours = {program.preview.itemcget(item, "outline") for item in program.preview.find_all()
+                   if program.preview.type(item) == "oval"}
+        self.assertIn("#8df0a8", colours, "the banks are marked green once they are right")
 
     def test_the_arm_in_front_of_the_markers_does_not_disturb_the_setup(self):
         self.open_program()

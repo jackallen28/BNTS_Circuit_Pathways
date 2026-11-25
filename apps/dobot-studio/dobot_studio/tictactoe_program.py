@@ -11,7 +11,7 @@ from .tictactoe import (
     human_change, outcome, robot_move, tidy_plan, winning_line, with_move,
 )
 from .tictactoe_setup import SetupWizard
-from .tictactoe_vision import DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify
+from .tictactoe_vision import DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify, side_by_side
 from .vision import Camera, TABLETOP
 
 TURN_DELAY = 1.5
@@ -869,6 +869,9 @@ class TicTacToeProgram:
             for label, (x, y), value in zip(positions, frame_points, readings):
                 sx, sy = left+x*image.width/self.feed.width, top+y*image.height/self.feed.height
                 tint = "#ffd997" if label == self.teaching.get() and not self.ready else "#9cebe3"
+                checked = self.wizard.bank_report.get(label) if self.wizard and not self.setup_done else None
+                if checked:                  # the banks, as the last "Capture pieces" found them
+                    tint = "#8df0a8" if checked[0] == "ok" else "#ff8a80"
                 canvas.create_oval(sx-4, sy-4, sx+4, sy+4, outline=tint, width=2)
                 name = label.replace("Reserve ", "R")
                 canvas.create_text(sx+7, sy-9, text=f"{name} {value}", fill=tint,
@@ -890,6 +893,20 @@ class TicTacToeProgram:
             return
         import numpy as np
         from PIL import Image, ImageTk
+
+        if wizard.step == len(wizard.frames) - 2 and self.reference is not None:
+            # Checking the pieces: the circle now, and as it was when the mat was empty, to see what is different.
+            size = min(150, (h - 24) // 2, w // 3)
+            now, empty = side_by_side(view, self.reference, mat, size, turned=self.dobot_side.get())
+            self.loupe_photos = [ImageTk.PhotoImage(Image.fromarray(picture), master=self.window) for picture in (now, empty)]
+            x = w - size - 8
+            for index, (photo, label) in enumerate(zip(self.loupe_photos, (f"{target} now", f"{target} when empty"))):
+                y = 8 + index * (size + 8)
+                canvas.create_rectangle(x - 2, y - 2, x + size + 2, y + size + 2, fill="#ffffff", outline="#704988", width=2)
+                canvas.create_image(x, y, image=photo, anchor="nw")
+                canvas.create_text(x + 4, y + size - 4, text=label, anchor="sw", fill="#ffffff",
+                                   font=self.studio.theme.font(8, "bold"))
+            return
 
         size = min(220, h // 2 - 8, w // 3)
         picture = loupe(np.asarray(self.feed), view.matrix, mat, size, turned=self.dobot_side.get())
