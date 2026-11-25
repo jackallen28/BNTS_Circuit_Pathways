@@ -260,6 +260,105 @@ class WizardTests(unittest.TestCase):
         self.assertEqual(wizard.target(), outer_points(LAYOUT)[1])
         self.assertIn("disabled", wizard.next_button.state())
 
+    def quick_with_one_corner(self):
+        self.to_corners()
+        wizard = self.wizard
+        wizard.mode.set("quick")
+        wizard.set_mode()
+        corner = outer_points(LAYOUT)[0]
+        self.touch(LAYOUT.positions[corner])
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: corner in wizard.touched and not self.program.busy))
+        return corner
+
+    def test_go_near_carries_the_cup_just_above_the_circle_and_the_arrows_finish_the_job(self):
+        self.open_program()
+        wizard = self.wizard
+        self.quick_with_one_corner()
+        second = outer_points(LAYOUT)[1]
+        wizard.picked(second)
+        wizard.go_near()
+        self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        truth = TRUTH.surface_pose(LAYOUT.positions[second])
+        height = wizard.touched[PARK].z
+        self.assertAlmostEqual(self.dobot.pose[0], truth.x, delta=0.6)
+        self.assertAlmostEqual(self.dobot.pose[1], truth.y, delta=0.6)
+        self.assertAlmostEqual(self.dobot.pose[2], height + 12, delta=0.4)
+        wizard.lower_to_mat()
+        self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        self.assertAlmostEqual(self.dobot.pose[2], height, delta=0.4)
+        self.assertAlmostEqual(self.dobot.pose[0], truth.x, delta=0.6)
+        self.assertEqual(wizard.notice, "")
+
+    def test_each_arrow_moves_the_cup_that_way_on_the_map_and_turned_when_viewed_from_the_dobot(self):
+        self.open_program()
+        wizard = self.wizard
+        self.quick_with_one_corner()
+        wizard.picked(outer_points(LAYOUT)[1])
+        wizard.go_near()
+        self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        wizard.move_step.set("5 mm")
+        point = np.asarray(LAYOUT.positions[outer_points(LAYOUT)[1]], float)
+        for turned in (False, True):
+            wizard.p.dobot_side.set(turned)
+            for key, (dx, dy) in {"right": (1, 0), "up": (0, -1), "left": (-1, 0), "down": (0, 1)}.items():
+                before = np.array(self.dobot.pose[:2])
+                wizard.move_cup(key)
+                self.assertTrue(self.pump(30, lambda: not self.program.busy))
+                sign = -1 if turned else 1
+                expected = TRUTH.xy(point + (sign * dx, sign * dy)) - TRUTH.xy(point)
+                expected = expected / np.hypot(*expected) * 5
+                moved = np.array(self.dobot.pose[:2]) - before
+                self.assertLess(np.hypot(*(moved - expected)), 0.4, f"{key} (turned {turned})")
+        before = self.dobot.pose[2]
+        wizard.move_cup("raise")
+        self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        self.assertAlmostEqual(self.dobot.pose[2], before + 5, delta=0.4)
+
+    def test_a_corner_saved_with_the_cup_above_the_mat_still_uses_the_centre_marks_height(self):
+        self.open_program()
+        wizard = self.wizard
+        self.to_corners()
+        wizard.mode.set("quick")
+        wizard.set_mode()
+        corner = outer_points(LAYOUT)[0]
+        self.touch(LAYOUT.positions[corner])
+        self.dobot.pose[2] += 9                                  # the cup is held above the mat
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: corner in wizard.touched and not self.program.busy))
+        self.assertAlmostEqual(wizard.touched[corner].z, wizard.touched[PARK].z, places=3)
+        wizard.lock_height.set(False)                            # by hand, the height touched is kept
+        wizard.picked(outer_points(LAYOUT)[1])
+        self.touch(LAYOUT.positions[outer_points(LAYOUT)[1]])
+        self.dobot.pose[2] += 9
+        wizard.save_corner()
+        self.assertTrue(self.pump(5, lambda: outer_points(LAYOUT)[1] in wizard.touched and not self.program.busy))
+        self.assertAlmostEqual(wizard.touched[outer_points(LAYOUT)[1]].z - wizard.touched[PARK].z, 9, delta=1.5)
+
+    def test_go_near_with_only_the_centre_moves_the_arm_somewhere_safe_and_the_buttons_need_the_centre(self):
+        self.open_program()
+        wizard = self.wizard
+        self.assertTrue(self.pump(3, lambda: wizard._ready_to_leave()))
+        wizard.next()
+        wizard.capture()
+        wizard.next()
+        wizard.step = 3
+        wizard._show_step()
+        self.pump(0.3)
+        self.assertIn("disabled", wizard.near_button.state())
+        wizard.step = 2
+        wizard._show_step()
+        self.touch(LAYOUT.park)
+        wizard.save_centre()
+        self.assertTrue(self.pump(5, lambda: PARK in wizard.touched and not self.program.busy))
+        wizard.next()
+        self.pump(0.3)
+        self.assertNotIn("disabled", wizard.near_button.state())
+        wizard.go_near()
+        self.assertTrue(self.pump(30, lambda: not self.program.busy))
+        self.assertEqual(wizard.notice, "")
+        self.assertAlmostEqual(self.dobot.pose[2], wizard.height() + 12, delta=0.4)
+
     def test_a_mat_on_a_low_table_is_not_refused_for_being_below_the_usual_floor(self):
         """The mat can be lower than the arm's usual -60 mm floor: the touches say where the table is."""
         self.open_program()

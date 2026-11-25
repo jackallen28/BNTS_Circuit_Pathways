@@ -572,7 +572,7 @@ class TicTacToeProgram:
         if self.busy == "demo":
             self.window.after_cancel(self.demo_timer)
             self.demo_timer = self.busy = None
-        elif self.busy in ("tour", "visit", "park", "touch"):
+        elif self.busy in ("tour", "visit", "park", "touch", "move"):
             self.abort.set()
         elif self.busy == "place":
             self.abort.set()
@@ -643,7 +643,7 @@ class TicTacToeProgram:
                     self._draw_camera()
                 continue
             self.busy = None
-            if name in ("touch", "tour", "visit", "park"):
+            if name in ("touch", "tour", "visit", "park", "move"):
                 self.wizard.finished(name, value, error)
                 continue
             if error:

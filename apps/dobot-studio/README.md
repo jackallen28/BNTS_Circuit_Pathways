@@ -445,6 +445,15 @@ position instead (see step 3).
    relates to the arm's coordinates. Either way, the next step visits every circle.
    The arm's height limit follows the mat (the lowest touch less 5 mm), so a mat on a low table
    is not refused.
+   **Moving by buttons instead of by hand.** Once the centre mark is saved, its height is the
+   mat's height, and corners are saved at that height whatever height the cup is at (untick
+   *Use the centre mark's height* to save the height you touched instead). **Go near** lifts the
+   cup and carries it to where the circle should be, a little above the mat. It is a rough guess
+   after one touch (it assumes the Dobot is at the top edge of the mat on the map) and
+   accurate to a few millimetres once two points are saved. The **arrows** then move the cup
+   a step across the mat as it looks on the map and the camera close-up (turned if you tick
+   *View from the Dobot's side*), and ⬆ ⬇ move it up and down. **Lower to the mat** puts it at
+   the mat's height for a last look at the close-up, and **Save this corner** keeps it.
    If any circle would be beyond the arm's reach (130 to 310 mm from its base), step 4 says
    which one, and the mat needs moving closer. If the arm refuses a move later, the reason is
    shown and the arm stays connected and homed.

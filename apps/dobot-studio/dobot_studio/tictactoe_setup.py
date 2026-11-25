@@ -9,12 +9,16 @@
 
 The camera only reads pieces. Where the arm goes comes from the points it was touched on.
 """
+from dataclasses import replace
+from math import hypot
 from time import monotonic
 import tkinter as tk
 from tkinter import ttk
 
+import numpy as np
+
 from .matcalib import MatCalibration, PARK, outer_points
-from .robot import HEIGHT_MM, Magician, QUICK, RobotError, SLOW, StopUnconfirmed
+from .robot import HEIGHT_MM, Magician, Pose, QUICK, RobotError, SLOW, StopUnconfirmed
 from .theme import DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import O, UNKNOWN, X, describe_slot
 from .tictactoe_vision import lock_view
@@ -28,6 +32,10 @@ THICKNESS_STEP = 0.2
 PAD = {"forward": ("▲  Forward", (1, 0, 0)), "back": ("▼  Back", (-1, 0, 0)), "left": ("◀  Left", (0, 1, 0)),
        "right": ("Right  ▶", (0, -1, 0)), "up": ("⬆  Up", (0, 0, 1)), "down": ("⬇  Down", (0, 0, -1))}
 FRESH = 0.55
+MOVE_STEPS = ("1 mm", "2 mm", "5 mm", "10 mm", "20 mm")
+NEAR_CLEARANCE = 12     # mm above the mat while the arm is moved with the buttons
+# Which way each arrow moves the cup on the map and the camera view, as a step across the mat's picture.
+SCREEN = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
 AMBER = "#8a5a00"
 # How the arm is taught the mat. Both end the same way: the arm visits every circle and can be nudged.
 FULL, QUICK_MODE = "full", "quick"
@@ -55,6 +63,8 @@ class SetupWizard:
         self.reference_waiting = None
         self.title, self.text, self.status = tk.StringVar(), tk.StringVar(), tk.StringVar()
         self.mode = tk.StringVar(value=FULL)
+        self.lock_height = tk.BooleanVar(value=True)     # corners use the height of the centre mark
+        self.move_step = tk.StringVar(value=MOVE_STEPS[2])
         self.nudge_step = tk.StringVar(value=NUDGES[1])
         self.adjust_text = tk.StringVar()
         self.thickness_text = tk.StringVar()
@@ -113,8 +123,30 @@ class SetupWizard:
                                     font=ui.theme.font(9), highlightthickness=0)
             button.pack(fill="x")
             self.mode_buttons.append(button)
-        self.corner_button = ui._button(frame, "Save this corner", self.save_corner, "Purple")
-        self.corner_button.pack(fill="x", pady=(3, 0))
+        row = tk.Frame(frame, bg=PANEL)
+        row.pack(fill="x", pady=(3, 0))
+        self.near_button = ui._button(row, "Go near", self.go_near)
+        self.near_button.pack(side="left")
+        self.lower_mat_button = ui._button(row, "Lower to the mat", self.lower_to_mat)
+        self.lower_mat_button.pack(side="left", padx=(4, 0))
+        self.corner_button = ui._button(row, "Save this corner", self.save_corner, "Purple")
+        self.corner_button.pack(side="right")
+        arrows = tk.Frame(frame, bg=PANEL)
+        arrows.pack(fill="x", pady=(3, 0))
+        self.move_buttons = {}
+        for key, label in (("left", "◀"), ("up", "▲"), ("down", "▼"), ("right", "▶")):
+            button = ui._button(arrows, label, lambda key=key: self.move_cup(key))
+            button.pack(side="left", padx=(0, 3), ipadx=4)
+            self.move_buttons[key] = button
+        for key, label in (("raise", "⬆"), ("sink", "⬇")):
+            button = ui._button(arrows, label, lambda key=key: self.move_cup(key))
+            button.pack(side="left", padx=(0, 3), ipadx=4)
+            self.move_buttons[key] = button
+        ttk.Combobox(arrows, textvariable=self.move_step, values=MOVE_STEPS, state="readonly", width=6).pack(
+            side="right")
+        tk.Checkbutton(frame, text="Use the centre mark's height for the corners", variable=self.lock_height,
+                       bg=PANEL, activebackground=PANEL, anchor="w", font=ui.theme.font(9),
+                       highlightthickness=0).pack(fill="x", pady=(3, 0))
         self.anyway_button = self.studio._button(frame, "Use these points anyway", self.use_anyway)
 
     def _build_check(self, frame):
@@ -292,6 +324,80 @@ class SetupWizard:
     def save_corner(self):
         self._touch(self.redo or self.next_corner())
 
+    # ---- moving the arm with the buttons instead of by hand
+    def height(self):
+        """The height of the mat's surface, from the centre mark."""
+        return self.touched[PARK].z if PARK in self.touched else None
+
+    def _map(self):
+        """The mat's picture to the arm's millimetres, as (2 x 2 matrix, offset), from what is known so far.
+
+        With two touches this is the quick fit. With only the centre, it is a rough guess: the Dobot
+        at the top edge of the mat on the map, so the mat's "down" is away from the arm's base.
+        """
+        layout = self.p.layout
+        if len(self.touched) >= 2:
+            fit = MatCalibration(layout, self.touched)
+            return fit.linear, fit.offset
+        centre = self.touched[PARK]
+        length = hypot(centre.x, centre.y) or 1.0
+        ux, uy = centre.x / length, centre.y / length
+        linear = np.array([[-uy, ux], [ux, uy]])
+        return linear, np.array((centre.x, centre.y)) - linear @ np.asarray(layout.park, float)
+
+    def near_pose(self, name):
+        """Where the cup should be to be near a circle, a little above the mat."""
+        linear, offset = self._map()
+        x, y = linear @ np.asarray(self.p.layout.positions[name], float) + offset
+        return Pose(round(float(x), 2), round(float(y), 2), self.height() + NEAR_CLEARANCE, self.touched[PARK].r)
+
+    def _can_move_by_buttons(self):
+        return PARK in self.touched and self.robot_ready and self.idle and self.step == 3
+
+    def go_near(self):
+        """Lift the cup and carry it to where this circle should be, as far as is known. The arrows do the rest."""
+        name = self.redo or self.target()
+        if not (name and self._can_move_by_buttons()):
+            return
+        goal, robot, floor = self.near_pose(name), self.studio.robot, self.floor()
+        self.notice = ""
+
+        def run():
+            here = robot.pose()
+            lifted = Pose(here.x, here.y, max(here.z, goal.z), goal.r)
+            return robot.travel([lifted, goal], self.p.abort, speed=QUICK, floor=floor)
+
+        self.p._job("move", run)
+
+    def lower_to_mat(self):
+        if not self._can_move_by_buttons():
+            return
+        robot, floor, height = self.studio.robot, self.floor(), self.height()
+        self.notice = ""
+
+        def run():
+            here = robot.pose()
+            return robot.travel([Pose(here.x, here.y, height, here.r)], self.p.abort, speed=SLOW, floor=floor)
+
+        self.p._job("move", run)
+
+    def move_cup(self, key):
+        """An arrow: one step across the mat as it looks on the map and the camera, or up and down."""
+        if not self._can_move_by_buttons():
+            return
+        amount = float(self.move_step.get().split()[0])
+        if key in ("raise", "sink"):
+            delta = (0.0, 0.0, amount if key == "raise" else -amount)
+        else:
+            linear, _ = self._map()
+            across = np.asarray(SCREEN[key], float) * (-1 if self.p.dobot_side.get() else 1)
+            moved = linear @ across
+            moved = moved / (hypot(*moved) or 1.0) * amount
+            delta = (float(moved[0]), float(moved[1]), 0.0)
+        robot, floor = self.studio.robot, self.floor()
+        self.notice = ""
+        self.p._job("move", lambda: robot.jog(delta, self.p.abort, floor=floor))
+
     def picked(self, name):
         """A circle was clicked on the map."""
         if not self.idle:
@@ -426,7 +532,11 @@ class SetupWizard:
             self.p._draw_camera()
             return
         self.notice = ""
-        if name == "touch":
+        if name == "move":
+            pass
+        elif name == "touch":
+            if self.pending != PARK and PARK in self.touched and self.lock_height.get():
+                value = replace(value, z=self.touched[PARK].z)       # the mat is the height of the centre mark
             self.touched[self.pending] = value
             self.redo = None
             self.corner = next((i for i, corner in enumerate(self.required()) if corner not in self.touched),
@@ -485,6 +595,9 @@ class SetupWizard:
         arm = self.robot_ready and idle
         ui._set_button(self.centre_button, arm)
         ui._set_button(self.corner_button, arm)
+        moving = arm and PARK in self.touched and self.step == 3
+        for button in (self.near_button, self.lower_mat_button, *self.move_buttons.values()):
+            ui._set_button(button, moving)
         for button in self.mode_buttons:
             button.configure(state="normal" if idle else "disabled")
         asking = self.step == 3 and self.calibration is not None and bool(self.calibration.errors()) and not self.accepted
@@ -553,6 +666,8 @@ class SetupWizard:
         quick = self.mode.get() == QUICK_MODE
         if not self.robot_ready:
             return ("The arm must be connected and homed first.", "✖  The Dobot is not connected and homed.", False)
+        if self.notice:
+            return ("Fix that, or move the arm by hand.", "✖  " + self.notice, False)
         if self.redo:
             return (f"Guide the cup onto the middle of the orange circle and save it. "
                     f"{describe_slot(self.p.layout, self.redo, self.p.dobot_side.get())}",
@@ -578,7 +693,8 @@ class SetupWizard:
             return ("The arm now knows where every circle is. You can click a corner to touch it again.",
                     f"✔  All corners saved. The mat is placed to within {self.calibration.worst[1]:.1f} mm.", True)
         name = self.next_corner()
-        return (f"Guide the cup onto the middle of the orange circle and save it. {describe_slot(self.p.layout, name, self.p.dobot_side.get())}",
+        return (f"Guide the cup onto the middle of the orange circle and save it, or press Go near and use the arrows. "
+                f"The arrows move the cup as you see it on the map. {describe_slot(self.p.layout, name, self.p.dobot_side.get())}",
                 f"Corner {min(self.corner, len(required) - 1) + 1} of {len(required)} ({len(saved)} saved).", None)
 
     def _words4(self):
