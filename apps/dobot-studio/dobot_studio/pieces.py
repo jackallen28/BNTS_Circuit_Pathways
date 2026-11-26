@@ -19,7 +19,7 @@ import numpy as np
 
 from .tictactoe import O, PIECE_RADIUS, X
 from .tictactoe_vision import (
-    DENSITY, RADIUS, _patch, _patch_colour, best_match, body_colour, half_density, mark_of, present,
+    DENSITY, RADIUS, _patch, _patch_colour, best_match, body_colour, circle_positions, half_density, mark_of, present,
 )
 
 CAP = {"close": 3, "distance": 5}      # shapes kept of each mark and kind. Older ones are dropped first
@@ -72,20 +72,20 @@ def closeup_mark(rgb):
     return ink if ink.sum() >= 95 else None
 
 
-def mat_marks(view, reference, layout, *, learned=None):
+def mat_marks(view, reference, layout, *, learned=None, centres=None):
     """The marks of every piece on the mat, from the camera's own view of it: a list of masks."""
     found = []
-    for centre in layout.positions.values():
+    for centre in circle_positions(layout, centres).values():
         mask = mark_of(_patch(view.grey, centre, layout.piece_scale), _patch(reference.grey, centre, layout.piece_scale))
         if mask is not None:
             found.append(mask)
     return found
 
 
-def mat_pieces(view, reference, layout):
+def mat_pieces(view, reference, layout, centres=None):
     """Every piece on the mat: a list of (the mark's mask or None if it does not show, the body's colour as Lab)."""
     found = []
-    for centre in layout.positions.values():
+    for centre in circle_positions(layout, centres).values():
         tile = _patch(view.grey, centre, layout.piece_scale)
         base = _patch(reference.grey, centre, layout.piece_scale)
         if not present(tile, base):

@@ -11,7 +11,7 @@ from .camera_tune import (
     apply, interesting,
 )
 from .pieces import KINDS, WANTED, lab_to_rgb
-from .tictactoe_vision import _patch_colour, body_colour, look, pixels_per_mm
+from .tictactoe_vision import _patch_colour, body_colour, circle_positions, look, pixels_per_mm
 from .theme import BORDER, DARK, GREEN, MUTED, PANEL, PURPLE, RED
 from .tictactoe import O, X
 
@@ -279,7 +279,7 @@ class TuneDialog:
             return
         slots = [(slot, mark) for mark in p.layout.reserve_marks(p.dobot) for slot in p.layout.bank(mark)]
         for index, (slot, expected) in enumerate(slots):
-            mark, why, report = look(view.grey, reference.grey, view.layout, slot, p.learned, view.colour)
+            mark, why, report = look(view.grey, reference.grey, view.layout, slot, p.learned, view.colour, p.centres)
             tile = report.get("tile")
             column, row = index % 5, index // 5
             x, y = column * (TILE + 40) + 6, row * (TILE + 26) + 2
@@ -295,7 +295,7 @@ class TuneDialog:
             canvas.create_image(x, y, image=photo, anchor="nw")
             canvas.create_rectangle(x - 1, y - 1, x + TILE, y + TILE, outline=GREEN if good else RED, width=2)
             if report.get("changed", 0) >= 0.55:          # the colour of the piece, as the Pi judges it
-                _, rgb = body_colour(_patch_colour(view.colour, view.layout.positions[slot], view.layout.piece_scale))
+                _, rgb = body_colour(_patch_colour(view.colour, circle_positions(view.layout, p.centres)[slot], view.layout.piece_scale))
                 canvas.create_rectangle(x + TILE - 14, y + 2, x + TILE - 2, y + 14, fill="#%02x%02x%02x" % rgb, outline="#ffffff")
             scores = report.get("scores") or {}
             verdict = "empty" if mark == "" else ("?" if mark == "?" else mark)

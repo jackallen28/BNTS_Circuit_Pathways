@@ -157,6 +157,7 @@ class PhysicalResetTests(unittest.TestCase):
         self.addCleanup(lambda: program.window.winfo_exists() and program.window.destroy())
         program.wizard.calibration = calibration
         program.poses, program.setup_done = poses, True
+        program.at_rest = True                     # the arm is waiting at its resting place, as after setup
         program.reference = SimpleNamespace(layout=layout)
         program.human = program.player_choice.set(human) or human
         program.board = tuple(board)
@@ -322,6 +323,56 @@ class PhysicalResetTests(unittest.TestCase):
 
         for name in ("reset_button", "cleared_button", "release_button", "speed_scale", "stop_button"):
             self.assertTrue(inside(getattr(program, name)), f"{name} is outside the window")
+
+    def test_a_flicker_in_one_frame_does_not_unsettle_the_view(self):
+        program = self.program(A3_MAT, EMPTY)
+        calm = Position(EMPTY, ("X", "X", "X", "X", "X", "O", "O", "O", "O", "O"))
+        flicker = Position(("?",) + EMPTY[1:], calm.reserve)
+        for frame in (calm, calm, calm, flicker, calm):
+            read = program._consensus(frame)
+        self.assertEqual(read, calm, "one odd frame in five changes nothing")
+        self.assertEqual(program.unsteady, ("A1",), "but the circle that flickered is known")
+        program.recent.clear()
+        for frame in (calm, flicker, flicker, flicker, flicker):
+            read = program._consensus(frame)
+        self.assertEqual(read.board[0], "?", "a change that lasts is a change")
+
+    def test_the_steady_view_says_what_is_wrong_and_does_not_blame_the_wrong_thing(self):
+        program = self.program(A3_MAT, EMPTY)
+        program.analysed = monotonic()
+        program.latest = Position(EMPTY, ("",) * 10)
+        program.view_clear, program.seen = False, 1
+        with self.assertRaises(ValueError) as caught:
+            program._steady()
+        self.assertIn("in the way", str(caught.exception))
+        self.assertIn("resting place", str(caught.exception), "the arm is the usual cause, and it goes to rest")
+        program.view_clear = True
+        program.unsteady = ("X1", "O2")
+        with self.assertRaises(ValueError) as caught:
+            program._steady()
+        self.assertIn("steady view", str(caught.exception))
+        self.assertIn("X1, O2", str(caught.exception))
+        program.seen = 2
+        self.assertEqual(program._steady(), program.latest)
+
+    def test_a_new_game_first_takes_the_arm_to_its_resting_place_so_the_camera_can_see_the_mat(self):
+        program = self.program(A3_MAT, EMPTY)
+        program.at_rest = False                                  # the arm was homed and is somewhere else
+        self.world.reserve = [X] * 5 + [O] * 5
+        program.new_game()
+        self.assertTrue(self.pump(program, 4, lambda: bool(self.studio.robot.rests)))
+        self.assertEqual(self.studio.robot.rests[0][0], program.poses["Rest"])
+        self.assertIn("resting place", program.status.get() + str(self.studio.robot.rests))
+        self.assertTrue(self.pump(program, 6, lambda: program.ready), "and then the game starts by itself")
+        self.assertTrue(program.at_rest)
+
+    def test_a_new_game_does_not_move_an_arm_that_is_already_resting(self):
+        program = self.program(A3_MAT, EMPTY)
+        self.world.reserve = [X] * 5 + [O] * 5
+        self.pump(program, 0.8)                                  # the camera has had a look
+        program.new_game()
+        self.assertTrue(self.pump(program, 6, lambda: program.ready))
+        self.assertEqual(self.studio.robot.rests, [])
 
     def test_it_waits_for_a_clear_still_mat_before_moving(self):
         program = self.program(A3_MAT, FINISHED)

@@ -429,5 +429,69 @@ class OffCentreTests(unittest.TestCase):
             self.assertNotEqual(position.board[0], X, f"{millimetres} mm off the circle is not on it")
 
 
+class CircleCentreTests(unittest.TestCase):
+    """The circles are found in the picture of the empty mat, so a bent picture does not matter, and a clear mat stays clear."""
+
+    def test_the_circles_are_found_where_the_empty_mat_shows_them(self):
+        from dobot_studio.tictactoe_vision import circle_centres, circle_positions
+
+        flat = rectify(camera_view({}, layout=SMALL_MAT, solid=True))
+        centres = circle_centres(flat)
+        self.assertEqual(len(centres), 19)
+        for name, (dx, dy) in centres.items():
+            self.assertLess(np.hypot(dx, dy), 0.6, f"{name} is where the markers say, to within a pixel or two")
+        bent = rectify(camera_view({}, layout=SMALL_MAT, solid=True, circle_shift=(4.0, -3.0)))
+        for name, (dx, dy) in circle_centres(bent).items():
+            self.assertAlmostEqual(dx, 4.0, delta=0.7, msg=name)
+            self.assertAlmostEqual(dy, -3.0, delta=0.7, msg=name)
+        moved = circle_positions(SMALL_MAT, {"A1": (2.0, -1.0)})
+        self.assertEqual(moved["A1"], (SMALL_MAT.positions["A1"][0] + 2.0, SMALL_MAT.positions["A1"][1] - 1.0))
+        self.assertEqual(moved["B2"], SMALL_MAT.positions["B2"])
+
+    def test_a_mat_with_no_dark_circles_to_measure_is_left_as_the_markers_say(self):
+        from dobot_studio.tictactoe import STANDARD_MAT
+        from dobot_studio.tictactoe_vision import circle_centres
+
+        self.assertEqual(circle_centres(rectify(camera_view({}, layout=STANDARD_MAT))), {})
+
+    def test_pieces_read_wherever_the_picture_puts_the_circles_once_they_are_measured(self):
+        from dobot_studio.tictactoe_vision import circle_centres
+
+        contents = {**{f"X{i}": X for i in range(1, 6)}, **{f"O{i}": O for i in range(1, 6)}, "A1": X, "B2": O}
+        for shift in ((6.0, 0.0), (-5.0, 5.0), (0.0, -7.0)):
+            with self.subTest(shift=shift):
+                empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True, circle_shift=shift))
+                view = rectify(camera_view(contents, layout=SMALL_MAT, solid=True, circle_shift=shift,
+                                           offsets={name: (2.0, -1.5) for name in contents}))
+                position = read_position(view.grey, empty.grey, SMALL_MAT, centres=circle_centres(empty))
+                got = dict(zip(SMALL_MAT.positions, (*position.board, *position.reserve)))
+                self.assertEqual({name: mark for name, mark in got.items() if mark != contents.get(name, "")}, {})
+
+    def test_the_mat_stays_clear_when_the_camera_changes_its_exposure_or_pieces_sit_off_their_circles(self):
+        from dobot_studio.tictactoe_vision import circle_centres, mat_clear
+
+        contents = {**{f"X{i}": X for i in range(1, 6)}, **{f"O{i}": O for i in range(1, 6)}, "A1": X, "B2": O}
+        empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True, colours=COLOURS))
+        centres = circle_centres(empty)
+        offsets = {name: (4.5 * np.cos(i), 4.5 * np.sin(i)) for i, name in enumerate(contents)}     # all a few mm off
+        picture = camera_view(contents, layout=SMALL_MAT, solid=True, colours=COLOURS, offsets=offsets)
+        for name, change in {"as it is": lambda p: p, "dimmed": lambda p: (p * 0.7).astype(np.uint8),
+                             "warm": lambda p: np.clip(p * np.array([1.12, 1.0, 0.85]), 0, 255).astype(np.uint8)}.items():
+            with self.subTest(name):
+                view = rectify(change(picture))
+                position = read_position(view.grey, empty.grey, SMALL_MAT, None, view.colour, centres)
+                self.assertTrue(mat_clear(view, empty, position, centres), "a mat with only pieces on it is clear")
+
+    def test_a_hand_or_the_arm_in_the_way_is_still_seen(self):
+        from dobot_studio.tictactoe_vision import circle_centres, mat_clear
+
+        empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True))
+        picture = camera_view({"A1": X}, layout=SMALL_MAT, solid=True)
+        cv2.rectangle(picture, (300, 120), (360, 300), (40, 44, 52), -1)          # a dark arm lying over the mat
+        view = rectify(picture)
+        position = read_position(view.grey, empty.grey, SMALL_MAT, centres=circle_centres(empty))
+        self.assertFalse(mat_clear(view, empty, position, circle_centres(empty)))
+
+
 if __name__ == "__main__":
     unittest.main()

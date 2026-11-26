@@ -459,9 +459,56 @@ def piece(tile, baseline, learned=None, rgb=None):
     return inspect(tile, baseline, learned, rgb=rgb)[0]
 
 
-def look(grey, baseline, layout, name, learned=None, colour=None):
+def circle_centres(reference):
+    """Where each circle really is in the picture of the empty mat: {name: (dx, dy)}, in mm from where the markers say.
+
+    The markers fix the mat's corners, but a webcam bends the picture between them, so a circle can sit a few mm from
+    where a flat map puts it. The black circles of the empty mat show where they are, so they are measured. Anything
+    that cannot be found cleanly is left where the markers put it. The arm does not use this: it was touched on the
+    circles. This only keeps the camera looking in the right place.
+    """
+    import cv2
+    import numpy as np
+
+    layout, found = reference.layout, {}
+    scale = layout.piece_scale
+    paper = float(np.percentile(reference.grey, 90))
+    expected = np.pi * 11.725 ** 2 * DENSITY ** 2
+    size = 2 * RADIUS + 1
+    y, x = np.mgrid[:size, :size]
+    near = np.hypot(x - RADIUS, y - RADIUS) <= 15 * DENSITY
+    for name, centre in layout.positions.items():
+        offset = (0.0, 0.0)
+        for _ in range(3):                      # look again at where it was found, so a circle at the patch's edge is whole
+            tile = _patch(reference.grey, (centre[0] + offset[0], centre[1] + offset[1]), scale)
+            dark = ((tile < 0.5 * paper) & near).astype(np.uint8)
+            count, _, stats, centroids = cv2.connectedComponentsWithStats(dark)
+            best = None
+            for index in range(1, count):
+                if not 0.12 * expected <= stats[index, cv2.CC_STAT_AREA] <= 1.6 * expected:
+                    continue
+                cx, cy = centroids[index]
+                distance = float(np.hypot(cx - RADIUS, cy - RADIUS))
+                if best is None or distance < best[0]:
+                    best = (distance, cx, cy)
+            if best is None:
+                offset = None
+                break
+            offset = (offset[0] + (best[1] - RADIUS) / DENSITY * scale, offset[1] + (best[2] - RADIUS) / DENSITY * scale)
+        if offset is not None and float(np.hypot(*offset)) <= 8.0:
+            found[name] = offset
+    return found if len(found) * 2 >= len(layout.positions) else {}
+
+
+def circle_positions(layout, centres=None):
+    """The circles' positions in the mat's millimetres, moved to where the empty mat shows them to be."""
+    return {name: (x + (centres or {}).get(name, (0, 0))[0], y + (centres or {}).get(name, (0, 0))[1])
+            for name, (x, y) in layout.positions.items()}
+
+
+def look(grey, baseline, layout, name, learned=None, colour=None, centres=None):
     """What the Pi sees on one circle: (mark, reason, report). The report has the tile and the mark's mask for drawing."""
-    centre = layout.positions[name]
+    centre = circle_positions(layout, centres)[name]
     scale = layout.piece_scale
     report = {}
     rgb = None if colour is None else _patch_colour(colour, centre, scale)
@@ -480,9 +527,9 @@ def pixels_per_mm(view):
     return float(np.mean(ratios))
 
 
-def explain(grey, baseline, layout, name, learned=None, colour=None):
+def explain(grey, baseline, layout, name, learned=None, colour=None, centres=None):
     """Why one circle reads "?": the reason, in plain English."""
-    return look(grey, baseline, layout, name, learned, colour)[1]
+    return look(grey, baseline, layout, name, learned, colour, centres)[1]
 
 
 def side_by_side(view, reference, centre, size=150, window=44, turned=False):
@@ -501,31 +548,43 @@ def side_by_side(view, reference, centre, size=150, window=44, turned=False):
     return crop(view.colour), crop(reference.colour)
 
 
-def read_position(grey, baseline, layout=STANDARD_MAT, learned=None, colour=None):
-    """What is on every circle. ``colour`` is the mat's colour picture, used once the pieces' colours have been taught."""
+def read_position(grey, baseline, layout=STANDARD_MAT, learned=None, colour=None, centres=None):
+    """What is on every circle. ``colour`` is the mat's colour picture, used once the pieces' colours have been taught.
+    ``centres`` is where the empty mat shows each circle to be (see ``circle_centres``)."""
     scale = layout.piece_scale
     symbols = {name: piece(_patch(grey, centre, scale), _patch(baseline, centre, scale), learned,
                            None if colour is None else _patch_colour(colour, centre, scale))
-               for name, centre in layout.positions.items()}
+               for name, centre in circle_positions(layout, centres).items()}
     return Position(tuple(symbols[name] for name in CELLS), tuple(symbols[name] for name in layout.reserve))
 
 
-def mat_clear(view, reference, position):
-    """Check for foreground objects between the markers, including between the slots."""
-    import cv2
+def mat_clear(view, reference, position, centres=None):
+    """Whether anything is in the way between the markers: a hand, the arm, something loose on the mat.
 
-    delta = cv2.absdiff(view.colour, reference.colour)
-    foreground = cv2.bitwise_not(cv2.inRange(delta, (0, 0, 0), (34, 34, 34)))
-    radius = round((PIECE_RADIUS + 2) * view.layout.piece_scale * CLEAR_DENSITY)
-    for (x, y), mark in zip(view.layout.positions.values(), (*position.board, *position.reserve)):
-        if mark in (X, O):
-            cv2.circle(foreground, (round(x * CLEAR_DENSITY), round(y * CLEAR_DENSITY)), radius, 0, -1)
+    The picture is brought to the empty mat's brightness first, because a camera that changes its exposure when pieces
+    are put down would otherwise make the whole mat look different. Circles that hold a piece are left out generously,
+    since a piece sits a few mm off its circle, and only something about as big as a finger or more counts.
+    """
+    import cv2
+    import numpy as np
 
     xs, ys = zip(*view.layout.anchors.values())
     left, right = (round(x * CLEAR_DENSITY) for x in (min(xs), max(xs)))
     top, bottom = (round(y * CLEAR_DENSITY) for y in (min(ys), max(ys)))
+    now, before = view.colour.astype(np.float32), reference.colour.astype(np.float32)
+    gain = np.median(before[top:bottom, left:right].reshape(-1, 3), axis=0) / np.maximum(
+        np.median(now[top:bottom, left:right].reshape(-1, 3), axis=0), 1.0)
+    now = np.clip(now * np.clip(gain, 0.5, 2.0), 0, 255)
+    delta = np.abs(now - before)
+    foreground = (delta.max(axis=2) > 34).astype(np.uint8) * 255
+    radius = round((PIECE_RADIUS + 7) * view.layout.piece_scale * CLEAR_DENSITY)
+    names = (*view.layout.positions,)
+    for name, mark in zip(names, (*position.board, *position.reserve)):
+        if mark:                                    # a piece, or something that is not clear: it is read, not an obstruction
+            x, y = circle_positions(view.layout, centres)[name]
+            cv2.circle(foreground, (round(x * CLEAR_DENSITY), round(y * CLEAR_DENSITY)), radius, 0, -1)
     region = foreground[top:bottom, left:right]
     # Remove thin edges from minor registration differences before measuring the obstruction.
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     region = cv2.morphologyEx(region, cv2.MORPH_OPEN, kernel)
-    return cv2.countNonZero(region) <= 40 * CLEAR_DENSITY**2
+    return cv2.countNonZero(region) <= 60 * CLEAR_DENSITY ** 2

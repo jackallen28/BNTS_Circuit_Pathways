@@ -671,7 +671,7 @@ class SetupWizard:
                 elif seen == "":
                     self.bank_report[slot] = ("empty", mark, "")
                 elif seen == UNKNOWN:
-                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot, p.learned, p.rectified.colour)
+                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot, p.learned, p.rectified.colour, p.centres)
                     self.bank_report[slot] = ("unreadable", mark, why)
                 else:
                     self.bank_report[slot] = ("wrong", mark, seen)

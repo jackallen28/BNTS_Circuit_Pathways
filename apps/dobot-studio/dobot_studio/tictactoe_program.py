@@ -17,7 +17,8 @@ from .camera_tune import Tune, apply as apply_tune
 from .pieces import Learned, closeup_mark, mat_pieces
 from .setup_store import SetupStore
 from .tictactoe_vision import (
-    DENSITY, Position, loupe, lock_view, mat_clear, read_position, rectify, retuned, side_by_side, view_from,
+    DENSITY, Position, circle_centres, circle_positions, loupe, lock_view, mat_clear, read_position, rectify, retuned,
+    side_by_side, view_from,
 )
 from .vision import Camera, TABLETOP
 
@@ -92,6 +93,7 @@ class TicTacToeProgram:
         self.view_clear = False
         self.turn_delay = TurnDelay()
         self.think_until = None
+        self.at_rest, self.after_rest = False, None
         self.seen = 0
         self.timestamp = self.analysed = self.deadline = 0
         # How the Pi reads the camera's picture, and what it has been taught about the pieces. The live view is the
@@ -108,6 +110,11 @@ class TicTacToeProgram:
         self.autosave_enabled = not self.store.has()
         self.saved_key = self.saved_source = None
         self.next_save = 0.0
+        # Where the empty mat shows each circle to be, measured once from the picture of it. The camera only has to
+        # notice what is on or off a circle, so it looks where the circle really is in the picture.
+        self.centres, self.centres_for = {}, None
+        self.recent = []                  # the last few readings, so a flicker in one frame does not unsettle the view
+        self.unsteady = ()
         self.camera = self.busy = self.demo_timer = None
         self.camera_epoch = 0
         self.events = SimpleQueue()
@@ -259,6 +266,7 @@ class TicTacToeProgram:
         if self.busy:
             return
         self.busy = name
+        self.at_rest = False                  # until a job that ends at the resting place says it has
         self.abort.clear()
 
         def run():
@@ -475,7 +483,7 @@ class TicTacToeProgram:
                 raise ValueError("Capture the empty mat first, with the camera in its place.")
             if self.camera_moved:
                 raise ValueError("The camera has moved. Capture the empty mat again.")
-            pieces = mat_pieces(view, self.reference, view.layout)
+            pieces = mat_pieces(view, self.reference, view.layout, self.centres)
             if not pieces:
                 raise ValueError(f"I cannot see any pieces on the mat. Put only {mark} pieces on it, centred on their circles.")
             self.learned.add(mark, [mask for mask, _ in pieces if mask is not None], "distance", [lab for _, lab in pieces])
@@ -532,13 +540,37 @@ class TicTacToeProgram:
         self.poses = self.calibration.poses()
         self.status.set("Setup is finished. Open the Match tab and choose New game.")
 
+    def _consensus(self, raw):
+        """The reading each circle has had in most of the last few frames, so one odd frame changes nothing."""
+        from collections import Counter
+
+        self.recent.append(raw)
+        del self.recent[:-5]
+        if len(self.recent) < 3:
+            return raw
+        names = (*self.layout.positions,)
+        readings = [(*frame.board, *frame.reserve) for frame in self.recent]
+        chosen, changing = [], []
+        for index, name in enumerate(names):
+            votes = Counter(reading[index] for reading in readings)
+            mark, count = votes.most_common(1)[0]
+            chosen.append(mark if count * 2 > len(readings) else readings[-1][index])
+            if len(votes) > 1:
+                changing.append(name)
+        self.unsteady = tuple(changing)
+        return Position(tuple(chosen[:9]), tuple(chosen[9:]))
+
     def _steady(self, robot_mark=None, *, min_frames=2):
         if self.camera_moved:
             raise ValueError("The camera has moved. Capture the empty mat again. The arm setup is not affected.")
-        if self.latest is None or self.seen < min_frames or monotonic() - self.analysed > VIEW_TIMEOUT:
-            raise ValueError("Wait for a steady view of the entire mat.")
+        if self.latest is None or monotonic() - self.analysed > VIEW_TIMEOUT:
+            raise ValueError("Waiting for the camera's picture of the mat.")
         if not self.view_clear:
-            raise ValueError("Move hands and loose items off the mat. Keep the tool at Park.")
+            raise ValueError("Something is in the way of the mat. Take your hands off it. The arm waits at its resting place, "
+                             "and moves there first if it is not.")
+        if self.seen < min_frames:
+            settling = f" It is still settling on {', '.join(self.unsteady[:4])}." if self.unsteady else ""
+            raise ValueError("Wait for a steady view of the entire mat." + settling)
         if UNKNOWN in self.latest.board:
             raise ValueError("Centre each piece on its circle and check the camera contrast.")
         reserve = dict(zip(self.layout.reserve, self.latest.reserve))
@@ -547,9 +579,29 @@ class TicTacToeProgram:
                 raise ValueError(f"Keep only {mark} pieces in the matching reserve slots.")
         return self.latest
 
+    def _rest_first(self, then):
+        """Take the arm to its resting place, off the mat, and then carry on with ``then``.
+
+        The camera can only read the mat with the arm out of the way, and after homing or a stop the arm is somewhere
+        else. Returns True if it had to move (``then`` is called when it has arrived), False if it is already there or
+        there is no arm to move.
+        """
+        robot = self.studio.robot
+        if self.studio.demo or robot is None or not self.studio.homed or "Rest" not in self.poses:
+            return False
+        rest, floor, quick = self.poses["Rest"], self.wizard.floor(), self.speeds()[1]
+        if self.at_rest:
+            return False
+        self.after_rest = then
+        self.status.set("Moving the arm to its resting place, off the mat…")
+        self._job("rest", lambda: robot.to_rest(rest, self.abort, speed=quick, floor=floor))
+        return True
+
     def new_game(self):
         if (self.busy or self.checking or self.tidy_pending or self.tidying
                 or (self.ready and not self.studio.demo)):
+            return
+        if self._rest_first(self.new_game):
             return
         human = self.player_choice.get()
         robot = O if human == X else X
@@ -733,6 +785,8 @@ class TicTacToeProgram:
             else:
                 self.status.set("The board is already clear.")
             return
+        if self._rest_first(lambda: self._start_reset(prefix)):
+            return
         self.tidy_pending = True
         self.turn_delay.reset()
         self.status.set(lead + "Resetting the board once the mat is clear. Keep hands clear.")
@@ -816,13 +870,14 @@ class TicTacToeProgram:
     def stop(self):
         self.ready = False
         self.think_until = None
+        self.at_rest, self.after_rest = False, None
         self.checking = None
         self._cancel_tidy()
         self.turn_delay.reset()
         if self.busy == "demo":
             self.window.after_cancel(self.demo_timer)
             self.demo_timer = self.busy = None
-        elif self.busy in ("tour", "visit", "park", "touch", "move", "pick_test"):
+        elif self.busy in ("tour", "visit", "park", "touch", "move", "pick_test", "rest"):
             self.abort.set()
         elif self.busy == "place":
             self.abort.set()
@@ -860,8 +915,13 @@ class TicTacToeProgram:
                 self.camera_status.set(str(error))
             else:
                 self.rectified = view
-                position = read_position(view.grey, self.reference.grey, view.layout, self.learned, view.colour)
-                clear = self.busy != "place" and mat_clear(view, self.reference, position)
+                if self.centres_for is not self.reference:
+                    self.centres, self.centres_for = circle_centres(self.reference), self.reference
+                raw = read_position(view.grey, self.reference.grey, view.layout, self.learned, view.colour, self.centres)
+                if self.latest is None:
+                    self.recent.clear()
+                position = self._consensus(raw)
+                clear = self.busy != "place" and mat_clear(view, self.reference, position, self.centres)
                 self.seen = self.seen+1 if position == self.latest and clear and self.view_clear else 1
                 self.view_clear = clear
                 self.latest = position
@@ -893,6 +953,15 @@ class TicTacToeProgram:
                     self._draw_camera()
                 continue
             self.busy = None
+            if not error and name in ("rest", "place", "park", "tour", "pick_test"):
+                self.at_rest = True                          # these end with the arm at its resting place
+            if name == "rest":
+                callback, self.after_rest = self.after_rest, None
+                if error:
+                    self.status.set(str(error))
+                elif callback:
+                    self.window.after(900, callback)          # a moment for the camera to see the mat without the arm
+                continue
             if name in ("touch", "tour", "visit", "park", "move", "pick_test"):
                 self.wizard.finished(name, value, error)
                 continue
@@ -1114,7 +1183,7 @@ class TicTacToeProgram:
 
             view = self.rectified
             inverse = np.linalg.inv(view.matrix)
-            positions = view.layout.positions
+            positions = circle_positions(view.layout, self.centres)
             xy = np.array(tuple(positions.values()), dtype=np.float32)[None] * DENSITY
             frame_points = cv2.perspectiveTransform(xy, inverse)[0]
             readings = (*self.latest.board, *self.latest.reserve) if self.latest else ("",)*len(positions)

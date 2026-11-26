@@ -540,6 +540,16 @@ help when the mark does not show up in the picture at all. Look in **Camera & pi
 bank circle is shown as the Pi sees it, with the mark it found in red, the verdict, and how well it matched an X
 and an O, then check these:
 
+* **The camera says "Wait for a steady view" or "Something is in the way".** The camera reads the mat only when it is
+  still and clear. **New game** and **Reset board** first take the arm to its resting place, because after homing the arm
+  is usually in the picture. Keep the rest of the area clear. The camera allows for its automatic exposure changing when
+  coloured pieces are put down, ignores a piece being a few millimetres off its circle, and ignores one odd frame. If it
+  still waits, the message names the circles that keep changing (a reflection or a piece half on its circle is the usual
+  cause) or says something is in the way (a hand, a cable, the arm).
+* **The overlay rings do not sit on the tokens.** A webcam bends the picture between the four corner markers, so a flat map
+  from the markers can put a circle a few millimetres from where it really is. The camera therefore measures where each
+  black circle is in the picture of the empty mat and reads each circle there. The arm does not use this: it goes where it
+  was touched. So a ring that is a little off a token does not matter, and the camera only needs to notice what is on a circle.
 * **A piece off the middle of its circle.** A piece is never exactly on the middle: it is put down by hand, and a
   piece 3 mm thick leans away from the middle of the picture. The camera finds the piece's own middle from the edge of its
   body against the black circle, then looks for the mark there, and reads pieces up to about 5 mm off. Further than that it

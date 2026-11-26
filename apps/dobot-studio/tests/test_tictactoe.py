@@ -16,13 +16,14 @@ from dobot_studio.tictactoe_program import TurnDelay
 from dobot_studio.tictactoe_vision import DENSITY, Position, mat_clear, read_position, rectify
 
 
-def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False, colours=None, offsets=None):
+def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False, colours=None, offsets=None, circle_shift=(0, 0)):
     """An angled, 640 px camera view of the mat and the supplied glyphs.
 
     ``solid`` draws the circles as solid black discs, as on the current printed mats, instead of rings.
     ``colours`` maps X and O to the colour (RGB) of that mark's pieces, instead of the usual light grey. A piece whose
     content is "blank" has a body but no mark, as when a reflection wipes the mark out. ``offsets`` maps a position
-    to how far (dx, dy, in mm) its piece sits from the middle of the circle.
+    to how far (dx, dy, in mm) its piece sits from the middle of the circle. ``circle_shift`` moves every circle (not
+    the markers) by (dx, dy) mm, as a lens that bends the picture between the markers does.
     """
     density = 3
     piece_density = layout.piece_scale * density
@@ -38,7 +39,7 @@ def camera_view(contents, shift=0, layout=STANDARD_MAT, solid=False, colours=Non
         image = aruco.generateImageMarker(dictionary, key, 2*radius)
         rgb[cy-radius:cy+radius, cx-radius:cx+radius] = image[:, :, None]
     for label, (x, y) in layout.positions.items():
-        cx, cy = round(x*density), round(y*density)
+        cx, cy = round((x + circle_shift[0])*density), round((y + circle_shift[1])*density)
         if layout is STANDARD_MAT:
             cv2.circle(rgb, (cx, cy), round(13.6*density), (31, 49, 58), -1, cv2.LINE_AA)
         elif solid:
