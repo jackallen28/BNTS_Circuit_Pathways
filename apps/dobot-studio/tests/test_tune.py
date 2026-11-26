@@ -493,5 +493,61 @@ class CircleCentreTests(unittest.TestCase):
         self.assertFalse(mat_clear(view, empty, position, circle_centres(empty)))
 
 
+class OccupancyTests(unittest.TestCase):
+    """During a game the camera is only the eyes: is a circle's black covered or clear. What a piece is, the game knows."""
+
+    CONTENTS = {**{f"X{i}": X for i in range(1, 6)}, **{f"O{i}": O for i in range(1, 6)}, "A1": X, "B2": O, "C3": X, "B3": O}
+
+    def occupied(self, view, empty, layout, centres=None, previous=None):
+        from dobot_studio.tictactoe_vision import PIECE, read_occupancy
+
+        position = read_occupancy(view.grey, empty.grey, layout, centres, previous)
+        names = (*layout.positions,)
+        return {name: value for name, value in zip(names, (*position.board, *position.reserve))}, PIECE
+
+    def test_covered_circles_are_found_whatever_the_marks_look_like_or_where_the_pieces_sit(self):
+        from dobot_studio.tictactoe_vision import circle_centres
+
+        for layout in (SMALL_MAT, COMPACT_MAT):
+            empty = rectify(camera_view({}, layout=layout, solid=True))
+            centres = circle_centres(empty)
+            rng = np.random.default_rng(4)
+            contents = dict(self.CONTENTS)
+            contents["A2"], contents["A3"], contents["C1"] = "?", "blank", "?"          # marks nobody could read
+            offsets = {name: (rng.uniform(-6, 6) / 1.4, rng.uniform(-6, 6) / 1.4) for name in contents}
+            for label, change in {"as it is": lambda g: g, "dim": lambda g: (g * 0.6).astype(np.uint8),
+                                  "soft": lambda g: cv2.GaussianBlur(g, (0, 0), 2.5)}.items():
+                with self.subTest(layout=layout.label, picture=label):
+                    view = rectify(camera_view(contents, layout=layout, solid=True, offsets=offsets))
+                    got, piece = self.occupied(type(view)(**{**view.__dict__, "grey": change(view.grey)}), empty, layout, centres)
+                    self.assertEqual({name for name, value in got.items() if value == piece}, set(contents))
+                    self.assertEqual({value for name, value in got.items() if name not in contents}, {""})
+
+    def test_a_circle_in_between_keeps_what_it_had_so_it_cannot_flicker(self):
+        empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True))
+        view = rectify(camera_view({"A1": X}, layout=SMALL_MAT, solid=True, offsets={"A1": (14.0, 0.0)}))   # mostly off its circle
+        from dobot_studio.tictactoe_vision import PIECE, Position
+
+        names = (*SMALL_MAT.positions,)
+        before_empty = Position(("",) * 9, ("",) * 10)
+        before_covered = Position((PIECE,) + ("",) * 8, ("",) * 10)
+        self.assertEqual(self.occupied(view, empty, SMALL_MAT)[0]["A1"], "?", "with nothing to go on it is not sure")
+        self.assertEqual(self.occupied(view, empty, SMALL_MAT, previous=before_empty)[0]["A1"], "")
+        self.assertEqual(self.occupied(view, empty, SMALL_MAT, previous=before_covered)[0]["A1"], PIECE)
+        far = rectify(camera_view({"A1": X}, layout=SMALL_MAT, solid=True, offsets={"A1": (21.0, 0.0)}))
+        self.assertEqual(self.occupied(far, empty, SMALL_MAT, previous=before_covered)[0]["A1"], "", "well off is off")
+
+    def test_taking_a_piece_off_and_putting_one_on_is_seen(self):
+        empty = rectify(camera_view({}, layout=SMALL_MAT, solid=True))
+        full = self.occupied(rectify(camera_view({f"X{i}": X for i in range(1, 6)}, layout=SMALL_MAT, solid=True)), empty, SMALL_MAT)
+        fetched = self.occupied(rectify(camera_view({f"X{i}": X for i in (1, 2, 4, 5)}, layout=SMALL_MAT, solid=True)), empty, SMALL_MAT)
+        placed = self.occupied(rectify(camera_view({**{f"X{i}": X for i in (1, 2, 4, 5)}, "B2": X}, layout=SMALL_MAT, solid=True)),
+                               empty, SMALL_MAT)
+        piece = full[1]
+        self.assertEqual([n for n, v in full[0].items() if v == piece], [f"X{i}" for i in range(1, 6)])
+        self.assertEqual({n for n, v in full[0].items() if v == piece} - {n for n, v in fetched[0].items() if v == piece}, {"X3"})
+        self.assertEqual({n for n, v in placed[0].items() if v == piece} - {n for n, v in fetched[0].items() if v == piece}, {"B2"})
+
+
 if __name__ == "__main__":
     unittest.main()

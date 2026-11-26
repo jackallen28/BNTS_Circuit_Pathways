@@ -490,13 +490,13 @@ does not need the setup done again. Touching a corner again, or capturing a new 
 6. **Check the pieces.** The arm moves to its **resting place**, off the mat, and the camera takes a second look with
    the arm there. The step says how far the resting place is from the nearest circle. Move it with the arrows
    if it is too close. Put **five X pieces in the X bank and five O pieces in the O bank**, one on each circle, and
-   press **Capture pieces**. Only the two banks are checked: every circle must hold a piece, and every piece must
-   be the mark its bank holds. Each circle that is not right is named, with why (*has no piece*, *holds O, not X*,
-   or *cannot be read* and the camera's reason), and the camera view shows that circle now beside the same place
-   when the mat was empty. The banks are marked green or red. The nine grid circles are not checked: they hold no
-   pieces yet, and a note only mentions anything on them. The rings and writing on the camera view are drawn on the
-   screen afterwards and are never on the picture the camera reads. The reading copes with the camera's automatic
-   exposure, a slightly soft picture and a picture that slips a few pixels. Then finish.
+   press **Capture pieces**. Only the two banks are checked, and only that every circle is **covered**: what a piece
+   is comes from the bank it is in, and the game does the rest. A circle with no piece in it is named, and the camera
+   view shows it now beside the same place when the mat was empty. If the camera can also make out a mark, and it is plainly
+   the other one, that is mentioned (*X3 looks like an O, but it is in the X bank*) without stopping the setup. The banks
+   are marked green or red. The nine grid circles are not checked: they hold no pieces yet, and a note only mentions
+   anything on them. The rings and writing on the camera view are drawn on the screen afterwards and are never on the
+   picture the camera reads. Then finish.
 7. **Ready to play.** Open the **Match** tab.
 
 #### Paper tokens to cut out
@@ -540,6 +540,12 @@ help when the mark does not show up in the picture at all. Look in **Camera & pi
 bank circle is shown as the Pi sees it, with the mark it found in red, the verdict, and how well it matched an X
 and an O, then check these:
 
+* **During a game the camera only checks which circles are covered.** It does not read X or O: the game knows what each
+  piece is (a new piece is the mover's, and a piece in a bank is that bank's mark), and the Dobot's own calibration does
+  everything exact. A circle counts as covered when its black is mostly hidden, which a piece does even when it sits up to about
+  1 cm off, whatever its mark looks like, and it is clear when its black shows. A circle caught between the two, such as a hand's shadow, keeps
+  what it had instead of flickering. Marks are only read before a game, to help the setup (the **Check the pieces** step and
+  the Camera and pieces window), and a mark that looks wrong there is mentioned but does not stop anything.
 * **The camera says "Wait for a steady view" or "Something is in the way".** The camera reads the mat only when it is
   still and clear. **New game** and **Reset board** first take the arm to its resting place, because after homing the arm
   is usually in the picture. Keep the rest of the area clear. The camera allows for its automatic exposure changing when
@@ -601,6 +607,12 @@ setting is used for every pick in the game and is saved with the setup.
 7. Choose **Play as**. For the paper mat, load X1–X5 with crosses and at least four of O1–O5 with noughts. On the
    single-bank mat, put the Dobot's mark in the reserve slots. Load five if it plays X or four if it plays O. Select
    **New game**.
+**The Dobot can play itself.** Tick **The Dobot plays itself (both sides)** on the Match tab before **New game**. It then
+plays X and O in turn, fetching each side's pieces from its own bank (so it needs the X and O banks both loaded: five X
+and four O), with the same thinking pause and the same camera check after every move, and it resets the board at the end
+as usual. It uses the one **Dobot difficulty** for both sides, so on Hard it will always draw. It needs a mat with an X bank
+and an O bank (the compact, small, paper and A3 mats). Untick it to play the Dobot yourself.
+
 8. On your turn, centre one piece in an empty cell and take your hand away. The Dobot's arm is waiting **off the
    mat**, so the camera sees all of it. Once the camera sees one legal move and a clear, unchanged mat for 1.5
    seconds, the screen says the camera has read the mat, the Dobot **thinks** for a moment, and only then does it

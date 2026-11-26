@@ -678,29 +678,35 @@ class WizardTests(unittest.TestCase):
         self.assertTrue(wizard.pieces_ok)
         self.assertNotIn("disabled", wizard.next_button.state())
 
-    def test_a_piece_of_the_wrong_mark_in_a_bank_is_named(self):
+    def test_a_piece_of_the_other_mark_in_a_bank_is_mentioned_but_does_not_stop_the_setup(self):
+        """What a piece is comes from the bank it is in. The camera only has to see that the circle is covered."""
         self.open_program()
         wizard = self.wizard
         self.to_pieces()
         self.capture({**BANKS, "X3": O, "O1": X})
-        self.assertFalse(wizard.pieces_ok)
-        self.assertEqual(wizard.bad_slots(), ["X3", "O1"])
-        self.assertIn("X3 holds O, not X", wizard.status.get())
-        self.assertIn("O1 holds X, not O", wizard.status.get())
-        self.assertIn("X pieces in the X bank", wizard.text.get())
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.assertEqual(wizard.bad_slots(), [])
+        self.assertEqual(len(wizard.mark_notes), 2)
+        self.assertIn("X3 looks like an O, but it is in the X bank", wizard.mark_notes)
+        self.assertIn("Check: X3 looks like an O", wizard.text.get())
+        self.assertNotIn("disabled", wizard.next_button.state())
 
-    def test_a_piece_the_camera_cannot_read_is_named_with_a_reason_and_setup_will_not_finish(self):
+    def test_a_piece_the_camera_cannot_make_out_is_still_a_piece_and_does_not_stop_the_setup(self):
         self.open_program()
         program, wizard = self.program, self.wizard
         self.to_pieces()
         self.capture({**BANKS, "X4": "?"})
+        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.assertNotIn("disabled", wizard.next_button.state())
+
+    def test_an_empty_circle_shows_it_now_and_when_empty(self):
+        self.open_program()
+        program, wizard = self.program, self.wizard
+        self.to_pieces()
+        self.capture({name: mark for name, mark in BANKS.items() if name != "X4"})
         self.assertFalse(wizard.pieces_ok)
-        self.assertEqual(wizard.unreadable, ["X4"])
-        self.assertIn("X4 cannot be read", wizard.status.get())
-        self.assertIn("The camera says", wizard.text.get())
-        self.assertIn("disabled", wizard.next_button.state())
+        self.assertIn("X4 has no piece", wizard.status.get())
         self.assertFalse(program.setup_done)
-        # While it is unclear, the camera view shows that circle now and as it was when the mat was empty.
         self.pump(0.5)
         words = [program.preview.itemcget(item, "text") for item in program.preview.find_all()
                  if program.preview.type(item) == "text"]
@@ -878,8 +884,8 @@ class WizardTests(unittest.TestCase):
         self.assertFalse(program.learned.ready())
         self.assertIn("disabled", dialog.forget_button.state())
 
-    def test_pieces_taught_are_used_when_the_banks_are_checked(self):
-        """Thicker crosses than the ideal one cannot be read until the camera has been shown them."""
+    def test_pieces_taught_are_used_to_read_marks_that_the_built_in_shapes_do_not_know(self):
+        """Thicker crosses than the ideal one read as "?" until the camera has been shown them. Only the marks need that."""
         self.open_program()
         program, wizard = self.program, self.wizard
         self.to_pieces()
@@ -890,9 +896,9 @@ class WizardTests(unittest.TestCase):
             both = camera_view(BANKS, layout=LAYOUT, solid=True)
         self.current["frame"] = both
         self.pump(1.6)
+        self.assertEqual(set(program.reading.reserve[:5]), {"?"}, "the fat crosses are not known to the built-in shapes")
         wizard.capture_pieces()
-        self.assertFalse(wizard.pieces_ok)
-        self.assertTrue(set(wizard.unreadable) & {f"X{i}" for i in range(1, 6)})
+        self.assertTrue(wizard.pieces_ok, "but they are pieces, and that is what the setup needs")
         self.current["frame"] = fat
         self.pump(1.2)
         program.teach_piece(X, "distance")
@@ -901,8 +907,8 @@ class WizardTests(unittest.TestCase):
         program.teach_piece(O, "distance")
         self.current["frame"] = both
         self.pump(1.6)
-        wizard.capture_pieces()
-        self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.assertEqual(set(program.reading.reserve[:5]), {X})
+        self.assertEqual(set(program.reading.reserve[5:]), {O})
 
     def test_the_dialog_closes_cleanly_and_the_program_window_gets_back_control(self):
         self.open_program()
@@ -1041,8 +1047,8 @@ class WizardTests(unittest.TestCase):
         self.current["frame"] = camera_view(glare, layout=LAYOUT, solid=True, colours={"blank": PINK})
         self.pump(1.6)
         wizard.capture_pieces()
-        self.assertFalse(wizard.pieces_ok)
-        self.assertEqual(len(wizard.unreadable), 10)
+        self.assertTrue(wizard.pieces_ok, "every circle is covered, whatever the marks look like")
+        self.assertEqual(set(program.reading.reserve), {"?"}, "but no mark can be made out")
         # teach the colours from a distance: only X tokens on the mat, then only O tokens
         self.current["frame"] = camera_view({f"X{i}": X for i in range(1, 6)}, layout=LAYOUT, solid=True, colours=COLOURS)
         self.pump(1.2)
@@ -1061,8 +1067,10 @@ class WizardTests(unittest.TestCase):
         both = np.maximum(view_x, camera_view({f"O{i}": "blank" for i in range(1, 6)}, layout=LAYOUT, solid=True, colours={"blank": YELLOW}))
         self.current["frame"] = both
         self.pump(1.6)
+        self.assertEqual(program.reading.reserve, (X,) * 5 + (O,) * 5, "now the colours say which is which")
         wizard.capture_pieces()
         self.assertTrue(wizard.pieces_ok, wizard.status.get())
+        self.assertEqual(wizard.mark_notes, [])
         self.pump(0.4)
         self.assertIn("All 5 X and 5 O pieces are in place", wizard.status.get())
         dialog.forget()

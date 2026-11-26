@@ -67,7 +67,7 @@ class SetupWizard:
         self.checked = self.parked = self.pieces_ok = False
         self.unreadable, self.summary, self.problem = [], (0, 0, 0, 0), ""
         self.bank_report = {}          # each bank circle: (what was found, the mark it should hold, why if unreadable)
-        self.grid_note = ""
+        self.grid_note, self.mark_notes = "", []
         self.reference_waiting = None
         self.title, self.text, self.status = tk.StringVar(), tk.StringVar(), tk.StringVar()
         self.mode = tk.StringVar(value=FULL)
@@ -647,14 +647,16 @@ class SetupWizard:
         self._go_to_park()
 
     def capture_pieces(self):
-        """Check the two banks: a piece in every circle, and each piece the mark its bank holds.
+        """Check the two banks: a piece on every circle of both.
 
-        The nine grid circles are not part of this check. They hold no pieces yet, and the camera
-        reads them again when a game starts.
+        That is all the camera needs to know during a game: whether a circle's black is covered or clear. What each piece
+        is, X or O, is known from the bank it is in. If the camera can also make out a mark, and it is plainly the other
+        mark, that is mentioned (a piece in the wrong bank), but it does not stop the setup.
+        The nine grid circles are not part of this check. They hold no pieces yet.
         """
         p = self.p
         self.pieces_ok = False
-        self.problem, self.bank_report, self.unreadable, self.grid_note = "", {}, [], ""
+        self.problem, self.bank_report, self.unreadable, self.grid_note, self.mark_notes = "", {}, [], "", []
         if p.camera_moved:
             self.problem = "The camera has moved. Go back and capture the empty mat again."
             return
@@ -662,23 +664,20 @@ class SetupWizard:
         if latest is None or not self.view_fresh_any() or p.rectified is None or p.reference is None:
             self.problem = "Wait for a steady view of the whole mat."
             return
-        reading = dict(zip(p.layout.reserve, latest.reserve))
+        covered = dict(zip(p.layout.reserve, latest.reserve))
+        reading = dict(zip(p.layout.reserve, p.reading.reserve)) if p.reading is not None else {}
         for mark in p.layout.reserve_marks(p.dobot):
             for slot in p.layout.bank(mark):
-                seen = reading[slot]
-                if seen == mark:
-                    self.bank_report[slot] = ("ok", mark, "")
-                elif seen == "":
+                if covered[slot] == "":
                     self.bank_report[slot] = ("empty", mark, "")
-                elif seen == UNKNOWN:
-                    why = explain(p.rectified.grey, p.reference.grey, p.layout, slot, p.learned, p.rectified.colour, p.centres)
-                    self.bank_report[slot] = ("unreadable", mark, why)
                 else:
-                    self.bank_report[slot] = ("wrong", mark, seen)
-        self.unreadable = [slot for slot, (state, _, _) in self.bank_report.items() if state == "unreadable"]
+                    self.bank_report[slot] = ("ok", mark, "")
+                    seen = reading.get(slot, "")
+                    if seen in (X, O) and seen != mark:
+                        self.mark_notes.append(f"{slot} looks like an {seen}, but it is in the {mark} bank")
         self.pieces_ok = all(state == "ok" for state, _, _ in self.bank_report.values())
         busy = [name for name, mark in zip(CELLS, latest.board) if mark != ""]
-        self.grid_note = f"The grid should be clear. {', '.join(busy)} look different from the empty mat." if busy else ""
+        self.grid_note = f"The grid should be clear, but {', '.join(busy)} look covered." if busy else ""
         self.summary = (sum(m == X for m in latest.board), sum(m == O for m in latest.board),
                         sum(m == X for m in latest.reserve), sum(m == O for m in latest.reserve))
         bad = self.bad_slots()
@@ -1007,6 +1006,8 @@ class SetupWizard:
         wanted = " and ".join(marks)
         if self.pieces_ok:
             note = " " + self.grid_note if self.grid_note else ""
+            if self.mark_notes:
+                note += " Check: " + "; ".join(self.mark_notes[:3]) + "."
             return ("Is that what is in the banks? The camera's reading is written next to each circle. If it is right, "
                     "finish. Otherwise fix the pieces and capture again." + note + self._rest_words(),
                     f"✔  All {wanted} pieces are in place.", True)

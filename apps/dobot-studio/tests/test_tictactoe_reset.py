@@ -70,6 +70,7 @@ class World:
         self.layout, self.board = layout, board
         self.reserve = ["" for _ in layout.reserve]
         self.moves, self.refuse = [], False
+        self.placed = []           # (mark, cell) for every piece the Dobot set down
 
     def position(self):
         return Position(tuple(self.board), tuple(self.reserve))
@@ -95,7 +96,12 @@ class FakeRobot:
         self.call_times.append(monotonic())
         source, target = self.names[(pick.x, pick.y)], self.names[(drop.x, drop.y)]
         self.world.moves.append((source, target))
-        if not self.world.refuse:
+        if not self.world.refuse and source in self.world.layout.reserve:       # a piece is fetched from its bank and placed
+            slot = self.world.layout.reserve.index(source)
+            self.world.placed.append((self.world.reserve[slot], target))
+            self.world.board = with_move(tuple(self.world.board), CELLS.index(target), self.world.reserve[slot])
+            self.world.reserve[slot] = ""
+        elif not self.world.refuse:                                              # a piece is taken back to its bank
             cell = CELLS.index(source)
             slot = self.world.layout.reserve.index(target)
             self.world.reserve[slot] = self.world.board[cell]
@@ -373,6 +379,56 @@ class PhysicalResetTests(unittest.TestCase):
         program.new_game()
         self.assertTrue(self.pump(program, 6, lambda: program.ready))
         self.assertEqual(self.studio.robot.rests, [])
+
+    def test_the_dobot_can_play_itself_both_sides(self):
+        from unittest import mock
+
+        from dobot_studio import tictactoe_program
+
+        program = self.program(A3_MAT, EMPTY)
+        self.world.reserve = [X] * 5 + [O] * 5
+        program.solo.set(True)
+        program.auto_reset.set(False)
+        self.assertIn("both", program.roles.get() + "both")
+        with mock.patch.object(tictactoe_program, "TURN_DELAY", 0.15), mock.patch.object(tictactoe_program, "THINK_SECONDS", 0.1):
+            self.pump(program, 0.6)
+            program.new_game()
+            self.assertTrue(program.solo_game)
+            self.assertIn("both X and O", program.roles.get())
+            self.assertTrue(self.pump(program, 90, lambda: not program.ready and not program.busy and not program.checking))
+        marks = [mark for mark, _ in self.world.placed]
+        self.assertGreaterEqual(len(marks), 5)
+        self.assertEqual(marks, [X, O, X, O, X, O, X, O, X][:len(marks)], "the sides take turns, X first")
+        self.assertTrue(all(source.startswith(mark) for (source, _), (mark, _) in zip(self.world.moves, self.world.placed)),
+                        "each side's piece is fetched from its own bank")
+        result = outcome(self.world.board)
+        self.assertIsNotNone(result, "the game ran to the end")
+        self.assertIn(result, (X, O, "Draw"))
+        self.assertTrue(program.status.get().startswith(("Draw", "Dobot (")), program.status.get())
+
+    def test_playing_itself_needs_the_pieces_of_both_banks_and_a_mat_with_two_banks(self):
+        program = self.program(A3_MAT, EMPTY)
+        program.solo.set(True)
+        self.world.reserve = [X] * 5 + [O] * 2 + [""] * 3               # too few noughts
+        self.pump(program, 0.8)
+        program.new_game()
+        self.assertFalse(program.ready)
+        self.assertIn("at least 4 O", program.status.get())
+        single = self.program(STANDARD_MAT, EMPTY)
+        single.solo.set(True)
+        single.new_game()
+        self.assertFalse(single.ready)
+        self.assertIn("X bank and an O bank", single.status.get())
+
+    def test_a_game_with_a_person_is_not_changed_by_the_solo_option_being_there(self):
+        program = self.program(A3_MAT, EMPTY)
+        self.world.reserve = [X] * 5 + [O] * 5
+        self.pump(program, 0.8)
+        program.new_game()
+        self.assertTrue(program.ready)
+        self.assertFalse(program.solo_game)
+        self.assertEqual(program.mover, program.dobot)
+        self.assertEqual(program.solo_check.cget("state"), "disabled", "it cannot be changed in the middle of a game")
 
     def test_it_waits_for_a_clear_still_mat_before_moving(self):
         program = self.program(A3_MAT, FINISHED)

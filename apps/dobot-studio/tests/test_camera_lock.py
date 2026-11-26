@@ -75,6 +75,28 @@ class CameraLockTests(unittest.TestCase):
         self.current["frame"] = frame
         self.pump(seconds)
 
+    def test_during_a_game_the_camera_only_says_which_circles_are_covered_and_the_game_says_what_they_are(self):
+        smudged = camera_view({"A1": "?", "B2": O, "X1": "?", "O1": X}, layout=LAYOUT, solid=True)
+        # before a game, the camera says what it can make out of each mark
+        self.show(smudged)
+        self.assertEqual((self.program.latest.board[0], self.program.latest.board[4]), (X, O),
+                         "a mark that cannot be made out is a piece all the same, and the confident one is as read")
+        self.assertIsNotNone(self.program.reading)
+        # in a game it does not matter: a covered circle is a piece, and the game knows whose
+        self.program.ready, self.program.turn, self.program.board = True, X, ("",) * 9
+        self.show(smudged)
+        self.assertIsNone(self.program.reading, "the marks are not read in a game")
+        latest = self.program.latest
+        self.assertEqual((latest.board[0], latest.board[4]), (X, X), "a piece that has just appeared is the mover's")
+        self.assertEqual(latest.reserve[0], X, "a piece in the X bank is an X, whatever its mark looks like")
+        self.assertEqual(latest.reserve[5], O, "and one in the O bank is an O")
+        self.assertEqual(sum(bool(m) for m in latest.board), 2)
+        # and a piece the game already knows keeps what the game knows
+        self.program.board = (O,) + ("",) * 8
+        self.show(smudged)
+        self.assertEqual(self.program.latest.board[0], O)
+        self.program.ready = False
+
     def test_the_arm_hiding_a_marker_does_not_lose_the_mat_or_the_pieces(self):
         for marker in range(4):
             with self.subTest(marker=marker):

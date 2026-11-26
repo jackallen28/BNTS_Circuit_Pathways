@@ -506,6 +506,32 @@ def circle_positions(layout, centres=None):
             for name, (x, y) in layout.positions.items()}
 
 
+PIECE = "#"       # something is on the circle, whatever it is: the camera in a game only needs to know that
+
+
+def read_occupancy(grey, baseline, layout, centres=None, previous=None):
+    """Which circles have something on them: "" for a clear black circle, PIECE for a covered one.
+
+    This is all the camera needs during a game. The game knows what each piece is. The camera only has to notice when a
+    circle's black is covered or uncovered, which is what a piece being put down or taken away does. A circle that is
+    neither clear nor covered (a hand's shadow, a piece half on) keeps what it had in ``previous``, so it cannot flicker.
+    """
+    scale = layout.piece_scale
+    values = {}
+    before = dict(zip((*CELLS, *layout.reserve), (*previous.board, *previous.reserve))) if previous is not None else {}
+    for name, centre in circle_positions(layout, centres).items():
+        base = _patch(baseline, centre, scale)
+        tile = _corrected(_patch(grey, centre, scale), base)
+        amount, empty_below, piece_from, _ = presence(tile, base)
+        if amount >= piece_from:
+            values[name] = PIECE
+        elif amount < empty_below:
+            values[name] = ""
+        else:
+            values[name] = before.get(name) if before.get(name) in ("", PIECE) else UNKNOWN
+    return Position(tuple(values[name] for name in CELLS), tuple(values[name] for name in layout.reserve))
+
+
 def look(grey, baseline, layout, name, learned=None, colour=None, centres=None):
     """What the Pi sees on one circle: (mark, reason, report). The report has the tile and the mark's mask for drawing."""
     centre = circle_positions(layout, centres)[name]
